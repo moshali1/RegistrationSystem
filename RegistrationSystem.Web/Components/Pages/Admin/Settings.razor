@@ -1,0 +1,41 @@
+﻿@page "/admin/competition-settings"
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Settings
+
+@inject SettingsService SettingsService
+
+<h3>Competition Settings</h3>
+
+@if (settings is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <p>Id: @settings.Id</p>
+    <p>Registration Enabled: @settings.RegistrationEnabled</p>
+    <p>Age Cutoff Date: @settings.AgeCutoffDate</p>
+
+    <h4>Divisions</h4>
+    @foreach (var d in settings.Divisions)
+    {
+        <p>@d.Name (@d.Id)</p>
+
+        <ul>
+            @foreach (var c in d.Categories)
+            {
+                <li>@c.Name (@c.Id) - Enabled: @c.IsEnabled</li>
+            }
+        </ul>
+    }
+}
+
+
+@code {
+    private CompetitionSettings? settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+    }
+}
