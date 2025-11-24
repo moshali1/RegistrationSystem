@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="RegistrationSystem.Core/RegistrationSystem.Core.csproj" />
+  <Project Path="RegistrationSystem.Infrastructure/RegistrationSystem.Infrastructure.csproj" />
+  <Project Path="RegistrationSystem.Web/RegistrationSystem.Web.csproj" />
+</Solution>

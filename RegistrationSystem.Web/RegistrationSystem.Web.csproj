@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RegistrationSystem.Core\RegistrationSystem.Core.csproj" />
+    <ProjectReference Include="..\RegistrationSystem.Infrastructure\RegistrationSystem.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>7e19c811-bbf1-4798-b6ed-8d92bf7a5b00</UserSecretsId>
+  </PropertyGroup>
+
+</Project>
