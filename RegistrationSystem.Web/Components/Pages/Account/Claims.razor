@@ -1,0 +1,202 @@
+﻿@page "/claims"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+<PageTitle>Claims</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        @{
+            var claims = context.User.Claims.ToList();
+            var oid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+            ?? context.User.FindFirst("oid")?.Value;
+            var email = context.User.FindFirst("emails")?.Value
+            ?? context.User.FindFirst(ClaimTypes.Email)?.Value
+            ?? context.User.FindFirst("preferred_username")?.Value;
+            var name = context.User.FindFirst("name")?.Value;
+            var givenName = context.User.FindFirst(ClaimTypes.GivenName)?.Value;
+            var surname = context.User.FindFirst(ClaimTypes.Surname)?.Value;
+            var userType = context.User.FindFirst("user_type")?.Value;
+            var role = context.User.FindFirst(ClaimTypes.Role)?.Value;
+        }
+
+        <div class="space-y-4">
+            <!-- Header Card -->
+            <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-sm overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-5 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow-lg">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-semibold text-white">JWT Claims Inspector</h1>
+                                <p class="text-sm text-slate-300">Authentication token details</p>
+                            </div>
+                        </div>
+                        <div class="hidden sm:flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-sm text-white">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                @claims.Count claims
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Identity Summary -->
+                <div class="p-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <!-- Avatar -->
+                        <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-2xl font-bold text-slate-600 shadow-inner flex-shrink-0">
+                            @(GetInitials(name, email))
+                        </div>
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0">
+                            <h2 class="text-lg font-semibold text-slate-800 truncate">@(name ?? "Unknown User")</h2>
+                            <p class="text-sm text-slate-500 truncate">@(email ?? "No email")</p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                @if (!string.IsNullOrEmpty(role))
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-xs font-medium border border-violet-200">
+                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                        </svg>
+                                        @role
+                                    </span>
+                                }
+                                @if (!string.IsNullOrEmpty(userType))
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-medium border border-amber-200">
+                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                        </svg>
+                                        @userType
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <!-- OID on desktop -->
+                        <div class="hidden lg:block text-right flex-shrink-0">
+                            <p class="text-xs text-slate-400 uppercase tracking-wide">Object ID</p>
+                            <p class="text-xs font-mono text-slate-500 mt-0.5 max-w-[200px] truncate" title="@oid">@(oid ?? "—")</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Claims -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- OID -->
+                <div class="rounded-xl border @(oid != null ? "border-cyan-200 bg-cyan-50/50" : "border-slate-200 bg-slate-50") p-4 transition-colors">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full @(oid != null ? "bg-cyan-500" : "bg-slate-300")"></span>
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Object ID</span>
+                    </div>
+                    <p class="text-sm font-mono @(oid != null ? "text-slate-700" : "text-slate-400 italic") truncate" title="@oid">
+                        @(oid ?? "not found")
+                    </p>
+                </div>
+
+                <!-- Email -->
+                <div class="rounded-xl border @(email != null ? "border-cyan-200 bg-cyan-50/50" : "border-slate-200 bg-slate-50") p-4 transition-colors">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full @(email != null ? "bg-cyan-500" : "bg-slate-300")"></span>
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Email</span>
+                    </div>
+                    <p class="text-sm @(email != null ? "text-slate-700" : "text-slate-400 italic") truncate" title="@email">
+                        @(email ?? "not found")
+                    </p>
+                </div>
+
+                <!-- First Name -->
+                <div class="rounded-xl border @(givenName != null ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50") p-4 transition-colors">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full @(givenName != null ? "bg-emerald-500" : "bg-slate-300")"></span>
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">First Name</span>
+                    </div>
+                    <p class="text-sm @(givenName != null ? "text-slate-700" : "text-slate-400 italic")">
+                        @(givenName ?? "not found")
+                    </p>
+                </div>
+
+                <!-- Last Name -->
+                <div class="rounded-xl border @(surname != null ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50") p-4 transition-colors">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full @(surname != null ? "bg-emerald-500" : "bg-slate-300")"></span>
+                        <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Last Name</span>
+                    </div>
+                    <p class="text-sm @(surname != null ? "text-slate-700" : "text-slate-400 italic")">
+                        @(surname ?? "not found")
+                    </p>
+                </div>
+            </div>
+
+            <!-- All Claims List -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-slate-700">All Claims</h2>
+                    <span class="text-xs text-slate-400">@claims.Count total</span>
+                </div>
+                <div class="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                    @foreach (var claim in claims.OrderBy(c => c.Type))
+                    {
+                        var isKey = IsKeyClaim(claim.Type);
+                        <div class="px-5 py-2.5 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 @(isKey ? "bg-cyan-50/30" : "hover:bg-slate-50/50") transition-colors group">
+                            <code class="text-xs @(isKey ? "text-cyan-600 font-medium" : "text-slate-400") break-all flex-1 min-w-0">
+                                @GetShortClaimType(claim.Type)
+                            </code>
+                            <span class="text-sm text-slate-700 font-mono break-all sm:text-right flex-1 min-w-0">
+                                @claim.Value
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private static string GetInitials(string? name, string? email)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+            if (parts.Length == 1 && parts[0].Length >= 2)
+                return parts[0][..2].ToUpper();
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+            return email[..2].ToUpper();
+
+        return "??";
+    }
+
+    private static string GetShortClaimType(string type)
+    {
+        // Shorten common long claim type URLs for readability
+        return type
+            .Replace("http://schemas.microsoft.com/identity/claims/", "ms/")
+            .Replace("http://schemas.microsoft.com/ws/2008/06/identity/claims/", "ms/")
+            .Replace("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/", "soap/");
+    }
+
+    private static bool IsKeyClaim(string type)
+    {
+        return type.Contains("objectidentifier") ||
+               type.Contains("email") ||
+               type.Contains("user_type") ||
+               type.Contains("preferred_username") ||
+               type == ClaimTypes.Role ||
+               type == "name" ||
+               type == ClaimTypes.GivenName ||
+               type == ClaimTypes.Surname;
+    }
+}

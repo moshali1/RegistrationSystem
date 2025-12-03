@@ -2,8 +2,9 @@
 
 public class CompetitionSettings
 {
-    public string Id { get; set; } = "default-competition-settings";
+    public string Id { get; set; } = string.Empty;
 
+    public CompetitionInfo CompetitionInfo { get; set; }
     public bool RegistrationEnabled { get; set; }
     public DateTimeOffset? RegistrationStart { get; set; } // Normal default period for most categories
     public DateTimeOffset? RegistrationEnd { get; set; }
@@ -44,6 +45,7 @@ public class Category
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = string.Empty;
+    public string? AlternateName { get; set; }
 
     public bool IsEnabled { get; set; } = false; // Default: category is disabled until explicitly turned on
     public int? MaxAgeYears { get; set; } // No MinAgeYears by default
@@ -52,6 +54,35 @@ public class Category
     public DateTimeOffset? RegistrationEnd { get; set; }
 
     public PortionOption PortionOption { get; set; } = PortionOption.NotApplicable;
+}
+
+public class CompetitionInfo
+{
+    /// <summary>
+    /// The full name of the competition.
+    /// Example: "North America Imam Al-Shatibi Qur'an Competition"
+    /// </summary>
+    public string CompetitionName { get; set; } = "Qur'an Competition";
+
+    /// <summary>
+    /// The competition year.
+    /// </summary>
+    public int CompetitionYear { get; set; } = DateTime.UtcNow.Year;
+
+    /// <summary>
+    /// URL to the Privacy Policy page.
+    /// </summary>
+    public string PrivacyPolicyUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL to the Terms of Service page.
+    /// </summary>
+    public string TermsOfServiceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL to the Rules and Regulations page.
+    /// </summary>
+    public string RulesUrl { get; set; } = string.Empty;
 }
 
 public enum PortionOption

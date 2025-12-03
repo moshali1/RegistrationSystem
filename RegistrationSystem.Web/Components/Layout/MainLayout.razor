@@ -1,6 +1,166 @@
-﻿@inherits LayoutComponentBase
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject NavigationManager NavManager
+@inject CurrentUserService CurrentUserService
+@using RegistrationSystem.Core.Application.Consents
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Users
+@using RegistrationSystem.Web.Components.Pages.Account
+@using RegistrationSystem.Web.Services
+@inject CurrentUserService CurrentUserService
+@inject ConsentService ConsentService
+@inject SettingsService SettingsService
 
-@Body
+<div class="flex min-h-screen bg-brand-surface">
+    <!-- Mobile overlay -->
+    <div class="@($"fixed inset-0 bg-black/50 z-30 md:hidden {(isSidebarOpen ? "block" : "hidden")}")"
+         @onclick="CloseSidebar">
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="@($"fixed inset-y-0 left-0 z-40 w-64 transform bg-gradient-to-l from-brand-primary-dark to-brand-primary text-slate-100 shadow-2xl transition-transform duration-300 md:static md:translate-x-0 {(isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0")}")">
+        <!-- Branding header -->
+        <div class="h-20 flex items-center px-6 gap-3 border-b border-brand-primary-dark/40 bg-cyan-950">
+            <div class="w-2 h-8 bg-brand-accent rounded"></div>
+
+            <div class="flex flex-col leading-tight">
+                <div class="text-lg font-semibold tracking-wide text-white">
+                    Registration Portal
+                </div>
+
+                <div class="text-xs font-medium text-brand-accent tracking-wide">
+                    Shāṭibī Qur'an Competition
+                </div>
+            </div>
+        </div>
+
+        <NavMenu />
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col min-h-screen md:ml-0">
+        <!-- Mobile top bar -->
+        <header class="fixed top-0 left-0 right-0 z-20 flex items-center justify-between bg-brand-primary-dark text-white h-16 px-4 md:hidden shadow-md">
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        title="Toggle navigation menu"
+                        class="p-2 rounded-lg bg-slate-900/40 hover:bg-slate-800/80 active:scale-95 transition-all duration-150"
+                        @onclick="ToggleSidebar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <div class="space-y-1.5">
+                        <div class="w-6 h-0.5 bg-white rounded"></div>
+                        <div class="w-6 h-0.5 bg-white rounded"></div>
+                        <div class="w-6 h-0.5 bg-white rounded"></div>
+                    </div>
+                </button>
+                <div class="flex flex-col leading-tight">
+                    <span class="text-sm font-semibold tracking-wide">Registration Portal</span>
+                    <span class="text-xs text-brand-accent tracking-wide">
+                        Shāṭibī Qur'an Competition
+                    </span>
+                </div>
+            </div>
+
+            <div class="text-sm">
+                <LoginDisplay />
+            </div>
+        </header>
+
+        <!-- Desktop top bar -->
+        <header class="hidden md:flex items-center justify-end h-16 px-6 bg-white/90 border-b border-slate-200 shadow-sm">
+            <LoginDisplay />
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 pt-16 md:pt-0">
+            <div class="p-4 md:p-6 lg:p-8">
+                @Body
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Profile Setup Wizard - blocks app until profile verified AND consent given (except Admins) -->
+<AuthorizeView>
+    <Authorized>
+        @if (currentUser is not null && !IsAdmin && NeedsSetup)
+        {
+            <ProfileSetupWizard User="currentUser" OnSetupComplete="HandleSetupComplete" />
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private bool isSidebarOpen;
+
+    protected override void OnInitialized()
+    {
+        NavManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Always close sidebar on route change (harmless on desktop, required on mobile)
+        isSidebarOpen = false;
+        StateHasChanged();
+    }
+
+    private void ToggleSidebar() => isSidebarOpen = !isSidebarOpen;
+    private void CloseSidebar() => isSidebarOpen = false;
+
+    public void Dispose()
+    {
+        NavManager.LocationChanged -= HandleLocationChanged;
+    }
+
+    private User? currentUser;
+    private bool isLoading = true;
+    private bool hasConsent;
+    private int competitionYear;
+
+    private bool IsAdmin => currentUser?.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true;
+    private bool NeedsSetup => !currentUser!.IsProfileVerified || !hasConsent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            currentUser = await CurrentUserService.GetCurrentUserAsync();
+
+            if (currentUser is not null && !IsAdmin)
+            {
+                // Get competition year from settings
+                var settings = await SettingsService.GetSettingsAsync();
+                competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+
+                // Check if user has consented for this year (use ObjectIdentifier, not MongoDB _id)
+                hasConsent = await ConsentService.HasConsentedAsync(currentUser.ObjectIdentifier, competitionYear);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSetupComplete()
+    {
+        // Refresh user data and consent status
+        currentUser = await CurrentUserService.RefreshCurrentUserAsync();
+        if (currentUser is not null)
+        {
+            hasConsent = await ConsentService.HasConsentedAsync(currentUser.ObjectIdentifier, competitionYear);
+        }
+        StateHasChanged();
+    }
+}
+
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

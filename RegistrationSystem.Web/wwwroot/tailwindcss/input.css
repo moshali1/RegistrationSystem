@@ -1,0 +1,35 @@
+﻿@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@source "../../../**/*.{razor,html}";
+
+@theme {
+    /* Brand colors: cyan + amber + slate */
+    --color-brand-primary: #155e75; /* cyan-800 */
+    --color-brand-primary-dark: #164e63; /* cyan-900 */
+    /* Nav interaction colors */
+    --color-brand-nav-hover: #277E8D; /* old hover teal */
+    --color-brand-nav-active-bg: #ffffff26; /* translucent white */
+    --color-brand-nav-active-text: #f6fdca; /* pale yellow */
+    /* Accent colors */
+    --color-brand-accent: #fbbf24; /* amber-400 */
+    --color-brand-accent-light: #fde68a; /* amber-200 */
+    /* Surfaces */
+    --color-brand-surface: #f1f5f9; /* slate-100 */
+    --color-brand-surface-dark: #334155; /* slate-700 */
+    /* Schedule override accent */
+    --color-override: var(--color-violet-500);
+    --color-override-light: var(--color-violet-100);
+    --color-override-dark: var(--color-violet-700);
+}
+
+/* Base nav link style */
+@utility nav-link {
+    @apply flex items-center gap-3 px-4 py-2 rounded-md text-slate-200 transition-all duration-200 hover:bg-brand-nav-hover hover:text-white active:scale-[0.96];
+}
+
+/* Active nav link style – ALSO pins hover to active colors */
+@utility nav-link-active {
+    @apply bg-brand-nav-active-bg text-brand-nav-active-text hover:bg-brand-nav-active-bg hover:text-brand-nav-active-text;
+}
