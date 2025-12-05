@@ -56,19 +56,28 @@ public sealed class SettingsSnapshot
     private static string SerializeSettings(CompetitionSettings settings, DateTime? globalStart, DateTime? globalEnd)
     {
         var sb = new StringBuilder();
+
         sb.Append($"E:{settings.RegistrationEnabled}|");
         sb.Append($"GS:{globalStart}|GE:{globalEnd}|");
         sb.Append($"AC:{settings.AgeCutoffDate}|");
 
+        // Serialize CompetitionInfo
+        var ci = settings.CompetitionInfo;
+        if (ci != null)
+        {
+            sb.Append($"CI:{ci.CompetitionName}:{ci.CompetitionYear}:{ci.PrivacyPolicyUrl}:{ci.TermsOfServiceUrl}:{ci.RulesUrl}|");
+        }
+
         foreach (var div in settings.Divisions.OrderBy(d => d.Id))
         {
-            sb.Append($"D:{div.Id}:{div.Name}:{div.IsEnabled}:");
-            sb.Append($"{div.RegistrationRules.AllowCreate}:{div.RegistrationRules.AllowUpdate}:{div.RegistrationRules.AllowWithdraw}|");
+            sb.Append($"D:{div.Id}:{div.Name}:{div.IsEnabled}|");
 
             foreach (var cat in div.Categories.OrderBy(c => c.Id))
             {
                 sb.Append($"C:{cat.Id}:{cat.Name}:{cat.AlternateName}:{cat.IsEnabled}:{cat.MaxAgeYears}:{cat.PortionOption}:");
-                sb.Append($"{cat.RegistrationStart}:{cat.RegistrationEnd}|");
+                sb.Append($"{cat.RegistrationStart}:{cat.RegistrationEnd}:");
+                sb.Append($"{cat.RequiresVideo}:{cat.VideoInstructions}:{cat.AllowMultipleInDivision}:");
+                sb.Append($"{cat.AllowEdit}:{cat.AllowWithdraw}|");
             }
         }
 

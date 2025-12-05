@@ -1,0 +1,418 @@
+﻿@page "/admin/niqab-bypasses"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.NiqabBypasses
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.NiqabBypasses
+
+@inject NiqabBypassService BypassService
+@inject SettingsService SettingsService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Niqab Bypass Management</PageTitle>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-semibold text-slate-800">Niqab Bypass Management</h1>
+            <p class="text-sm text-slate-500 mt-1">Generate exception codes for competitors who wear niqab</p>
+        </div>
+        <button type="button"
+                @onclick="ShowCreateModal"
+                class="inline-flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Generate New Code
+        </button>
+    </div>
+
+    <!-- Messages -->
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-800 flex items-center justify-between">
+            <span>@successMessage</span>
+            <button type="button" @onclick="() => successMessage = null" class="text-emerald-600 hover:text-emerald-800">
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800 flex items-center justify-between">
+            <span>@errorMessage</span>
+            <button type="button" @onclick="() => errorMessage = null" class="text-red-600 hover:text-red-800">
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    }
+
+    <!-- Bypasses Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        @if (isLoading)
+        {
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-600 border-t-transparent mx-auto"></div>
+                <p class="mt-3 text-sm text-slate-500">Loading bypasses...</p>
+            </div>
+        }
+        else if (bypasses.Count == 0)
+        {
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <p class="text-slate-600 font-medium">No bypass codes generated yet</p>
+                <p class="text-sm text-slate-500 mt-1">Click "Generate New Code" to create an exception.</p>
+            </div>
+        }
+        else
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Code</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Competitor</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Created</th>
+                            <th class="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach (var bypass in bypasses)
+                        {
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3">
+                                    <code class="bg-violet-100 text-violet-800 px-2 py-1 rounded font-mono text-sm">
+                                        @bypass.Code
+                                    </code>
+                                </td>
+                                <td class="px-4 py-3 font-medium text-slate-900">
+                                    @bypass.FirstName @bypass.LastName
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">
+                                    @bypass.DateOfBirth.ToString("MMM d, yyyy")
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if (bypass.IsUsed)
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                            Used
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                            </svg>
+                                            Pending
+                                        </span>
+                                    }
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">
+                                    @bypass.CreatedAt.LocalDateTime.ToString("MMM d, yyyy")
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button type="button"
+                                                @onclick="() => CopyLink(bypass.Code)"
+                                                class="text-slate-400 hover:text-cyan-600 p-1 rounded transition-colors"
+                                                title="Copy link">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        @if (!bypass.IsUsed)
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => DeleteBypass(bypass)"
+                                                    class="text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
+                                                    title="Delete">
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Create Modal -->
+@if (showCreateModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/50" @onclick="CloseCreateModal"></div>
+
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-800">Generate Niqab Bypass Code</h2>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                    <input type="text" @bind="newFirstName" @bind:event="oninput"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                           placeholder="Competitor's first name" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                    <input type="text" @bind="newLastName" @bind:event="oninput"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                           placeholder="Competitor's last name" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                    <input type="date" @bind="newDateOfBirth"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                    <textarea @bind="newNotes" rows="2"
+                              class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                              placeholder="Any additional notes..."></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(createError))
+                {
+                    <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+                        @createError
+                    </div>
+                }
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button"
+                        @onclick="CloseCreateModal"
+                        class="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium transition-colors">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="CreateBypass"
+                        disabled="@isCreating"
+                        class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+                    @if (isCreating)
+                    {
+                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    }
+                    Generate Code
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Created Code Modal -->
+@if (showCodeModal && createdBypass != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/50" @onclick="CloseCodeModal"></div>
+
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full text-center">
+            <div class="p-8">
+                <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+
+                <h2 class="text-xl font-semibold text-slate-800 mb-2">Code Generated!</h2>
+                <p class="text-slate-600 mb-6">Share this link with <strong>@createdBypass.FirstName @createdBypass.LastName</strong></p>
+
+                <div class="bg-slate-100 rounded-xl p-4 mb-6">
+                    <p class="text-xs text-slate-500 mb-2">Bypass Code</p>
+                    <code class="text-2xl font-mono font-bold text-violet-700">@createdBypass.Code</code>
+                </div>
+
+                <div class="bg-violet-50 rounded-xl p-4 mb-6">
+                    <p class="text-xs text-slate-500 mb-2">Full Link</p>
+                    <code class="text-sm text-violet-700 break-all">@GetBypassUrl(createdBypass.Code)</code>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button"
+                            @onclick="() => CopyLink(createdBypass.Code)"
+                            class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Copy Link
+                    </button>
+                    <button type="button"
+                            @onclick="CloseCodeModal"
+                            class="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<NiqabBypass> bypasses = new();
+    private bool isLoading = true;
+    private string? successMessage;
+    private string? errorMessage;
+
+    // Create modal
+    private bool showCreateModal = false;
+    private string newFirstName = string.Empty;
+    private string newLastName = string.Empty;
+    private DateOnly newDateOfBirth;
+    private string? newNotes;
+    private string? createError;
+    private bool isCreating = false;
+
+    // Code display modal
+    private bool showCodeModal = false;
+    private NiqabBypass? createdBypass;
+
+    private int competitionYear;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await SettingsService.GetSettingsAsync();
+        competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+
+        await LoadBypasses();
+    }
+
+    private async Task LoadBypasses()
+    {
+        isLoading = true;
+        try
+        {
+            bypasses = (await BypassService.GetBypassesByYearAsync(competitionYear)).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load bypasses: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        newFirstName = string.Empty;
+        newLastName = string.Empty;
+        newDateOfBirth = default;
+        newNotes = null;
+        createError = null;
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        showCreateModal = false;
+    }
+
+    private void CloseCodeModal()
+    {
+        showCodeModal = false;
+        createdBypass = null;
+    }
+
+    private async Task CreateBypass()
+    {
+        createError = null;
+
+        if (string.IsNullOrWhiteSpace(newFirstName))
+        {
+            createError = "First name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newLastName))
+        {
+            createError = "Last name is required.";
+            return;
+        }
+
+        if (newDateOfBirth == default)
+        {
+            createError = "Date of birth is required.";
+            return;
+        }
+
+        isCreating = true;
+
+        try
+        {
+            createdBypass = await BypassService.CreateBypassAsync(
+                newFirstName.Trim(),
+                newLastName.Trim(),
+                newDateOfBirth,
+                competitionYear,
+                notes: newNotes);
+
+            showCreateModal = false;
+            showCodeModal = true;
+
+            await LoadBypasses();
+        }
+        catch (InvalidOperationException ex)
+        {
+            createError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            createError = $"Failed to create bypass: {ex.Message}";
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private async Task DeleteBypass(NiqabBypass bypass)
+    {
+        try
+        {
+            await BypassService.DeleteBypassAsync(bypass.Id);
+            successMessage = $"Bypass code for {bypass.FirstName} {bypass.LastName} deleted.";
+            await LoadBypasses();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete: {ex.Message}";
+        }
+    }
+
+    private string GetBypassUrl(string code)
+    {
+        return $"{NavigationManager.BaseUri}niqab/{code}";
+    }
+
+    private async Task CopyLink(string code)
+    {
+        // Note: In Blazor Server, we'd need JS interop for clipboard
+        // For now, just show a success message
+        successMessage = $"Link copied! Share: {GetBypassUrl(code)}";
+    }
+}

@@ -1,0 +1,446 @@
+﻿@page "/admin/generate"
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject CurrentUserService CurrentUserService
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Generate Test Registrations</PageTitle>
+
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Generate Test Registrations</h1>
+        <p class="text-sm text-slate-500 mt-1">Create sample registrations for testing purposes</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="mb-4 p-3 rounded-lg @(isError ? "bg-red-50 text-red-700 border border-red-200" : "bg-cyan-50 text-cyan-700 border border-cyan-200")">
+            @message
+        </div>
+    }
+
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="p-6 space-y-6">
+
+            <!-- Count Selection -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Number of Registrations</label>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var count in new[] { 5, 10, 25, 50 })
+                    {
+                        <button type="button"
+                                @onclick="() => selectedCount = count"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition-all @(selectedCount == count ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200")">
+                            @count
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Division Selection -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Divisions to Include</label>
+                @if (settings != null)
+                {
+                    <div class="space-y-2">
+                        @foreach (var division in settings.Divisions.Where(d => d.IsEnabled))
+                        {
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox"
+                                       checked="@selectedDivisions.Contains(division.Id)"
+                                       @onchange="e => ToggleDivision(division.Id, (bool)e.Value!)"
+                                       class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                                <span class="text-sm text-slate-700">@division.Name</span>
+                                <span class="text-xs text-slate-400">(@division.Categories.Count(c => c.IsEnabled) categories)</span>
+                            </label>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-sm text-slate-500">Loading divisions...</p>
+                }
+            </div>
+
+            <!-- Gender Distribution -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Gender Distribution</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="gender" value="mixed" checked="@(genderMode == "mixed")" @onchange="SetGenderMixed" class="text-cyan-600" />
+                        <span class="text-sm text-slate-700">Mixed</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="gender" value="male" checked="@(genderMode == "male")" @onchange="SetGenderMale" class="text-cyan-600" />
+                        <span class="text-sm text-slate-700">Male Only</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="gender" value="female" checked="@(genderMode == "female")" @onchange="SetGenderFemale" class="text-cyan-600" />
+                        <span class="text-sm text-slate-700">Female Only</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Include Files -->
+            <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" @bind="includeFiles" class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                    <span class="text-sm text-slate-700">Include fake file references</span>
+                    <span class="text-xs text-slate-400">(won't be downloadable)</span>
+                </label>
+            </div>
+
+            <!-- Include Videos for Best Voice -->
+            <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" @bind="includeVideos" class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                    <span class="text-sm text-slate-700">Include video references for Best Voice</span>
+                </label>
+            </div>
+
+        </div>
+
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <a href="/admin/registrations" class="text-sm text-slate-600 hover:text-slate-800">← Back to Registrations</a>
+            <button type="button"
+                    @onclick="Generate"
+                    disabled="@(isGenerating || selectedDivisions.Count == 0)"
+                    class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white text-sm font-medium transition-colors flex items-center gap-2">
+                @if (isGenerating)
+                {
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Generating...</span>
+                }
+                else
+                {
+                    <span>Generate @selectedCount Registrations</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    @if (generatedCount > 0)
+    {
+        <div class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <p class="text-sm text-slate-600">
+                <span class="font-medium text-slate-800">@generatedCount</span> registrations generated in this session
+            </p>
+        </div>
+    }
+</div>
+
+@code {
+    private CompetitionSettings? settings;
+    private int selectedCount = 10;
+    private HashSet<string> selectedDivisions = new();
+    private string genderMode = "mixed";
+    private bool includeFiles = true;
+    private bool includeVideos = true;
+    private bool isGenerating = false;
+    private string? message;
+    private bool isError = false;
+    private int generatedCount = 0;
+    private string? currentUserId;
+
+    private static readonly Random random = new();
+
+    // Sample data arrays
+    private static readonly string[] MaleFirstNames = {
+        "Muhammad", "Ahmed", "Omar", "Yusuf", "Ibrahim", "Ali", "Hassan", "Hussein",
+        "Khalid", "Tariq", "Bilal", "Hamza", "Zayd", "Amir", "Faisal", "Kareem",
+        "Rashid", "Samir", "Jamal", "Nabil", "Waleed", "Zain", "Adam", "Idris",
+        "Malik", "Noor", "Rayan", "Sami", "Yasir", "Zakariya"
+    };
+
+    private static readonly string[] FemaleFirstNames = {
+        "Fatima", "Aisha", "Maryam", "Khadija", "Zaynab", "Hana", "Layla", "Sara",
+        "Amina", "Hafsa", "Sumaya", "Ruqayyah", "Asma", "Jamilah", "Leena", "Nadia",
+        "Rania", "Salma", "Yasmin", "Zara", "Dina", "Farida", "Huda", "Iman",
+        "Jannah", "Malak", "Nour", "Rahma", "Safiya", "Tala"
+    };
+
+    private static readonly string[] LastNames = {
+        "Khan", "Ali", "Hassan", "Ahmed", "Mohamed", "Rahman", "Abdullah", "Malik",
+        "Hussain", "Ibrahim", "Osman", "Sharif", "Farouk", "Rashid", "Saleh", "Nasser",
+        "Haddad", "Khoury", "Mansour", "Habib", "Amin", "Hakim", "Kareem", "Mustafa",
+        "Nazir", "Qureshi", "Siddiqui", "Tahir", "Usman", "Youssef"
+    };
+
+    private static readonly string[] MiddleNames = {
+        "", "", "", "A.", "M.", "H.", "S.", "K.", "J.", "N.", "R.", "T.", "Z.", "B."
+    };
+
+    private static readonly (string City, string State, string Country)[] Locations = {
+        ("Minneapolis", "MN", "United States"),
+        ("St. Paul", "MN", "United States"),
+        ("Brooklyn Park", "MN", "United States"),
+        ("Nashville", "TN", "United States"),
+        ("Memphis", "TN", "United States"),
+        ("Houston", "TX", "United States"),
+        ("Dallas", "TX", "United States"),
+        ("Austin", "TX", "United States"),
+        ("Chicago", "IL", "United States"),
+        ("Detroit", "MI", "United States"),
+        ("Dearborn", "MI", "United States"),
+        ("Los Angeles", "CA", "United States"),
+        ("San Diego", "CA", "United States"),
+        ("New York", "NY", "United States"),
+        ("Philadelphia", "PA", "United States"),
+        ("Toronto", "ON", "Canada"),
+        ("Mississauga", "ON", "Canada"),
+        ("Vancouver", "BC", "Canada"),
+        ("Calgary", "AB", "Canada"),
+        ("Montreal", "QC", "Canada"),
+        ("Mexico City", "CDMX", "Mexico"),
+        ("Monterrey", "NL", "Mexico"),
+    };
+
+    private static readonly string[] Institutions = {
+        "Al-Huda Islamic Center", "Masjid Al-Rahman", "Islamic Foundation School",
+        "Dar Al-Quran Academy", "Al-Noor Mosque", "Islamic Society Center",
+        "Baitul Mukarram Masjid", "Al-Farooq Masjid", "ICNA Relief Center",
+        "Muslim Community Center", "Al-Iman School", "Quran Academy",
+        "", "", "" // Some empty for variety
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await CurrentUserService.GetCurrentUserAsync();
+        if (user == null || !user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+        currentUserId = user.ObjectIdentifier;
+
+        settings = await SettingsService.GetSettingsAsync();
+
+        // Pre-select all open divisions
+        if (settings != null)
+        {
+            foreach (var div in settings.Divisions.Where(d => d.IsEnabled))
+            {
+                selectedDivisions.Add(div.Id);
+            }
+        }
+    }
+
+    private void ToggleDivision(string divisionId, bool isChecked)
+    {
+        if (isChecked)
+            selectedDivisions.Add(divisionId);
+        else
+            selectedDivisions.Remove(divisionId);
+    }
+
+    private void SetGenderMixed() => genderMode = "mixed";
+    private void SetGenderMale() => genderMode = "male";
+    private void SetGenderFemale() => genderMode = "female";
+
+    private async Task Generate()
+    {
+        if (settings == null || selectedDivisions.Count == 0 || string.IsNullOrEmpty(currentUserId))
+            return;
+
+        isGenerating = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var registrations = new List<Registration>();
+            var availableDivisions = settings.Divisions
+                .Where(d => d.IsEnabled && selectedDivisions.Contains(d.Id))
+                .ToList();
+
+            var competitionYear = settings.CompetitionInfo.CompetitionYear;
+
+            for (int i = 0; i < selectedCount; i++)
+            {
+                var registration = GenerateRandomRegistration(availableDivisions, competitionYear);
+                registrations.Add(registration);
+            }
+
+            // Save all registrations
+            foreach (var reg in registrations)
+            {
+                await RegistrationService.CreateAndSubmitAsync(reg);
+            }
+
+            generatedCount += selectedCount;
+            message = $"Successfully generated {selectedCount} registrations!";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private Registration GenerateRandomRegistration(List<Division> divisions, int competitionYear)
+    {
+        // Pick random division and category
+        var division = divisions[random.Next(divisions.Count)];
+        var openCategories = division.Categories.Where(c => c.IsEnabled).ToList();
+        var category = openCategories[random.Next(openCategories.Count)];
+
+        // Determine gender
+        var gender = genderMode switch
+        {
+            "male" => Gender.Male,
+            "female" => Gender.Female,
+            _ => random.Next(2) == 0 ? Gender.Male : Gender.Female
+        };
+
+        // Generate personal info
+        var firstName = gender == Gender.Male
+            ? MaleFirstNames[random.Next(MaleFirstNames.Length)]
+            : FemaleFirstNames[random.Next(FemaleFirstNames.Length)];
+        var lastName = LastNames[random.Next(LastNames.Length)];
+        var middleName = MiddleNames[random.Next(MiddleNames.Length)];
+
+        // Generate DOB based on category age range (if available) or random 6-18
+        var maxAge = category.MaxAgeYears ?? 18;
+        var minAge = Math.Max(6, maxAge - 6); // Reasonable range
+        var age = random.Next(minAge, maxAge + 1);
+        var dob = DateOnly.FromDateTime(DateTime.Today.AddYears(-age).AddDays(-random.Next(365)));
+
+        // Location
+        var location = Locations[random.Next(Locations.Length)];
+
+        // Phone (random 10 digits)
+        var phone = $"{random.Next(200, 999)}{random.Next(100, 999)}{random.Next(1000, 9999)}";
+        var parentPhone = $"{random.Next(200, 999)}{random.Next(100, 999)}{random.Next(1000, 9999)}";
+        var teacherPhone = $"{random.Next(200, 999)}{random.Next(100, 999)}{random.Next(1000, 9999)}";
+
+        // Parent name
+        var parentFirstName = gender == Gender.Male
+            ? MaleFirstNames[random.Next(MaleFirstNames.Length)]
+            : FemaleFirstNames[random.Next(FemaleFirstNames.Length)];
+        var parentLastName = lastName; // Usually same last name
+
+        // Teacher (sometimes null)
+        TeacherInfo? teacherInfo = random.Next(3) > 0 ? new TeacherInfo
+        {
+            FirstName = MaleFirstNames[random.Next(MaleFirstNames.Length)],
+            LastName = LastNames[random.Next(LastNames.Length)],
+            PhoneNumber = teacherPhone,
+            Institution = Institutions[random.Next(Institutions.Length)]
+        } : null;
+
+        // File info
+        var fileUploadInfo = new FileUploadInfo();
+        if (includeFiles)
+        {
+            var divLetter = division.Name[0].ToString().ToUpper();
+            var guid4 = Guid.NewGuid().ToString("N")[..4].ToUpper();
+            var dobStr = dob.ToString("MM-dd-yyyy");
+
+            fileUploadInfo.IdDocument = new FileMetadata
+            {
+                FileName = "sample-id.jpg",
+                StorageReference = $"ID_{divLetter}_{firstName}_{lastName}_{dobStr}_{guid4}.jpeg",
+                ContentType = "image/jpeg",
+                Extension = ".jpeg",
+                FileSizeBytes = random.Next(100000, 500000),
+                UploadedAt = DateTimeOffset.UtcNow
+            };
+
+            fileUploadInfo.Photo = new FileMetadata
+            {
+                FileName = "sample-photo.jpg",
+                StorageReference = $"Photo_{divLetter}_{firstName}_{lastName}_{dobStr}_{guid4}.jpeg",
+                ContentType = "image/jpeg",
+                Extension = ".jpeg",
+                FileSizeBytes = random.Next(50000, 300000),
+                UploadedAt = DateTimeOffset.UtcNow
+            };
+
+            // Video for Best Voice division
+            if (includeVideos && division.Name.Contains("Best", StringComparison.OrdinalIgnoreCase))
+            {
+                var guid12 = Guid.NewGuid().ToString("N")[..12].ToUpper();
+                fileUploadInfo.Video = new FileMetadata
+                {
+                    FileName = "sample-video.mp4",
+                    StorageReference = $"Video_{divLetter}_{guid12}.mp4",
+                    ContentType = "video/mp4",
+                    Extension = ".mp4",
+                    FileSizeBytes = random.Next(10000000, 100000000),
+                    UploadedAt = DateTimeOffset.UtcNow
+                };
+            }
+        }
+
+        // Portion choice for categories that need it
+        PortionChoice? portionChoice = null;
+        if (category.PortionOption == PortionOption.TopOrBottom)
+        {
+            portionChoice = random.Next(2) == 0 ? PortionChoice.Top : PortionChoice.Bottom;
+        }
+        else if (category.PortionOption == PortionOption.TopOnly)
+        {
+            portionChoice = PortionChoice.Top;
+        }
+        else if (category.PortionOption == PortionOption.BottomOnly)
+        {
+            portionChoice = PortionChoice.Bottom;
+        }
+
+        var registration = new Registration
+        {
+            CompetitionYear = competitionYear,
+            PersonalInfo = new PersonalInfo
+            {
+                FirstName = firstName,
+                MiddleName = middleName,
+                LastName = lastName,
+                Gender = gender,
+                DateOfBirth = dob,
+                PhoneNumber = random.Next(3) > 0 ? phone : null // Sometimes no phone
+            },
+            AddressInfo = new AddressInfo
+            {
+                City = location.City,
+                StateProvince = location.State,
+                Country = location.Country
+            },
+            CompetitionSelection = new CompetitionSelection
+            {
+                DivisionId = division.Id,
+                CategoryId = category.Id,
+                PortionChoice = portionChoice
+            },
+            ParentInfo = new ParentInfo
+            {
+                FirstName = parentFirstName,
+                LastName = parentLastName,
+                PhoneNumber = parentPhone
+            },
+            TeacherInfo = teacherInfo,
+            FileUploadInfo = fileUploadInfo,
+            TermsAccepted = true,
+            Status = RegistrationStatus.AwaitingReview,
+            CreatorUserId = currentUserId!,
+            SubmittedAt = DateTime.UtcNow.AddMinutes(-random.Next(0, 60 * 24 * 7)) // Random time in last week
+        };
+
+        return registration;
+    }
+}

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using RegistrationSystem.Core.Application.Auditing;
 using RegistrationSystem.Core.Application.Consents;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
 using RegistrationSystem.Infrastructure;
+using RegistrationSystem.Infrastructure.Persistence;
 using RegistrationSystem.Web.Components;
 using RegistrationSystem.Web.Services;
 
@@ -51,6 +53,16 @@ builder.Services.AddScoped<CurrentUserService>();
 
 // Add Infrastructure (Mongo, repos)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+
+// Register audit repository
+builder.Services.AddScoped<IAuditRepository, MongoAuditRepository>();
+
+// Register audit service
+builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Register Blazor audit context provider (captures user from auth state)
+builder.Services.AddScoped<BlazorAuditContextProvider>();
 
 // Sync user from claims + Graph API on login
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>

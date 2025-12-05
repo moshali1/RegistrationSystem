@@ -1,0 +1,579 @@
+﻿@page "/admin/audit"
+@page "/admin/audit/{EntityType}/{EntityId}"
+
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Domain.Auditing
+
+@inject IAuditService AuditService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Audit Trail - Admin</PageTitle>
+
+<!-- Header -->
+<div class="mb-8">
+    <div class="flex items-center gap-4 mb-2">
+        <a href="/admin" class="w-10 h-10 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 flex items-center justify-center transition-all shadow-sm">
+            <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Audit Trail</h1>
+            <p class="text-sm text-slate-500">Track all system changes and activity</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    @if (dailyStats != null)
+    {
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-800">@dailyStats.ActionCounts.GetValueOrDefault(AuditAction.Submitted)</p>
+                        <p class="text-xs text-slate-500">Submitted Today</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-800">@dailyStats.ActionCounts.GetValueOrDefault(AuditAction.Updated)</p>
+                        <p class="text-xs text-slate-500">Updated Today</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-800">@dailyStats.ActionCounts.GetValueOrDefault(AuditAction.StatusChanged)</p>
+                        <p class="text-xs text-slate-500">Status Changes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-slate-800">@dailyStats.TotalActions</p>
+                        <p class="text-xs text-slate-500">Total Actions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Date Range -->
+        <div class="space-y-1.5">
+            <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">From Date</label>
+            <input type="date"
+                   value="@fromDate?.ToString("yyyy-MM-dd")"
+                   @onchange="OnFromDateChanged"
+                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
+        </div>
+        <div class="space-y-1.5">
+            <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">To Date</label>
+            <input type="date"
+                   value="@toDate?.ToString("yyyy-MM-dd")"
+                   @onchange="OnToDateChanged"
+                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
+        </div>
+
+        <!-- Entity Type -->
+        <div class="space-y-1.5">
+            <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">Entity Type</label>
+            <select @bind="selectedEntityType" @bind:after="ApplyFilters"
+                    class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all">
+                <option value="">All Types</option>
+                <option value="Registration">Registration</option>
+                <option value="NiqabBypass">Niqab Bypass</option>
+                <option value="CompetitionSettings">Settings</option>
+            </select>
+        </div>
+
+        <!-- Action Type -->
+        <div class="space-y-1.5">
+            <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">Action</label>
+            <select @bind="selectedAction" @bind:after="ApplyFilters"
+                    class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all">
+                <option value="">All Actions</option>
+                @foreach (var action in Enum.GetValues<AuditAction>())
+                {
+                    <option value="@((int)action)">@action.GetDisplayName()</option>
+                }
+            </select>
+        </div>
+
+        <!-- Search -->
+        <div class="space-y-1.5">
+            <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">Search</label>
+            <div class="relative">
+                <input type="text"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       @bind:after="OnSearchDebounced"
+                       placeholder="ID, name, CID..."
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
+                <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Entity Filter -->
+    @if (!string.IsNullOrEmpty(EntityType) && !string.IsNullOrEmpty(EntityId))
+    {
+        <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
+            <span class="text-xs text-slate-500">Viewing history for:</span>
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-sm font-medium">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                @EntityType / @EntityId
+                <button type="button" @onclick="ClearEntityFilter" class="ml-1 hover:text-cyan-900 transition-colors">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </span>
+        </div>
+    }
+</div>
+
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-600 border-t-transparent"></div>
+            <span class="text-sm text-slate-500">Loading audit trail...</span>
+        </div>
+    </div>
+}
+else if (auditEntries.Count == 0)
+{
+    <div class="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-sm">
+        <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-800 mb-1">No audit entries found</h3>
+        <p class="text-sm text-slate-500">Try adjusting your filters or date range.</p>
+    </div>
+}
+else
+{
+    <!-- Results Count -->
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-slate-600">
+            Showing <span class="font-semibold text-slate-800">@auditEntries.Count</span> of <span class="font-semibold text-slate-800">@totalCount</span> entries
+        </p>
+    </div>
+
+    <!-- Timeline -->
+    <div class="space-y-3">
+        @foreach (var entry in auditEntries)
+        {
+            <div class="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+                <div class="p-5">
+                    <div class="flex items-start gap-4">
+                        <!-- Timeline Indicator -->
+                        <div class="flex flex-col items-center">
+                            <div class="w-10 h-10 rounded-xl @GetActionStyles(entry.Action).bg flex items-center justify-center flex-shrink-0">
+                                @RenderActionIcon(entry.Action)
+                            </div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="flex-1 min-w-0">
+                            <!-- Header -->
+                            <div class="flex items-center gap-3 flex-wrap mb-2">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg @GetActionStyles(entry.Action).badge text-xs font-semibold">
+                                    @entry.Action.GetDisplayName()
+                                </span>
+                                <span class="text-sm font-medium text-slate-700">@entry.EntityType</span>
+                                @if (!string.IsNullOrEmpty(entry.EntityDescription))
+                                {
+                                    <span class="text-slate-300">•</span>
+                                    <span class="text-sm text-slate-500 truncate max-w-[300px]">@entry.EntityDescription</span>
+                                }
+                            </div>
+
+                            <!-- Summary -->
+                            @if (!string.IsNullOrEmpty(entry.Summary))
+                            {
+                                <p class="text-sm text-slate-700 mb-3">@entry.Summary</p>
+                            }
+
+                            <!-- Field Changes -->
+                            @if (entry.Changes.Count > 0)
+                            {
+                                <div class="bg-slate-50 rounded-xl p-4 mb-3 space-y-2">
+                                    @foreach (var change in entry.Changes.Take(expandedEntries.Contains(entry.Id) ? entry.Changes.Count : 3))
+                                    {
+                                        <div class="flex items-start gap-2 text-sm">
+                                            <svg class="h-4 w-4 text-cyan-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                            </svg>
+                                            <span class="text-slate-600">
+                                                <span class="font-medium text-slate-700">@change.DisplayName:</span>
+                                                @if (!string.IsNullOrEmpty(change.OldValue))
+                                                {
+                                                    <span class="text-red-400 line-through mx-1">@change.OldValue</span>
+                                                    <span class="text-slate-400">→</span>
+                                                }
+                                                <span class="text-cyan-600 font-medium ml-1">@(change.NewValue ?? "(empty)")</span>
+                                            </span>
+                                        </div>
+                                    }
+                                    @if (entry.Changes.Count > 3 && !expandedEntries.Contains(entry.Id))
+                                    {
+                                        <button type="button"
+                                                @onclick="() => expandedEntries.Add(entry.Id)"
+                                                class="text-sm text-cyan-600 hover:text-cyan-700 font-medium flex items-center gap-1 mt-2">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                            Show @(entry.Changes.Count - 3) more changes
+                                        </button>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Footer -->
+                            <div class="flex items-center gap-5 text-xs text-slate-400">
+                                <span class="flex items-center gap-1.5">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    @entry.GetFormattedTimestamp("MMM d, yyyy h:mm tt")
+                                </span>
+                                <span class="flex items-center gap-1.5">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    @entry.GetActorDescription()
+                                </span>
+                                @if (!string.IsNullOrEmpty(entry.EntityId) && string.IsNullOrEmpty(EntityId))
+                                {
+                                    <button type="button"
+                                            @onclick="() => ViewEntityHistory(entry.EntityType, entry.EntityId)"
+                                            class="text-cyan-500 hover:text-cyan-600 font-medium flex items-center gap-1 transition-colors">
+                                        View full history
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalCount > pageSize)
+    {
+        <div class="flex items-center justify-center gap-3 mt-8">
+            <button type="button"
+                    disabled="@(currentPage == 1)"
+                    @onclick="PreviousPage"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+            </button>
+            <div class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 shadow-sm">
+                Page @currentPage of @totalPages
+            </div>
+            <button type="button"
+                    disabled="@(currentPage >= totalPages)"
+                    @onclick="NextPage"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
+                Next
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string? EntityType { get; set; }
+    [Parameter] public string? EntityId { get; set; }
+
+    private List<AuditEntry> auditEntries = new();
+    private AuditDailyStats? dailyStats;
+    private HashSet<string> expandedEntries = new();
+
+    private bool isLoading = true;
+    private int totalCount;
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private int totalPages => (int)Math.Ceiling((double)totalCount / pageSize);
+
+    // Filters
+    private DateOnly? fromDate;
+    private DateOnly? toDate;
+    private string selectedEntityType = "";
+    private string selectedAction = "";
+    private string searchText = "";
+    private System.Timers.Timer? searchDebounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Default to today
+        fromDate = DateOnly.FromDateTime(DateTime.Today);
+        toDate = DateOnly.FromDateTime(DateTime.Today);
+
+        // If entity-specific URL, set filter
+        if (!string.IsNullOrEmpty(EntityType) && !string.IsNullOrEmpty(EntityId))
+        {
+            selectedEntityType = EntityType;
+            fromDate = null; // Show all history for entity
+            toDate = null;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Load daily stats
+            dailyStats = await AuditService.GetDailyStatsAsync(DateOnly.FromDateTime(DateTime.Today));
+
+            // Build search criteria
+            var criteria = new AuditSearchCriteria
+            {
+                EntityType = !string.IsNullOrEmpty(EntityType) ? EntityType :
+                             !string.IsNullOrEmpty(selectedEntityType) ? selectedEntityType : null,
+                EntityId = !string.IsNullOrEmpty(EntityId) ? EntityId : null,
+                Action = !string.IsNullOrEmpty(selectedAction) && int.TryParse(selectedAction, out var actionInt)
+                    ? (AuditAction)actionInt : null,
+                FromDate = fromDate,
+                ToDate = toDate,
+                SearchText = !string.IsNullOrEmpty(searchText) ? searchText : null,
+                Skip = (currentPage - 1) * pageSize,
+                Take = pageSize
+            };
+
+            totalCount = await AuditService.CountAsync(criteria);
+            auditEntries = (await AuditService.SearchAsync(criteria)).ToList();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnFromDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            fromDate = date;
+            await ApplyFilters();
+        }
+    }
+
+    private async Task OnToDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            toDate = date;
+            await ApplyFilters();
+        }
+    }
+
+    private void OnSearchDebounced()
+    {
+        searchDebounceTimer?.Stop();
+        searchDebounceTimer?.Dispose();
+
+        searchDebounceTimer = new System.Timers.Timer(300);
+        searchDebounceTimer.Elapsed += async (s, e) =>
+        {
+            searchDebounceTimer?.Stop();
+            await InvokeAsync(ApplyFilters);
+        };
+        searchDebounceTimer.Start();
+    }
+
+    private void ClearEntityFilter()
+    {
+        NavigationManager.NavigateTo("/admin/audit");
+    }
+
+    private void ViewEntityHistory(string entityType, string entityId)
+    {
+        NavigationManager.NavigateTo($"/admin/audit/{entityType}/{entityId}");
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            await LoadData();
+        }
+    }
+
+    // Consistent styling based on action type - using cyan/amber/slate palette
+    private (string bg, string badge) GetActionStyles(AuditAction action) => action switch
+    {
+        AuditAction.Created or AuditAction.Submitted =>
+            ("bg-gradient-to-br from-cyan-500 to-cyan-600", "bg-cyan-100 text-cyan-700"),
+        AuditAction.Updated =>
+            ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
+        AuditAction.Deleted =>
+            ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
+        AuditAction.Approved =>
+            ("bg-gradient-to-br from-cyan-600 to-cyan-700", "bg-cyan-100 text-cyan-700"),
+        AuditAction.Rejected =>
+            ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
+        AuditAction.Withdrawn or AuditAction.WithdrawalRequested =>
+            ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
+        AuditAction.StatusChanged =>
+            ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
+        AuditAction.EmailSent or AuditAction.SmsSent =>
+            ("bg-gradient-to-br from-slate-600 to-slate-700", "bg-slate-100 text-slate-700"),
+        AuditAction.FileUploaded =>
+            ("bg-gradient-to-br from-cyan-500 to-cyan-600", "bg-cyan-100 text-cyan-700"),
+        AuditAction.FileDeleted =>
+            ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
+        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed =>
+            ("bg-gradient-to-br from-slate-600 to-slate-700", "bg-slate-100 text-slate-700"),
+        AuditAction.SettingsUpdated or AuditAction.DivisionUpdated or AuditAction.CategoryUpdated =>
+            ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
+        AuditAction.AdminOverride or AuditAction.ManualCorrection =>
+            ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
+        _ => ("bg-gradient-to-br from-slate-400 to-slate-500", "bg-slate-100 text-slate-600")
+    };
+
+    private RenderFragment RenderActionIcon(AuditAction action) => __builder =>
+    {
+        @switch (action)
+        {
+            case AuditAction.Created:
+            case AuditAction.Submitted:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                break;
+
+            case AuditAction.Updated:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                break;
+
+            case AuditAction.Deleted:
+            case AuditAction.FileDeleted:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                break;
+
+            case AuditAction.Approved:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                break;
+
+            case AuditAction.Rejected:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                break;
+
+            case AuditAction.StatusChanged:
+            case AuditAction.Withdrawn:
+            case AuditAction.WithdrawalRequested:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                break;
+
+            case AuditAction.EmailSent:
+            case AuditAction.SmsSent:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                break;
+
+            case AuditAction.FileUploaded:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                break;
+
+            case AuditAction.SettingsUpdated:
+            case AuditAction.DivisionUpdated:
+            case AuditAction.CategoryUpdated:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                break;
+
+            default:
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                break;
+        }
+    };
+
+    public void Dispose()
+    {
+        searchDebounceTimer?.Dispose();
+    }
+}

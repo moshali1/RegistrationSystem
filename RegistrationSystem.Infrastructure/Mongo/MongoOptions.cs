@@ -9,4 +9,6 @@ public class MongoOptions
     public string CompetitionSettingsCollectionName { get; set; } = "competitionSettings";
     public string UsersCollectionName { get; set; } = "users";
     public string ConsentsCollectionName { get; set; } = "consents";
+    public string RegistrationsCollectionName { get; set; } = "registrations";
+    public string NiqabBypassesCollectionName { get; set; } = "niqabBypasses";
 }

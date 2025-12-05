@@ -3,12 +3,18 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
+using RegistrationSystem.Core.Application.Auditing;
+using RegistrationSystem.Core.Application.Azure;
+using RegistrationSystem.Core.Application.NiqabBypasses;
+using RegistrationSystem.Core.Application.Registrations;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
 using RegistrationSystem.Core.Domain.Consents;
+using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Core.Domain.Users;
 using RegistrationSystem.Infrastructure.Graph;
 using RegistrationSystem.Infrastructure.Mongo;
+using RegistrationSystem.Infrastructure.Persistence;
 
 namespace RegistrationSystem.Infrastructure;
 
@@ -38,10 +44,34 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(graphOptions);
         services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
 
+        // Azure Storage
+        var storageOptions = new AzureStorageOptions();
+        configuration.GetSection(AzureStorageOptions.SectionName).Bind(storageOptions);
+        services.AddSingleton(storageOptions);
+        services.AddScoped<BlobStorageService>();
+        services.AddScoped<BlobSasService>();
+
+        // Azure Image Analysis (used for OCR and people detection)
+        var imageAnalysisOptions = new AzureImageAnalysisOptions();
+        configuration.GetSection(AzureImageAnalysisOptions.SectionName).Bind(imageAnalysisOptions);
+        services.AddSingleton(imageAnalysisOptions);
+        services.AddScoped<ImageAnalysisService>();
+
+        // File Validation (orchestrates Azure services)
+        services.AddScoped<FileValidationService>();
+
         // Repositories
         services.AddScoped<ICompetitionSettingsRepository, MongoCompetitionSettingsRepository>();
         services.AddScoped<IUserRepository, MongoUserRepository>();
         services.AddScoped<IConsentRepository, MongoConsentRepository>();
+        services.AddScoped<IRegistrationRepository, MongoRegistrationRepository>();
+        services.AddScoped<INiqabBypassRepository, MongoNiqabBypassRepository>();
+        services.AddScoped<IAuditRepository, MongoAuditRepository>();
+
+        // Application Services
+        services.AddScoped<RegistrationService>();
+        services.AddScoped<NiqabBypassService>();
+        services.AddScoped<IAuditService, AuditService>();
 
         return services;
     }

@@ -1,0 +1,1646 @@
+﻿@page "/registration/{Id}/edit"
+@page "/admin/registration/{Id}/edit"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Azure
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject CurrentUserService CurrentUserService
+@inject NavigationManager NavigationManager
+@inject FileValidationService FileValidationService
+@inject BlobStorageService BlobStorageService
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
+
+@attribute [Authorize]
+
+<PageTitle>Edit Registration</PageTitle>
+
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            <span class="text-sm text-slate-500">Loading registration...</span>
+        </div>
+    </div>
+}
+else if (registration == null || !canEdit)
+{
+    <div class="max-w-lg mx-auto">
+        <div class="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div class="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <svg class="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-800 mb-2">Cannot Edit Registration</h2>
+            <p class="text-sm text-slate-600 mb-6">
+                @if (registration == null)
+                {
+                    @:This registration was not found or you don't have permission to view it.
+                }
+                else
+                {
+                    @:This registration cannot be edited. Only registrations with "Awaiting Review" or "Pending" status can be edited.
+                }
+            </p>
+            <a href="@(isAdmin ? "/admin/registrations" : "/registrations")"
+               class="inline-flex items-center gap-2 rounded-lg bg-slate-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-slate-700 transition-all">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+                Back to Registrations
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <a href="@(isAdmin ? $"/admin/registrations/{Id}" : $"/registrations/{Id}")"
+                   class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">Edit Registration</h1>
+                    <p class="text-sm text-slate-500">
+                        @originalRegistration!.PersonalInfo.FullName
+                        @if (!string.IsNullOrEmpty(originalRegistration.Cid))
+                        {
+                            <span class="font-mono ml-1">(@originalRegistration.Cid)</span>
+                        }
+                    </p>
+                </div>
+            </div>
+            <span class="@GetStatusStyles(registration.Status) px-3 py-1 rounded-lg text-sm font-medium">
+                @registration.Status
+            </span>
+        </div>
+
+        <!-- Error Messages -->
+        @if (validationErrors.Any())
+        {
+            <div class="mb-4 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-white px-4 py-3 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="text-sm">
+                        <p class="font-medium text-red-800">Please fix the following:</p>
+                        <ul class="mt-1.5 space-y-1 text-red-700">
+                            @foreach (var error in validationErrors)
+                            {
+                                <li>• @error</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Success Message -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="mb-4 rounded-xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-white px-4 py-3 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-4 w-4 text-cyan-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <p class="text-sm text-cyan-800">@successMessage</p>
+                </div>
+            </div>
+        }
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="border-b border-slate-200">
+                <nav class="flex -mb-px">
+                    @foreach (var tab in tabs)
+                    {
+                        <button type="button"
+                                @onclick="() => activeTab = tab.Key"
+                                class="flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors @(activeTab == tab.Key ? "border-cyan-500 text-cyan-600" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300")">
+                            @tab.Value
+                        </button>
+                    }
+                </nav>
+            </div>
+
+            <div class="p-6">
+                @switch (activeTab)
+                {
+                    case "competitor":
+                        @RenderCompetitorTab()
+                        break;
+                    case "competition":
+                        @RenderCompetitionTab()
+                        break;
+                    case "contacts":
+                        @RenderContactsTab()
+                        break;
+                    case "files":
+                        @RenderFilesTab()
+                        break;
+                }
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                <a href="@(isAdmin ? $"/admin/registrations/{Id}" : $"/registrations/{Id}")"
+                   class="text-sm text-slate-600 hover:text-slate-800">
+                    Cancel
+                </a>
+                <button type="button"
+                        @onclick="SaveChanges"
+                        disabled="@isSaving"
+                        class="px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white text-sm font-medium transition-colors flex items-center gap-2">
+                    @if (isSaving)
+                    {
+                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Save Changes</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════════════════════════════ *@
+@* TAB RENDER FRAGMENTS *@
+@* ═══════════════════════════════════════════════════════════════════════════════════ *@
+
+@{
+    RenderFragment RenderCompetitorTab() => __builder =>
+    {
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- First Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        First Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" @bind="registration!.PersonalInfo.FirstName" @bind:event="oninput"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           placeholder="Competitor's first name" />
+                </div>
+
+                <!-- Middle Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Middle Name</label>
+                    <input type="text" @bind="registration!.PersonalInfo.MiddleName" @bind:event="oninput"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           placeholder="Optional" />
+                </div>
+
+                <!-- Last Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Last Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" @bind="registration!.PersonalInfo.LastName" @bind:event="oninput"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           placeholder="Competitor's last name" />
+                </div>
+
+                <!-- Preferred Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Preferred Name</label>
+                    <input type="text" @bind="registration!.PersonalInfo.PreferredName" @bind:event="oninput"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           placeholder="Name for certificate (optional)" />
+                </div>
+
+                <!-- Gender -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Gender <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gender" value="@Gender.Male"
+                                   checked="@(registration!.PersonalInfo.Gender == Gender.Male)"
+                                   @onchange="() => registration!.PersonalInfo.Gender = Gender.Male"
+                                   class="text-cyan-600 focus:ring-cyan-500" />
+                            <span class="text-sm text-slate-700">Male</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gender" value="@Gender.Female"
+                                   checked="@(registration!.PersonalInfo.Gender == Gender.Female)"
+                                   @onchange="() => registration!.PersonalInfo.Gender = Gender.Female"
+                                   class="text-cyan-600 focus:ring-cyan-500" />
+                            <span class="text-sm text-slate-700">Female</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Date of Birth -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Date of Birth <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" value="@registration!.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd")"
+                           @onchange="OnDateOfBirthChanged"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                </div>
+
+                <!-- Phone -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Competitor Phone</label>
+                    <input type="tel" @bind="registration!.PersonalInfo.PhoneNumber" @bind:event="oninput"
+                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           placeholder="10-digit phone (optional)" />
+                </div>
+            </div>
+
+            <!-- Address Section -->
+            <div class="pt-4 border-t border-slate-200">
+                <h3 class="text-sm font-semibold text-slate-800 mb-4">Location</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Country -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Country <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="registration!.AddressInfo.Country"
+                                @bind:after="OnCountryChanged"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm">
+                            <option value="">Select country</option>
+                            @foreach (var country in LocationData.Countries)
+                            {
+                                <option value="@country.Name">@country.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- State/Province -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            State/Province <span class="text-red-500">*</span>
+                        </label>
+                        <select @bind="registration!.AddressInfo.StateProvince"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                                disabled="@(availableStates.Count == 0)">
+                            <option value="">Select state</option>
+                            @foreach (var state in availableStates)
+                            {
+                                <option value="@state.Code">@state.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- City -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            City <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" @bind="registration!.AddressInfo.City" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               placeholder="City name" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    };
+
+    RenderFragment RenderCompetitionTab() => __builder =>
+    {
+        <div class="space-y-6">
+            @if (divisionChanged)
+            {
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="h-5 w-5 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <div class="text-sm">
+                            <p class="font-medium text-amber-800">Division Changed</p>
+                            <p class="text-amber-700 mt-0.5">A new Competitor ID (CID) will be generated when you save.</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Division -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Division <span class="text-red-500">*</span>
+                    </label>
+                    <select value="@registration!.CompetitionSelection.DivisionId"
+                            @onchange="OnDivisionChanged"
+                            class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm">
+                        <option value="">Select division</option>
+                        @foreach (var division in availableDivisions)
+                        {
+                            <option value="@division.Id">@division.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Category -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                        Category <span class="text-red-500">*</span>
+                    </label>
+                    <select @bind="registration!.CompetitionSelection.CategoryId"
+                            @bind:after="OnCategoryChanged"
+                            class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                            disabled="@(availableCategories.Count == 0)">
+                        <option value="">Select category</option>
+                        @foreach (var category in availableCategories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Portion Choice (if applicable) -->
+                @if (selectedCategory?.PortionOption == PortionOption.TopOrBottom)
+                {
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Portion Choice <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="portion"
+                                       checked="@(registration!.CompetitionSelection.PortionChoice == PortionChoice.Top)"
+                                       @onchange="() => registration!.CompetitionSelection.PortionChoice = PortionChoice.Top"
+                                       class="text-cyan-600 focus:ring-cyan-500" />
+                                <span class="text-sm text-slate-700">Top Half</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="portion"
+                                       checked="@(registration!.CompetitionSelection.PortionChoice == PortionChoice.Bottom)"
+                                       @onchange="() => registration!.CompetitionSelection.PortionChoice = PortionChoice.Bottom"
+                                       class="text-cyan-600 focus:ring-cyan-500" />
+                                <span class="text-sm text-slate-700">Bottom Half</span>
+                            </label>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Video Requirement Notice -->
+            @if (selectedCategory?.RequiresVideo == true)
+            {
+                <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="h-5 w-5 text-cyan-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <div class="text-sm">
+                            <p class="font-medium text-cyan-800">Video Required</p>
+                            <p class="text-cyan-700 mt-0.5">
+                                This category requires a video submission.
+                                @if (!string.IsNullOrEmpty(selectedCategory.VideoInstructions))
+                                {
+                                    @selectedCategory.VideoInstructions
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    RenderFragment RenderContactsTab() => __builder =>
+    {
+        <div class="space-y-6">
+            <!-- Parent/Guardian Section -->
+            <div>
+                <h3 class="text-sm font-semibold text-slate-800 mb-4">Parent/Guardian</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            First Name <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" @bind="registration!.ParentInfo.FirstName" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Last Name <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" @bind="registration!.ParentInfo.LastName" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Phone <span class="text-red-500">*</span>
+                        </label>
+                        <input type="tel" @bind="registration!.ParentInfo.PhoneNumber" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               placeholder="10-digit phone" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Teacher Section -->
+            <div class="pt-4 border-t border-slate-200">
+                <h3 class="text-sm font-semibold text-slate-800 mb-4">Teacher/Instructor</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            First Name <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" @bind="teacherFirstName" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Last Name <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" @bind="teacherLastName" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">
+                            Phone <span class="text-red-500">*</span>
+                        </label>
+                        <input type="tel" @bind="teacherPhone" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               placeholder="10-digit phone" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Institution</label>
+                        <input type="text" @bind="teacherInstitution" @bind:event="oninput"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               placeholder="Qur'an Institution (optional)" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    };
+
+    RenderFragment RenderFilesTab() => __builder =>
+    {
+        <div class="space-y-6">
+            <!-- Niqab Bypass Info -->
+            @if (registration!.FileUploadInfo.NiqabBypassApproved)
+            {
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span class="text-sm font-medium text-slate-700">Niqab Exception Approved</span>
+                    </div>
+                </div>
+            }
+
+            <!-- ID Document -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-slate-700">
+                        ID Document <span class="text-red-500">*</span>
+                    </label>
+                    @if (registration!.FileUploadInfo.IdDocument != null)
+                    {
+                        <span class="text-xs text-slate-500">
+                            Current: @registration.FileUploadInfo.IdDocument.FileName
+                            (@FormatFileSize(registration.FileUploadInfo.IdDocument.FileSizeBytes))
+                        </span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(idValidationError))
+                {
+                    <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                        @idValidationError
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(idValidationSuccess))
+                {
+                    <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        @idValidationSuccess
+                    </div>
+                }
+
+                <div class="flex items-center gap-3">
+                    <label class="flex-1 relative cursor-pointer">
+                        <InputFile OnChange="OnIdFileSelected" accept=".jpg,.jpeg,.png,.pdf"
+                                   class="absolute inset-0 opacity-0 cursor-pointer" disabled="@isValidatingId" />
+                        <div class="px-4 py-2 rounded-lg border border-dashed border-slate-300 hover:border-cyan-400 hover:bg-cyan-50 text-center transition-colors">
+                            <span class="text-sm text-slate-600">
+                                @if (isValidatingId)
+                                {
+                                    <span class="flex items-center justify-center gap-2">
+                                        <span class="animate-spin rounded-full h-4 w-4 border-2 border-cyan-600 border-t-transparent"></span>
+                                        Validating...
+                                    </span>
+                                }
+                                else if (newIdFileName != null)
+                                {
+                                    @:New: @newIdFileName
+                                }
+                                else
+                                {
+                                    @:Click to upload new ID
+                                }
+                            </span>
+                        </div>
+                    </label>
+                    @if (newIdFileName != null)
+                    {
+                        <button type="button" @onclick="ClearNewIdFile" class="text-slate-400 hover:text-red-500">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+                <p class="mt-1.5 text-xs text-slate-500">JPEG, PNG, or PDF • Max 5 MB</p>
+            </div>
+
+            <!-- Photo -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-slate-700">
+                        Competitor Photo <span class="text-red-500">*</span>
+                    </label>
+                    @if (registration!.FileUploadInfo.Photo != null)
+                    {
+                        <span class="text-xs text-slate-500">
+                            Current: @registration.FileUploadInfo.Photo.FileName
+                            (@FormatFileSize(registration.FileUploadInfo.Photo.FileSizeBytes))
+                        </span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(photoValidationError))
+                {
+                    <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                        @photoValidationError
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(photoValidationSuccess))
+                {
+                    <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        @photoValidationSuccess
+                    </div>
+                }
+
+                <div class="flex items-center gap-3">
+                    <label class="flex-1 relative cursor-pointer">
+                        <InputFile OnChange="OnPhotoFileSelected" accept=".jpg,.jpeg,.png"
+                                   class="absolute inset-0 opacity-0 cursor-pointer" disabled="@isValidatingPhoto" />
+                        <div class="px-4 py-2 rounded-lg border border-dashed border-slate-300 hover:border-cyan-400 hover:bg-cyan-50 text-center transition-colors">
+                            <span class="text-sm text-slate-600">
+                                @if (isValidatingPhoto)
+                                {
+                                    <span class="flex items-center justify-center gap-2">
+                                        <span class="animate-spin rounded-full h-4 w-4 border-2 border-cyan-600 border-t-transparent"></span>
+                                        Validating...
+                                    </span>
+                                }
+                                else if (newPhotoFileName != null)
+                                {
+                                    @:New: @newPhotoFileName
+                                }
+                                else
+                                {
+                                    @:Click to upload new photo
+                                }
+                            </span>
+                        </div>
+                    </label>
+                    @if (newPhotoFileName != null)
+                    {
+                        <button type="button" @onclick="ClearNewPhotoFile" class="text-slate-400 hover:text-red-500">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+                <p class="mt-1.5 text-xs text-slate-500">JPEG or PNG • Max 5 MB • Clear headshot of competitor</p>
+            </div>
+
+            <!-- Video (if required) -->
+            @if (selectedCategory?.RequiresVideo == true)
+            {
+                <div class="pt-4 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-slate-700">
+                            Video <span class="text-red-500">*</span>
+                        </label>
+                        @if (registration!.FileUploadInfo.Video != null)
+                        {
+                            <span class="text-xs text-slate-500">
+                                Current: @FormatFileSize(registration.FileUploadInfo.Video.FileSizeBytes)
+                            </span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(videoValidationError))
+                    {
+                        <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                            @videoValidationError
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(videoUploadSuccess))
+                    {
+                        <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            @videoUploadSuccess
+                        </div>
+                    }
+
+                    @if (isUploadingVideo)
+                    {
+                        <div class="px-4 py-3 rounded-lg border border-cyan-200 bg-cyan-50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-cyan-700">Uploading video...</span>
+                                <span class="text-sm font-medium text-cyan-700">@videoUploadProgress%</span>
+                            </div>
+                            <div class="w-full bg-cyan-200 rounded-full h-2">
+                                <div class="bg-cyan-600 h-2 rounded-full transition-all" style="width: @(videoUploadProgress)%"></div>
+                            </div>
+                            <button type="button" @onclick="CancelVideoUpload" class="mt-2 text-xs text-cyan-600 hover:text-cyan-800">
+                                Cancel upload
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 relative cursor-pointer">
+                                <InputFile OnChange="OnVideoFileSelected" accept=".mp4,.mov,.avi,.webm"
+                                           class="absolute inset-0 opacity-0 cursor-pointer" />
+                                <div class="px-4 py-2 rounded-lg border border-dashed border-slate-300 hover:border-cyan-400 hover:bg-cyan-50 text-center transition-colors">
+                                    <span class="text-sm text-slate-600">
+                                        @if (newVideoFileName != null)
+                                        {
+                                            @:New: @newVideoFileName
+                                        }
+                                        else
+                                        {
+                                            @:Click to upload new video
+                                        }
+                                    </span>
+                                </div>
+                            </label>
+                            @if (newVideoFileName != null)
+                            {
+                                <button type="button" @onclick="ClearNewVideoFile" class="text-slate-400 hover:text-red-500">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            }
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-500">MP4, MOV, AVI, or WebM • Max 500 MB</p>
+                    }
+                </div>
+            }
+        </div>
+    };
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    // State
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isAdmin = false;
+    private bool canEdit = false;
+    private string activeTab = "competitor";
+    private List<string> validationErrors = new();
+    private string? successMessage;
+
+    // Data
+    private Registration? registration;
+    private Registration? originalRegistration;
+    private CompetitionSettings? settings;
+    private int competitionYear;
+    private string currentUserId = string.Empty;
+
+    // Track if division changed (for CID regeneration)
+    private string originalDivisionId = string.Empty;
+    private bool divisionChanged => registration?.CompetitionSelection.DivisionId != originalDivisionId;
+
+    // Track name/DOB changes for niqab bypass clearing
+    private string originalFirstName = string.Empty;
+    private string originalLastName = string.Empty;
+    private DateOnly originalDateOfBirth;
+
+    // Division/Category data
+    private IReadOnlyList<Division> availableDivisions = Array.Empty<Division>();
+    private IReadOnlyList<Category> availableCategories = Array.Empty<Category>();
+    private Category? selectedCategory;
+
+    // Location data
+    private IReadOnlyList<StateProvince> availableStates = Array.Empty<StateProvince>();
+
+    // Teacher fields (since TeacherInfo can be null)
+    private string teacherFirstName = string.Empty;
+    private string teacherLastName = string.Empty;
+    private string teacherPhone = string.Empty;
+    private string teacherInstitution = string.Empty;
+
+    // File upload state
+    private bool isValidatingId = false;
+    private bool isValidatingPhoto = false;
+    private bool isUploadingVideo = false;
+    private string? idValidationError;
+    private string? idValidationSuccess;
+    private string? photoValidationError;
+    private string? photoValidationSuccess;
+    private string? videoValidationError;
+    private string? videoUploadSuccess;
+    private int videoUploadProgress = 0;
+    private CancellationTokenSource? videoUploadCts;
+
+    // New file data (if changed)
+    private byte[]? newIdBytes;
+    private string? newIdFileName;
+    private string? newIdContentType;
+    private long newIdSize;
+    private bool newIdValidated;
+
+    private byte[]? newPhotoBytes;
+    private string? newPhotoFileName;
+    private string? newPhotoContentType;
+    private long newPhotoSize;
+    private bool newPhotoValidated;
+
+    private string? newVideoFileName;
+    private string? newVideoBlobUri;
+    private string? newVideoBlobName;
+    private long newVideoSize;
+    private string? newVideoContentType;
+    private bool newVideoUploaded;
+
+    private static readonly Dictionary<string, string> tabs = new()
+    {
+        { "competitor", "Competitor" },
+        { "competition", "Competition" },
+        { "contacts", "Contacts" },
+        { "files", "Files" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            // Get current user
+            var user = await CurrentUserService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+            currentUserId = user.ObjectIdentifier;
+            isAdmin = NavigationManager.Uri.Contains("/admin/") &&
+                      user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+            // Load registration
+            registration = await RegistrationService.GetByIdAsync(Id);
+            if (registration == null)
+            {
+                isLoading = false;
+                return;
+            }
+
+            // Check permissions
+            if (!isAdmin && registration.CreatorUserId != currentUserId)
+            {
+                registration = null;
+                isLoading = false;
+                return;
+            }
+
+            // Check if can edit (AwaitingReview or Pending for users, always for admin)
+            canEdit = isAdmin || registration.CanEdit;
+            if (!canEdit)
+            {
+                isLoading = false;
+                return;
+            }
+
+            // Store original for comparison
+            originalRegistration = CloneRegistration(registration);
+            originalDivisionId = registration.CompetitionSelection.DivisionId;
+            originalFirstName = registration.PersonalInfo.FirstName;
+            originalLastName = registration.PersonalInfo.LastName;
+            originalDateOfBirth = registration.PersonalInfo.DateOfBirth;
+
+            // Load teacher fields
+            if (registration.TeacherInfo != null)
+            {
+                teacherFirstName = registration.TeacherInfo.FirstName;
+                teacherLastName = registration.TeacherInfo.LastName;
+                teacherPhone = registration.TeacherInfo.PhoneNumber;
+                teacherInstitution = registration.TeacherInfo.Institution ?? string.Empty;
+            }
+
+            // Load settings
+            settings = await SettingsService.GetSettingsAsync();
+            competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+
+            // Load divisions and categories
+            availableDivisions = await RegistrationService.GetAvailableDivisionsAsync();
+            await LoadCategoriesAsync();
+            UpdateSelectedCategory();
+
+            // Load states based on country
+            LoadStatesForCountry();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private Registration CloneRegistration(Registration source)
+    {
+        // Deep clone for comparison
+        return new Registration
+        {
+            Id = source.Id,
+            CompetitionYear = source.CompetitionYear,
+            Cid = source.Cid,
+            PersonalInfo = new PersonalInfo
+            {
+                FirstName = source.PersonalInfo.FirstName,
+                MiddleName = source.PersonalInfo.MiddleName,
+                LastName = source.PersonalInfo.LastName,
+                PreferredName = source.PersonalInfo.PreferredName,
+                Gender = source.PersonalInfo.Gender,
+                DateOfBirth = source.PersonalInfo.DateOfBirth,
+                PhoneNumber = source.PersonalInfo.PhoneNumber
+            },
+            AddressInfo = new AddressInfo
+            {
+                City = source.AddressInfo.City,
+                StateProvince = source.AddressInfo.StateProvince,
+                Country = source.AddressInfo.Country
+            },
+            CompetitionSelection = new CompetitionSelection
+            {
+                DivisionId = source.CompetitionSelection.DivisionId,
+                CategoryId = source.CompetitionSelection.CategoryId,
+                PortionChoice = source.CompetitionSelection.PortionChoice
+            },
+            ParentInfo = new ParentInfo
+            {
+                FirstName = source.ParentInfo.FirstName,
+                LastName = source.ParentInfo.LastName,
+                PhoneNumber = source.ParentInfo.PhoneNumber
+            },
+            TeacherInfo = source.TeacherInfo != null ? new TeacherInfo
+            {
+                FirstName = source.TeacherInfo.FirstName,
+                LastName = source.TeacherInfo.LastName,
+                PhoneNumber = source.TeacherInfo.PhoneNumber,
+                Institution = source.TeacherInfo.Institution
+            } : null,
+            FileUploadInfo = new FileUploadInfo
+            {
+                IdDocument = source.FileUploadInfo.IdDocument,
+                Photo = source.FileUploadInfo.Photo,
+                Video = source.FileUploadInfo.Video,
+                NiqabBypassApproved = source.FileUploadInfo.NiqabBypassApproved
+            },
+            Status = source.Status,
+            StatusComment = source.StatusComment,
+            CreatorUserId = source.CreatorUserId,
+            CreatedAt = source.CreatedAt,
+            UpdatedAt = source.UpdatedAt,
+            SubmittedAt = source.SubmittedAt
+        };
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        if (string.IsNullOrEmpty(registration?.CompetitionSelection.DivisionId))
+        {
+            availableCategories = Array.Empty<Category>();
+            return;
+        }
+
+        availableCategories = await RegistrationService.GetAvailableCategoriesAsync(
+            registration.CompetitionSelection.DivisionId,
+            registration.PersonalInfo.DateOfBirth);
+    }
+
+    private void UpdateSelectedCategory()
+    {
+        if (registration == null || string.IsNullOrEmpty(registration.CompetitionSelection.CategoryId))
+        {
+            selectedCategory = null;
+            return;
+        }
+
+        var division = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
+        selectedCategory = division?.Categories.FirstOrDefault(c => c.Id == registration.CompetitionSelection.CategoryId);
+    }
+
+    private void LoadStatesForCountry()
+    {
+        if (registration == null || string.IsNullOrEmpty(registration.AddressInfo.Country))
+        {
+            availableStates = Array.Empty<StateProvince>();
+            return;
+        }
+
+        var country = LocationData.Countries.FirstOrDefault(c => c.Name == registration.AddressInfo.Country);
+        availableStates = country?.StatesProvinces ?? Array.Empty<StateProvince>();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // EVENT HANDLERS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private void OnDateOfBirthChanged(ChangeEventArgs e)
+    {
+        if (registration == null) return;
+
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            registration.PersonalInfo.DateOfBirth = date;
+            _ = LoadCategoriesAsync();
+        }
+    }
+
+    private void OnCountryChanged()
+    {
+        if (registration == null) return;
+
+        registration.AddressInfo.StateProvince = string.Empty;
+        LoadStatesForCountry();
+    }
+
+    private async Task OnDivisionChanged(ChangeEventArgs e)
+    {
+        if (registration == null) return;
+
+        registration.CompetitionSelection.DivisionId = e.Value?.ToString() ?? string.Empty;
+        registration.CompetitionSelection.CategoryId = string.Empty;
+        registration.CompetitionSelection.PortionChoice = null;
+        selectedCategory = null;
+
+        await LoadCategoriesAsync();
+    }
+
+    private void OnCategoryChanged()
+    {
+        UpdateSelectedCategory();
+
+        // Clear portion choice if not applicable
+        if (selectedCategory?.PortionOption != PortionOption.TopOrBottom)
+        {
+            registration!.CompetitionSelection.PortionChoice = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // FILE UPLOAD HANDLERS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private async Task OnIdFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        idValidationError = null;
+        idValidationSuccess = null;
+        newIdValidated = false;
+        newIdBytes = null;
+        newIdFileName = file.Name;
+        newIdContentType = file.ContentType;
+        newIdSize = file.Size;
+
+        // Read file bytes
+        byte[] fileBytes;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            fileBytes = memoryStream.ToArray();
+            newIdBytes = fileBytes;
+        }
+        catch
+        {
+            idValidationError = "Error reading file. Please try again.";
+            newIdFileName = null;
+            return;
+        }
+
+        // Skip validation if niqab bypass
+        if (registration!.FileUploadInfo.NiqabBypassApproved)
+        {
+            newIdValidated = true;
+            idValidationSuccess = "ID document accepted (niqab bypass approved).";
+            StateHasChanged();
+            return;
+        }
+
+        isValidatingId = true;
+        StateHasChanged();
+
+        try
+        {
+            using var validationStream = new MemoryStream(fileBytes);
+            var result = await FileValidationService.ValidateIdDocumentAsync(
+                validationStream, file.Name, file.Size,
+                bypassFaceDetection: registration.FileUploadInfo.NiqabBypassApproved);
+
+            if (result.IsValid)
+            {
+                newIdValidated = true;
+                idValidationSuccess = "ID document uploaded. Will be reviewed after submission.";
+            }
+            else
+            {
+                newIdBytes = null;
+                newIdFileName = null;
+                idValidationError = result.ErrorSummary;
+            }
+        }
+        catch
+        {
+            newIdBytes = null;
+            newIdFileName = null;
+            idValidationError = "Error validating file. Please try again.";
+        }
+        finally
+        {
+            isValidatingId = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnPhotoFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        photoValidationError = null;
+        photoValidationSuccess = null;
+        newPhotoValidated = false;
+        newPhotoBytes = null;
+        newPhotoFileName = file.Name;
+        newPhotoContentType = file.ContentType;
+        newPhotoSize = file.Size;
+
+        // Read file bytes
+        byte[] fileBytes;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            fileBytes = memoryStream.ToArray();
+            newPhotoBytes = fileBytes;
+        }
+        catch
+        {
+            photoValidationError = "Error reading file. Please try again.";
+            newPhotoFileName = null;
+            return;
+        }
+
+        // Skip validation if niqab bypass
+        if (registration!.FileUploadInfo.NiqabBypassApproved)
+        {
+            newPhotoValidated = true;
+            photoValidationSuccess = "Photo accepted (niqab bypass approved).";
+            StateHasChanged();
+            return;
+        }
+
+        isValidatingPhoto = true;
+        StateHasChanged();
+
+        try
+        {
+            using var validationStream = new MemoryStream(fileBytes);
+            var result = await FileValidationService.ValidatePhotoAsync(
+                validationStream, file.Name, file.Size,
+                bypassFaceDetection: registration.FileUploadInfo.NiqabBypassApproved);
+
+            if (result.IsValid)
+            {
+                newPhotoValidated = true;
+                photoValidationSuccess = "Photo uploaded. Will be reviewed after submission.";
+            }
+            else
+            {
+                newPhotoBytes = null;
+                newPhotoFileName = null;
+                photoValidationError = result.ErrorSummary;
+            }
+        }
+        catch
+        {
+            newPhotoBytes = null;
+            newPhotoFileName = null;
+            photoValidationError = "Error validating file. Please try again.";
+        }
+        finally
+        {
+            isValidatingPhoto = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnVideoFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || registration == null) return;
+
+        videoValidationError = null;
+        videoUploadSuccess = null;
+        videoUploadProgress = 0;
+        newVideoUploaded = false;
+        newVideoFileName = file.Name;
+        newVideoContentType = file.ContentType;
+        newVideoSize = file.Size;
+
+        // Validate first
+        var validationResult = FileValidationService.ValidateVideo(file.Name, file.Size, file.ContentType);
+        if (!validationResult.IsValid)
+        {
+            videoValidationError = validationResult.ErrorSummary;
+            newVideoFileName = null;
+            StateHasChanged();
+            return;
+        }
+
+        // Open stream before StateHasChanged
+        Stream? stream = null;
+        try
+        {
+            stream = file.OpenReadStream(maxAllowedSize: FileValidationService.MaxVideoSize);
+        }
+        catch
+        {
+            videoValidationError = "Error reading file. Please try again.";
+            newVideoFileName = null;
+            StateHasChanged();
+            return;
+        }
+
+        videoUploadCts?.Cancel();
+        videoUploadCts = new CancellationTokenSource();
+
+        isUploadingVideo = true;
+        StateHasChanged();
+
+        try
+        {
+            var division = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
+            var divisionName = division?.Name ?? "unknown";
+
+            var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Video);
+            var blobName = BlobStorageService.GenerateVideoBlobName(divisionName, Path.GetExtension(file.Name));
+
+            newVideoBlobName = blobName;
+
+            var progress = new Progress<long>(bytesUploaded =>
+            {
+                if (file.Size > 0)
+                {
+                    videoUploadProgress = (int)((bytesUploaded * 100) / file.Size);
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+            var blobUri = await BlobStorageService.UploadWithProgressAsync(
+                stream, file.Size, containerName, blobName, file.ContentType,
+                progress, videoUploadCts.Token);
+
+            newVideoBlobUri = blobUri;
+            newVideoUploaded = true;
+            videoUploadProgress = 100;
+            videoUploadSuccess = $"Video uploaded successfully ({FormatFileSize(file.Size)}).";
+        }
+        catch (OperationCanceledException)
+        {
+            ClearNewVideoFile();
+            videoValidationError = "Upload cancelled.";
+        }
+        catch
+        {
+            ClearNewVideoFile();
+            videoValidationError = "Error uploading video. Please try again.";
+        }
+        finally
+        {
+            if (stream != null) await stream.DisposeAsync();
+            isUploadingVideo = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelVideoUpload() => videoUploadCts?.Cancel();
+
+    private void ClearNewIdFile()
+    {
+        newIdBytes = null;
+        newIdFileName = null;
+        newIdContentType = null;
+        newIdSize = 0;
+        newIdValidated = false;
+        idValidationError = null;
+        idValidationSuccess = null;
+    }
+
+    private void ClearNewPhotoFile()
+    {
+        newPhotoBytes = null;
+        newPhotoFileName = null;
+        newPhotoContentType = null;
+        newPhotoSize = 0;
+        newPhotoValidated = false;
+        photoValidationError = null;
+        photoValidationSuccess = null;
+    }
+
+    private void ClearNewVideoFile()
+    {
+        videoUploadCts?.Cancel();
+        newVideoFileName = null;
+        newVideoBlobUri = null;
+        newVideoBlobName = null;
+        newVideoSize = 0;
+        newVideoContentType = null;
+        newVideoUploaded = false;
+        videoUploadSuccess = null;
+        videoUploadProgress = 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // SAVE CHANGES
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private async Task SaveChanges()
+    {
+        if (registration == null || originalRegistration == null) return;
+
+        validationErrors.Clear();
+        successMessage = null;
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            // Update teacher info
+            registration.TeacherInfo = new TeacherInfo
+            {
+                FirstName = teacherFirstName,
+                LastName = teacherLastName,
+                PhoneNumber = teacherPhone,
+                Institution = string.IsNullOrWhiteSpace(teacherInstitution) ? null : teacherInstitution
+            };
+
+            // Check if name/DOB changed - clear niqab bypass if so
+            var nameOrDobChanged = registration.PersonalInfo.FirstName != originalFirstName ||
+                                   registration.PersonalInfo.LastName != originalLastName ||
+                                   registration.PersonalInfo.DateOfBirth != originalDateOfBirth;
+
+            if (nameOrDobChanged && registration.FileUploadInfo.NiqabBypassApproved)
+            {
+                registration.FileUploadInfo.NiqabBypassApproved = false;
+            }
+
+            // Upload new files if provided
+            await UploadNewFilesAsync();
+
+            // Run validation
+            var validationResult = await RegistrationService.ValidateAsync(registration);
+            if (!validationResult.IsValid)
+            {
+                validationErrors.AddRange(validationResult.Errors);
+                return;
+            }
+
+            // Check if division changed - CID will be regenerated by service
+            var needsNewCid = divisionChanged;
+
+            // Set audit context
+            await AuditContextProvider.SetCurrentUserContextAsync();
+
+            // Build changes list for audit
+            var changes = BuildChangesList();
+
+            // Update via service (handles CID regeneration if needed)
+            var updateResult = await RegistrationService.UpdateAsync(registration);
+
+            if (!updateResult.IsValid)
+            {
+                validationErrors.AddRange(updateResult.Errors);
+                return;
+            }
+
+            // Reload to get potentially new CID
+            var updated = await RegistrationService.GetByIdAsync(registration.Id);
+            if (updated != null && updated.Cid != originalRegistration.Cid)
+            {
+                changes.Add(new FieldChange
+                {
+                    FieldName = "Cid",
+                    DisplayName = "Competitor ID (CID)",
+                    OldValue = originalRegistration.Cid ?? "(none)",
+                    NewValue = updated.Cid ?? "(none)"
+                });
+                registration.Cid = updated.Cid;
+            }
+
+            // Log audit entry with all changes
+            if (changes.Any())
+            {
+                var divisionName = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId)?.Name ?? "Unknown";
+                var categoryName = selectedCategory?.Name ?? "Unknown";
+
+                await AuditService.LogFieldChangesAsync(
+                    "Registration",
+                    registration.Id,
+                    changes,
+                    summary: $"Registration updated ({changes.Count} field(s) changed)",
+                    entityDescription: $"{registration.PersonalInfo.FullName} - {divisionName} / {categoryName}");
+            }
+
+            successMessage = "Changes saved successfully!";
+
+            // Update originals for next comparison
+            originalRegistration = CloneRegistration(registration);
+            originalDivisionId = registration.CompetitionSelection.DivisionId;
+            originalFirstName = registration.PersonalInfo.FirstName;
+            originalLastName = registration.PersonalInfo.LastName;
+            originalDateOfBirth = registration.PersonalInfo.DateOfBirth;
+
+            // Clear new file state
+            ClearNewIdFile();
+            ClearNewPhotoFile();
+            ClearNewVideoFile();
+        }
+        catch (Exception ex)
+        {
+            validationErrors.Add($"Error saving changes: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UploadNewFilesAsync()
+    {
+        if (registration == null) return;
+
+        var division = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
+        var divisionName = division?.Name ?? "unknown";
+
+        // Upload new ID if provided
+        if (newIdBytes != null && newIdValidated)
+        {
+            var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Id);
+            var blobName = BlobStorageService.GenerateBlobName(
+                FileType.Id, divisionName,
+                registration.PersonalInfo.FirstName,
+                registration.PersonalInfo.LastName,
+                registration.PersonalInfo.DateOfBirth,
+                Path.GetExtension(newIdFileName ?? ".jpg"));
+
+            using var stream = new MemoryStream(newIdBytes);
+            await BlobStorageService.UploadAsync(stream, containerName, blobName, newIdContentType ?? "image/jpeg");
+
+            registration.FileUploadInfo.IdDocument = new FileMetadata
+            {
+                FileName = newIdFileName ?? "id.jpg",
+                StorageReference = blobName,
+                FileSizeBytes = newIdSize,
+                Extension = Path.GetExtension(newIdFileName ?? ".jpg"),
+                ContentType = newIdContentType ?? "image/jpeg",
+                UploadedAt = DateTimeOffset.UtcNow
+            };
+        }
+
+        // Upload new photo if provided
+        if (newPhotoBytes != null && newPhotoValidated)
+        {
+            var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Photo);
+            var blobName = BlobStorageService.GenerateBlobName(
+                FileType.Photo, divisionName,
+                registration.PersonalInfo.FirstName,
+                registration.PersonalInfo.LastName,
+                registration.PersonalInfo.DateOfBirth,
+                Path.GetExtension(newPhotoFileName ?? ".jpg"));
+
+            using var stream = new MemoryStream(newPhotoBytes);
+            await BlobStorageService.UploadAsync(stream, containerName, blobName, newPhotoContentType ?? "image/jpeg");
+
+            registration.FileUploadInfo.Photo = new FileMetadata
+            {
+                FileName = newPhotoFileName ?? "photo.jpg",
+                StorageReference = blobName,
+                FileSizeBytes = newPhotoSize,
+                Extension = Path.GetExtension(newPhotoFileName ?? ".jpg"),
+                ContentType = newPhotoContentType ?? "image/jpeg",
+                UploadedAt = DateTimeOffset.UtcNow
+            };
+        }
+
+        // Update video reference if new video uploaded (already in Azure)
+        if (newVideoUploaded && !string.IsNullOrEmpty(newVideoBlobUri))
+        {
+            registration.FileUploadInfo.Video = new FileMetadata
+            {
+                FileName = newVideoFileName ?? "video.mp4",
+                StorageReference = newVideoBlobName ?? "video.mp4",
+                FileSizeBytes = newVideoSize,
+                Extension = Path.GetExtension(newVideoFileName ?? ".mp4"),
+                ContentType = newVideoContentType ?? "video/mp4",
+                UploadedAt = DateTimeOffset.UtcNow
+            };
+        }
+    }
+
+    private List<FieldChange> BuildChangesList()
+    {
+        var changes = new List<FieldChange>();
+        if (registration == null || originalRegistration == null) return changes;
+
+        // Personal Info
+        AddChange(changes, "PersonalInfo.FirstName", "First Name", originalRegistration.PersonalInfo.FirstName, registration.PersonalInfo.FirstName);
+        AddChange(changes, "PersonalInfo.MiddleName", "Middle Name", originalRegistration.PersonalInfo.MiddleName, registration.PersonalInfo.MiddleName);
+        AddChange(changes, "PersonalInfo.LastName", "Last Name", originalRegistration.PersonalInfo.LastName, registration.PersonalInfo.LastName);
+        AddChange(changes, "PersonalInfo.PreferredName", "Preferred Name", originalRegistration.PersonalInfo.PreferredName, registration.PersonalInfo.PreferredName);
+        AddChange(changes, "PersonalInfo.Gender", "Gender", originalRegistration.PersonalInfo.Gender.ToString(), registration.PersonalInfo.Gender.ToString());
+        AddChange(changes, "PersonalInfo.DateOfBirth", "Date of Birth", originalRegistration.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd"), registration.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd"));
+        AddChange(changes, "PersonalInfo.PhoneNumber", "Phone", originalRegistration.PersonalInfo.PhoneNumber ?? "", registration.PersonalInfo.PhoneNumber ?? "");
+
+        // Address
+        AddChange(changes, "AddressInfo.Country", "Country", originalRegistration.AddressInfo.Country, registration.AddressInfo.Country);
+        AddChange(changes, "AddressInfo.StateProvince", "State", originalRegistration.AddressInfo.StateProvince, registration.AddressInfo.StateProvince);
+        AddChange(changes, "AddressInfo.City", "City", originalRegistration.AddressInfo.City, registration.AddressInfo.City);
+
+        // Competition
+        if (originalRegistration.CompetitionSelection.DivisionId != registration.CompetitionSelection.DivisionId)
+        {
+            var oldDiv = availableDivisions.FirstOrDefault(d => d.Id == originalRegistration.CompetitionSelection.DivisionId)?.Name ?? originalRegistration.CompetitionSelection.DivisionId;
+            var newDiv = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId)?.Name ?? registration.CompetitionSelection.DivisionId;
+            changes.Add(new FieldChange { FieldName = "CompetitionSelection.DivisionId", DisplayName = "Division", OldValue = oldDiv, NewValue = newDiv });
+        }
+
+        if (originalRegistration.CompetitionSelection.CategoryId != registration.CompetitionSelection.CategoryId)
+        {
+            var oldDiv = availableDivisions.FirstOrDefault(d => d.Id == originalRegistration.CompetitionSelection.DivisionId);
+            var newDiv = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
+            var oldCat = oldDiv?.Categories.FirstOrDefault(c => c.Id == originalRegistration.CompetitionSelection.CategoryId)?.Name ?? originalRegistration.CompetitionSelection.CategoryId;
+            var newCat = newDiv?.Categories.FirstOrDefault(c => c.Id == registration.CompetitionSelection.CategoryId)?.Name ?? registration.CompetitionSelection.CategoryId;
+            changes.Add(new FieldChange { FieldName = "CompetitionSelection.CategoryId", DisplayName = "Category", OldValue = oldCat, NewValue = newCat });
+        }
+
+        AddChange(changes, "CompetitionSelection.PortionChoice", "Portion", originalRegistration.CompetitionSelection.PortionChoice?.ToString() ?? "", registration.CompetitionSelection.PortionChoice?.ToString() ?? "");
+
+        // Parent Info
+        AddChange(changes, "ParentInfo.FirstName", "Parent First Name", originalRegistration.ParentInfo.FirstName, registration.ParentInfo.FirstName);
+        AddChange(changes, "ParentInfo.LastName", "Parent Last Name", originalRegistration.ParentInfo.LastName, registration.ParentInfo.LastName);
+        AddChange(changes, "ParentInfo.PhoneNumber", "Parent Phone", originalRegistration.ParentInfo.PhoneNumber, registration.ParentInfo.PhoneNumber);
+
+        // Teacher Info
+        var origTeacher = originalRegistration.TeacherInfo;
+        var newTeacher = registration.TeacherInfo;
+        AddChange(changes, "TeacherInfo.FirstName", "Teacher First Name", origTeacher?.FirstName ?? "", newTeacher?.FirstName ?? "");
+        AddChange(changes, "TeacherInfo.LastName", "Teacher Last Name", origTeacher?.LastName ?? "", newTeacher?.LastName ?? "");
+        AddChange(changes, "TeacherInfo.PhoneNumber", "Teacher Phone", origTeacher?.PhoneNumber ?? "", newTeacher?.PhoneNumber ?? "");
+        AddChange(changes, "TeacherInfo.Institution", "Institution", origTeacher?.Institution ?? "", newTeacher?.Institution ?? "");
+
+        // Files (track old reference for audit)
+        if (newIdBytes != null && newIdValidated)
+        {
+            changes.Add(new FieldChange
+            {
+                FieldName = "FileUploadInfo.IdDocument",
+                DisplayName = "ID Document",
+                OldValue = originalRegistration.FileUploadInfo.IdDocument?.StorageReference ?? "(none)",
+                NewValue = "(new file uploaded)"
+            });
+        }
+
+        if (newPhotoBytes != null && newPhotoValidated)
+        {
+            changes.Add(new FieldChange
+            {
+                FieldName = "FileUploadInfo.Photo",
+                DisplayName = "Photo",
+                OldValue = originalRegistration.FileUploadInfo.Photo?.StorageReference ?? "(none)",
+                NewValue = "(new file uploaded)"
+            });
+        }
+
+        if (newVideoUploaded)
+        {
+            changes.Add(new FieldChange
+            {
+                FieldName = "FileUploadInfo.Video",
+                DisplayName = "Video",
+                OldValue = originalRegistration.FileUploadInfo.Video?.StorageReference ?? "(none)",
+                NewValue = "(new file uploaded)"
+            });
+        }
+
+        // Niqab bypass cleared
+        if (originalRegistration.FileUploadInfo.NiqabBypassApproved && !registration.FileUploadInfo.NiqabBypassApproved)
+        {
+            changes.Add(new FieldChange
+            {
+                FieldName = "FileUploadInfo.NiqabBypassApproved",
+                DisplayName = "Niqab Bypass",
+                OldValue = "Approved",
+                NewValue = "Cleared (name/DOB changed)"
+            });
+        }
+
+        return changes;
+    }
+
+    private void AddChange(List<FieldChange> changes, string fieldName, string displayName, string oldValue, string newValue)
+    {
+        if (oldValue != newValue)
+        {
+            changes.Add(new FieldChange
+            {
+                FieldName = fieldName,
+                DisplayName = displayName,
+                OldValue = string.IsNullOrEmpty(oldValue) ? "(empty)" : oldValue,
+                NewValue = string.IsNullOrEmpty(newValue) ? "(empty)" : newValue
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private string GetStatusStyles(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "bg-cyan-100 text-cyan-700",
+        RegistrationStatus.Pending => "bg-amber-100 text-amber-700",
+        RegistrationStatus.Reviewed => "bg-cyan-100 text-cyan-700",
+        RegistrationStatus.Verified => "bg-cyan-100 text-cyan-700",
+        RegistrationStatus.Withdrawn => "bg-slate-100 text-slate-600",
+        RegistrationStatus.Disqualified => "bg-slate-100 text-slate-600",
+        _ => "bg-slate-100 text-slate-600"
+    };
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F0} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+}

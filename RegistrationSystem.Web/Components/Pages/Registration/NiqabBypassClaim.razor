@@ -1,0 +1,289 @@
+﻿@page "/niqab/{Code}"
+
+@using RegistrationSystem.Core.Application.NiqabBypasses
+@using RegistrationSystem.Core.Domain.NiqabBypasses
+
+@inject NiqabBypassService BypassService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Niqab Exception Request</PageTitle>
+
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    <div class="max-w-2xl mx-auto">
+
+        @if (isLoading)
+        {
+            <div class="bg-white rounded-2xl shadow-lg p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-cyan-600 border-t-transparent mx-auto"></div>
+                <p class="mt-4 text-slate-600">Validating code...</p>
+            </div>
+        }
+        else if (isSuccess)
+        {
+            <!-- Success State -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-6 text-center">
+                    <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                        <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">Exception Approved</h1>
+                </div>
+
+                <div class="p-8 space-y-6">
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6">
+                        <h2 class="font-semibold text-emerald-800 mb-2">Niqab Exception Confirmed</h2>
+                        <p class="text-emerald-700 text-sm">
+                            Your niqab exception has been approved for the @claimedBypass?.CompetitionYear competition.
+                            During registration, face detection verification will be bypassed for your ID and photo uploads.
+                        </p>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                        <div class="flex gap-3">
+                            <svg class="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <h3 class="font-semibold text-amber-800">In-Person Verification Required</h3>
+                                <p class="text-amber-700 text-sm mt-1">
+                                    ID verification will be conducted in person by a female volunteer before the main competition.
+                                    Please bring your government-issued ID document on competition day.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center pt-4">
+                        <a href="/register/new" class="inline-flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-3 rounded-xl font-medium transition-colors">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Proceed to Registration
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <!-- Error State -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-red-500 to-red-600 px-8 py-6 text-center">
+                    <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                        <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">Unable to Verify</h1>
+                </div>
+
+                <div class="p-8 space-y-6">
+                    <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+                        <p class="text-red-700">@errorMessage</p>
+                    </div>
+
+                    <div class="text-center pt-4">
+                        <a href="/" class="text-cyan-600 hover:text-cyan-700 font-medium">
+                            Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Verification Form -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-violet-500 to-violet-600 px-8 py-6 text-center">
+                    <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                        <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">Niqab Exception Request</h1>
+                    <p class="text-violet-100 mt-2">Code: @Code</p>
+                </div>
+
+                <div class="p-8">
+                    <!-- Two-column layout: Form on left, Explanation on right -->
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <!-- Form -->
+                        <div class="space-y-6">
+                            <p class="text-slate-600">
+                                Please enter your information exactly as it will appear on your registration to verify this exception request.
+                            </p>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                                    <input type="text" @bind="firstName" @bind:event="oninput"
+                                           class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                           placeholder="Enter your first name" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                                    <input type="text" @bind="lastName" @bind:event="oninput"
+                                           class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                           placeholder="Enter your last name" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                                    <input type="date" @bind="dateOfBirth"
+                                           class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500" />
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(formError))
+                            {
+                                <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                                    @formError
+                                </div>
+                            }
+
+                            <button type="button"
+                                    @onclick="VerifyAndClaim"
+                                    disabled="@isSubmitting"
+                                    class="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2">
+                                @if (isSubmitting)
+                                {
+                                    <div class="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                                    <span>Verifying...</span>
+                                }
+                                else
+                                {
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>Verify & Confirm Exception</span>
+                                }
+                            </button>
+                        </div>
+
+                        <!-- Explanation Panel -->
+                        <div class="bg-slate-50 rounded-xl p-6 space-y-4">
+                            <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                <svg class="h-5 w-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                About This Exception
+                            </h3>
+
+                            <div class="space-y-3 text-sm text-slate-600">
+                                <p>
+                                    This exception has been approved for competitors who wear niqab and cannot show their face in photographs.
+                                </p>
+
+                                <div class="border-l-4 border-violet-400 pl-4 py-2 bg-white rounded-r-lg">
+                                    <p class="font-medium text-violet-800">What this means:</p>
+                                    <ul class="mt-2 space-y-1">
+                                        <li>• Face detection will be skipped during registration</li>
+                                        <li>• You still need to upload ID and photo files</li>
+                                        <li>• In-person verification will be required</li>
+                                    </ul>
+                                </div>
+
+                                <div class="border-l-4 border-amber-400 pl-4 py-2 bg-white rounded-r-lg">
+                                    <p class="font-medium text-amber-800">On competition day:</p>
+                                    <p class="mt-1">
+                                        A female volunteer will verify your identity in a private setting before you compete.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Code { get; set; } = string.Empty;
+
+    private string firstName = string.Empty;
+    private string lastName = string.Empty;
+    private DateOnly dateOfBirth;
+
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool isSuccess = false;
+    private string? errorMessage;
+    private string? formError;
+
+    private NiqabBypass? claimedBypass;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        // Check if code exists and is valid
+        var bypass = await BypassService.FindValidBypassAsync(
+            string.Empty, string.Empty, default, DateTime.UtcNow.Year);
+
+        // For now, just check if the code format is valid
+        if (string.IsNullOrWhiteSpace(Code) || Code.Length != 5)
+        {
+            errorMessage = "Invalid bypass code format.";
+        }
+
+        isLoading = false;
+    }
+
+    private async Task VerifyAndClaim()
+    {
+        formError = null;
+
+        // Validate form
+        if (string.IsNullOrWhiteSpace(firstName))
+        {
+            formError = "Please enter your first name.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(lastName))
+        {
+            formError = "Please enter your last name.";
+            return;
+        }
+
+        if (dateOfBirth == default)
+        {
+            formError = "Please enter your date of birth.";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            var (bypass, error) = await BypassService.ValidateAndClaimAsync(
+                Code,
+                firstName.Trim(),
+                lastName.Trim(),
+                dateOfBirth);
+
+            if (bypass != null)
+            {
+                claimedBypass = bypass;
+                isSuccess = true;
+            }
+            else
+            {
+                formError = error ?? "Unable to verify bypass code.";
+            }
+        }
+        catch (Exception ex)
+        {
+            formError = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

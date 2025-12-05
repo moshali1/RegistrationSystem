@@ -132,14 +132,30 @@ public partial class Settings : ComponentBase, IDisposable
         if (a.RegistrationStart != b.RegistrationStart) return false;
         if (a.RegistrationEnd != b.RegistrationEnd) return false;
         if (a.AgeCutoffDate != b.AgeCutoffDate) return false;
-        if (a.Divisions.Count != b.Divisions.Count) return false;
 
-        for (int i = 0; i < a.Divisions.Count; i++)
+        var aDivisions = a.Divisions ?? new List<Division>();
+        var bDivisions = b.Divisions ?? new List<Division>();
+        if (aDivisions.Count != bDivisions.Count) return false;
+
+        for (int i = 0; i < aDivisions.Count; i++)
         {
-            if (!AreDivisionsEqual(a.Divisions[i], b.Divisions[i])) return false;
+            if (!AreDivisionsEqual(aDivisions[i], bDivisions[i])) return false;
         }
 
+        if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
+
         return true;
+    }
+
+    private static bool AreCompetitionInfoEqual(CompetitionInfo? a, CompetitionInfo? b)
+    {
+        if (a is null || b is null) return a is null && b is null;
+
+        return a.CompetitionName == b.CompetitionName
+            && a.CompetitionYear == b.CompetitionYear
+            && a.PrivacyPolicyUrl == b.PrivacyPolicyUrl
+            && a.TermsOfServiceUrl == b.TermsOfServiceUrl
+            && a.RulesUrl == b.RulesUrl;
     }
 
     private static bool AreDivisionsEqual(Division a, Division b)
@@ -147,14 +163,14 @@ public partial class Settings : ComponentBase, IDisposable
         if (a.Id != b.Id) return false;
         if (a.Name != b.Name) return false;
         if (a.IsEnabled != b.IsEnabled) return false;
-        if (a.RegistrationRules.AllowCreate != b.RegistrationRules.AllowCreate) return false;
-        if (a.RegistrationRules.AllowUpdate != b.RegistrationRules.AllowUpdate) return false;
-        if (a.RegistrationRules.AllowWithdraw != b.RegistrationRules.AllowWithdraw) return false;
-        if (a.Categories.Count != b.Categories.Count) return false;
 
-        for (int i = 0; i < a.Categories.Count; i++)
+        var aCategories = a.Categories ?? new List<Category>();
+        var bCategories = b.Categories ?? new List<Category>();
+        if (aCategories.Count != bCategories.Count) return false;
+
+        for (int i = 0; i < aCategories.Count; i++)
         {
-            if (!AreCategoriesEqual(a.Categories[i], b.Categories[i])) return false;
+            if (!AreCategoriesEqual(aCategories[i], bCategories[i])) return false;
         }
 
         return true;
@@ -169,7 +185,12 @@ public partial class Settings : ComponentBase, IDisposable
             && a.PortionOption == b.PortionOption
             && a.MaxAgeYears == b.MaxAgeYears
             && a.RegistrationStart == b.RegistrationStart
-            && a.RegistrationEnd == b.RegistrationEnd;
+            && a.RegistrationEnd == b.RegistrationEnd
+            && a.RequiresVideo == b.RequiresVideo
+            && a.VideoInstructions == b.VideoInstructions
+            && a.AllowMultipleInDivision == b.AllowMultipleInDivision
+            && a.AllowEdit == b.AllowEdit
+            && a.AllowWithdraw == b.AllowWithdraw;
     }
 
     private CompetitionSettings CloneSettings(CompetitionSettings source)
@@ -181,7 +202,28 @@ public partial class Settings : ComponentBase, IDisposable
             RegistrationStart = source.RegistrationStart,
             RegistrationEnd = source.RegistrationEnd,
             AgeCutoffDate = source.AgeCutoffDate,
-            Divisions = source.Divisions.Select(CloneDivision).ToList()
+            Divisions = (source.Divisions ?? new List<Division>()).Select(CloneDivision).ToList(),
+            CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo)
+        };
+    }
+
+    private CompetitionInfo CloneCompetitionInfo(CompetitionInfo? source)
+    {
+        if (source is null)
+        {
+            return new CompetitionInfo
+            {
+                CompetitionYear = DateTime.UtcNow.Year
+            };
+        }
+
+        return new CompetitionInfo
+        {
+            CompetitionName = source.CompetitionName,
+            CompetitionYear = source.CompetitionYear,
+            PrivacyPolicyUrl = source.PrivacyPolicyUrl,
+            TermsOfServiceUrl = source.TermsOfServiceUrl,
+            RulesUrl = source.RulesUrl
         };
     }
 
@@ -192,13 +234,7 @@ public partial class Settings : ComponentBase, IDisposable
             Id = source.Id,
             Name = source.Name,
             IsEnabled = source.IsEnabled,
-            RegistrationRules = new DivisionRegistrationRules
-            {
-                AllowCreate = source.RegistrationRules.AllowCreate,
-                AllowUpdate = source.RegistrationRules.AllowUpdate,
-                AllowWithdraw = source.RegistrationRules.AllowWithdraw
-            },
-            Categories = source.Categories.Select(CloneCategory).ToList()
+            Categories = (source.Categories ?? new List<Category>()).Select(CloneCategory).ToList()
         };
     }
 
@@ -213,7 +249,12 @@ public partial class Settings : ComponentBase, IDisposable
             PortionOption = source.PortionOption,
             MaxAgeYears = source.MaxAgeYears,
             RegistrationStart = source.RegistrationStart,
-            RegistrationEnd = source.RegistrationEnd
+            RegistrationEnd = source.RegistrationEnd,
+            RequiresVideo = source.RequiresVideo,
+            VideoInstructions = source.VideoInstructions,
+            AllowMultipleInDivision = source.AllowMultipleInDivision,
+            AllowEdit = source.AllowEdit,
+            AllowWithdraw = source.AllowWithdraw
         };
     }
 
@@ -235,6 +276,26 @@ public partial class Settings : ComponentBase, IDisposable
         try
         {
             settings = await SettingsService.GetSettingsAsync();
+
+            // Create default settings if none exist
+            if (settings is null)
+            {
+                settings = new CompetitionSettings
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    RegistrationEnabled = false,
+                    AgeCutoffDate = new DateOnly(DateTime.UtcNow.Year, 1, 1),
+                    Divisions = new List<Division>(),
+                    CompetitionInfo = new CompetitionInfo
+                    {
+                        CompetitionYear = DateTime.UtcNow.Year
+                    }
+                };
+
+                // Save the default settings
+                await SettingsService.SaveSettingsAsync(settings);
+            }
+
             originalSnapshot = CloneSettings(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, Now);
 
@@ -425,9 +486,6 @@ public partial class Settings : ComponentBase, IDisposable
             // Apply changes from editing copy to actual settings
             selectedDivision.Name = editingDivision.Name;
             selectedDivision.IsEnabled = editingDivision.IsEnabled;
-            selectedDivision.RegistrationRules.AllowCreate = editingDivision.RegistrationRules.AllowCreate;
-            selectedDivision.RegistrationRules.AllowUpdate = editingDivision.RegistrationRules.AllowUpdate;
-            selectedDivision.RegistrationRules.AllowWithdraw = editingDivision.RegistrationRules.AllowWithdraw;
 
             // Save to database
             await SettingsService.SaveSettingsAsync(settings);
@@ -520,6 +578,13 @@ public partial class Settings : ComponentBase, IDisposable
             selectedCategory.MaxAgeYears = editingCategory.MaxAgeYears;
             selectedCategory.RegistrationStart = editingCategory.RegistrationStart;
             selectedCategory.RegistrationEnd = editingCategory.RegistrationEnd;
+
+            // New category properties
+            selectedCategory.RequiresVideo = editingCategory.RequiresVideo;
+            selectedCategory.VideoInstructions = editingCategory.VideoInstructions;
+            selectedCategory.AllowMultipleInDivision = editingCategory.AllowMultipleInDivision;
+            selectedCategory.AllowEdit = editingCategory.AllowEdit;
+            selectedCategory.AllowWithdraw = editingCategory.AllowWithdraw;
 
             // Save to database
             await SettingsService.SaveSettingsAsync(settings);
@@ -687,12 +752,6 @@ public partial class Settings : ComponentBase, IDisposable
             Id = Guid.NewGuid().ToString(),
             Name = newDivisionName.Trim(),
             IsEnabled = false,
-            RegistrationRules = new DivisionRegistrationRules
-            {
-                AllowCreate = true,
-                AllowUpdate = true,
-                AllowWithdraw = true
-            },
             Categories = new List<Category>()
         };
 
