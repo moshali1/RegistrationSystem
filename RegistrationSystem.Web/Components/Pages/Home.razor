@@ -1,9 +1,306 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
 
-<h1>Hello, world!</h1>
+@inject SettingsService SettingsService
+@inject RegistrationService RegistrationService
+@inject CurrentUserService CurrentUserService
 
-Welcome to your new app.
+@implements IDisposable
 
-<button class="btn">My Button</button>
+@attribute [Authorize]
+
+<PageTitle>Home - Imam Al-Shatibi Qur'an Competition</PageTitle>
+
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            <span class="text-sm text-slate-500">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="space-y-4">
+        <!-- Header -->
+        <div>
+            <h1 class="text-xl font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                Welcome to the @GetOrdinal(competitionYear - 2014) Annual Imam Al-Shatibi Qur'an Competition (@competitionYear)
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Please review the rules and regulations at
+                <a href="@(settings?.CompetitionInfo.RulesUrl ?? "https://imamshatibi.org")"
+                   target="_blank" class="text-cyan-700 hover:underline">imamshatibi.org</a>
+                before registering. Questions? <a href="https://imamshatibi.org/contact" target="_blank" class="text-cyan-700 hover:underline">Contact us</a>.
+            </p>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                <div class="text-2xl font-semibold text-slate-800">@openDivisions.Count</div>
+                <div class="text-xs text-slate-500">Open Divisions</div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                <div class="text-2xl font-semibold text-slate-800">@totalOpenCategories</div>
+                <div class="text-xs text-slate-500">Open Categories</div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                <div class="text-2xl font-semibold text-slate-800">@userRegistrationCount</div>
+                <div class="text-xs text-slate-500">Your Registrations</div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                @if (isRegistrationOpen && timeRemaining.TotalSeconds > 0)
+                {
+                    <div class="text-2xl font-semibold text-slate-800 tabular-nums">
+                        @((int)timeRemaining.TotalDays)d @timeRemaining.Hours.ToString("00")h @timeRemaining.Minutes.ToString("00")m
+                    </div>
+                    <div class="text-xs text-slate-500">Until Close</div>
+                }
+                else
+                {
+                    <div class="text-2xl font-semibold text-slate-400">—</div>
+                    <div class="text-xs text-slate-500">Registration Closed</div>
+                }
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Divisions List -->
+            <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200">
+                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <span class="text-sm font-medium text-slate-700">Open Divisions</span>
+                    @if (isRegistrationOpen)
+                    {
+                        <a href="/register/new" class="text-xs font-medium text-cyan-700 hover:text-cyan-800">
+                            + New Registration
+                        </a>
+                    }
+                </div>
+                <div class="divide-y divide-slate-100">
+                    @if (openDivisions.Any())
+                    {
+                        @foreach (var division in openDivisions)
+                        {
+                            var openCats = GetOpenCategoriesForDivision(division);
+                            var userCount = GetUserRegistrationCountForDivision(division.Id);
+                            <div class="px-4 py-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-slate-800">@division.Name</span>
+                                    <div class="flex items-center gap-2">
+                                        @if (userCount > 0)
+                                        {
+                                            <span class="text-xs text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">@userCount registered</span>
+                                        }
+                                        <span class="text-xs text-slate-500">@openCats.Count @(openCats.Count == 1 ? "category" : "categories")</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach (var cat in openCats)
+                                    {
+                                        <span class="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                                            @cat.Name@(cat.MaxAgeYears.HasValue ? $" (≤{cat.MaxAgeYears})" : "")
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="px-4 py-6 text-center text-sm text-slate-500">
+                            No divisions are currently open for registration.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Quick Actions & Info -->
+            <div class="space-y-4">
+                <!-- Actions -->
+                <div class="bg-white rounded-lg border border-slate-200">
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <span class="text-sm font-medium text-slate-700">Quick Actions</span>
+                    </div>
+                    <div class="p-3 space-y-2">
+                        <a href="/register/new"
+                           class="flex items-center gap-2 px-3 py-2 rounded-md text-sm @(isRegistrationOpen ? "bg-cyan-700 text-white hover:bg-cyan-800" : "bg-slate-100 text-slate-400 cursor-not-allowed")">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            New Registration
+                        </a>
+                        <a href="/registrations"
+                           class="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-slate-50 text-slate-700 hover:bg-slate-100">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            View My Registrations
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Upload Requirements -->
+                <div class="bg-white rounded-lg border border-slate-200">
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <span class="text-sm font-medium text-slate-700">Requirements</span>
+                    </div>
+                    <div class="p-3 text-xs text-slate-600 space-y-2">
+                        <div>
+                            <span class="font-medium text-slate-700">ID Document:</span>
+                            Passport, birth certificate, or state ID with competitor's name and DOB.
+                        </div>
+                        <div>
+                            <span class="font-medium text-slate-700">Photo:</span>
+                            Recent photo with clear face visibility.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                @if (nearestCloseDate.HasValue)
+                {
+                    <div class="bg-white rounded-lg border border-slate-200 p-3">
+                        <div class="text-xs text-slate-500">Registration closes</div>
+                        <div class="text-sm font-medium text-slate-700 mt-0.5">
+                            @nearestCloseDate.Value.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private CompetitionSettings? settings;
+    private List<Division> openDivisions = new();
+    private IReadOnlyList<RegistrationSystem.Core.Domain.Registrations.Registration>? userRegistrations;
+    private int userRegistrationCount;
+    private int totalOpenCategories;
+    private int competitionYear;
+    private bool isRegistrationOpen;
+    private DateTimeOffset? nearestCloseDate;
+    private TimeSpan timeRemaining;
+    private Timer? countdownTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        StartCountdownTimer();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            var user = await CurrentUserService.GetCurrentUserAsync();
+            settings = await SettingsService.GetSettingsAsync();
+
+            if (settings != null)
+            {
+                competitionYear = settings.CompetitionInfo.CompetitionYear;
+                openDivisions = (await RegistrationService.GetAvailableDivisionsAsync()).ToList();
+                isRegistrationOpen = settings.RegistrationEnabled && openDivisions.Any();
+
+                totalOpenCategories = openDivisions.Sum(d => GetOpenCategoriesForDivision(d).Count);
+                CalculateNearestCloseDate();
+
+                if (user != null)
+                {
+                    userRegistrations = await RegistrationService.GetUserRegistrationsAsync(
+                        user.ObjectIdentifier, competitionYear);
+                    userRegistrationCount = userRegistrations.Count;
+                }
+
+                CalculateTimeRemaining();
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private List<Category> GetOpenCategoriesForDivision(Division division)
+    {
+        if (settings == null) return new();
+        var now = DateTimeOffset.UtcNow;
+        return division.Categories.Where(c => c.IsEnabled && IsCategoryOpen(c, now)).ToList();
+    }
+
+    private bool IsCategoryOpen(Category category, DateTimeOffset now)
+    {
+        if (settings == null) return false;
+        var start = category.RegistrationStart ?? settings.RegistrationStart;
+        var end = category.RegistrationEnd ?? settings.RegistrationEnd;
+        if (!start.HasValue || !end.HasValue) return true;
+        return now >= start.Value && now <= end.Value;
+    }
+
+    private int GetUserRegistrationCountForDivision(string divisionId) =>
+        userRegistrations?.Count(r => r.CompetitionSelection.DivisionId == divisionId) ?? 0;
+
+    private void CalculateNearestCloseDate()
+    {
+        if (settings == null || !openDivisions.Any()) { nearestCloseDate = null; return; }
+        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset? earliest = null;
+        foreach (var div in openDivisions)
+        {
+            foreach (var cat in div.Categories.Where(c => c.IsEnabled))
+            {
+                var end = cat.RegistrationEnd ?? settings.RegistrationEnd;
+                if (end.HasValue && end.Value > now && (!earliest.HasValue || end.Value < earliest.Value))
+                    earliest = end.Value;
+            }
+        }
+        nearestCloseDate = earliest;
+    }
+
+    private void StartCountdownTimer()
+    {
+        countdownTimer = new Timer(_ =>
+        {
+            CalculateTimeRemaining();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    private void CalculateTimeRemaining()
+    {
+        if (nearestCloseDate.HasValue)
+        {
+            var now = DateTimeOffset.Now;
+            timeRemaining = nearestCloseDate.Value > now ? nearestCloseDate.Value - now : TimeSpan.Zero;
+        }
+        else
+        {
+            timeRemaining = TimeSpan.Zero;
+        }
+    }
+
+    private string GetOrdinal(int number)
+    {
+        if (number <= 0) return number.ToString();
+        var suffix = (number % 100) switch
+        {
+            11 or 12 or 13 => "th",
+            _ => (number % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" }
+        };
+        return $"{number}{suffix}";
+    }
+
+    public void Dispose() => countdownTimer?.Dispose();
+}

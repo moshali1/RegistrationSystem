@@ -185,6 +185,7 @@ else
     private CompetitionSettings? settings;
     private int competitionYear;
     private string currentUserId = string.Empty;
+    private string currentUserType = string.Empty;
     private List<string> validationErrors = new();
 
     // Form data (in-memory only until submit)
@@ -212,6 +213,7 @@ else
             }
 
             currentUserId = user.ObjectIdentifier;
+            currentUserType = user.UserType;
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
@@ -499,6 +501,22 @@ else
             }
         }
 
+        // Student identity validation - students can only register for themselves
+        if (currentUserType.Equals("Student", StringComparison.OrdinalIgnoreCase))
+        {
+            var (isValid, error) = await RegistrationService.ValidateStudentIdentityAsync(
+                currentUserId,
+                formData.FirstName,
+                formData.LastName,
+                formData.DateOfBirth);
+
+            if (!isValid)
+            {
+                validationErrors.Add(error!);
+                return;
+            }
+        }
+
         isSubmitting = true;
         try
         {
@@ -534,12 +552,12 @@ else
 
                 // Upload ID
                 using var idStream = new MemoryStream(formData.IdDocumentBytes!);
-                var idUri = await BlobStorageService.UploadAsync(
+                await BlobStorageService.UploadAsync(
                     idStream, idContainerName, idBlobName, formData.IdDocumentContentType ?? "image/jpeg");
 
                 // Upload Photo
                 using var photoStream = new MemoryStream(formData.PhotoBytes!);
-                var photoUri = await BlobStorageService.UploadAsync(
+                await BlobStorageService.UploadAsync(
                     photoStream, photoContainerName, photoBlobName, formData.PhotoContentType ?? "image/jpeg");
 
                 fileUploadInfo = new FileUploadInfo
@@ -547,7 +565,7 @@ else
                     IdDocument = new FileMetadata
                     {
                         FileName = formData.IdDocumentFileName ?? "id-document",
-                        StorageReference = idUri,
+                        StorageReference = idBlobName,
                         FileSizeBytes = formData.IdDocumentSize,
                         Extension = Path.GetExtension(formData.IdDocumentFileName ?? ".jpg"),
                         ContentType = formData.IdDocumentContentType ?? "image/jpeg",
@@ -562,7 +580,7 @@ else
                     Photo = new FileMetadata
                     {
                         FileName = formData.PhotoFileName ?? "photo",
-                        StorageReference = photoUri,
+                        StorageReference = photoBlobName,
                         FileSizeBytes = formData.PhotoSize,
                         Extension = Path.GetExtension(formData.PhotoFileName ?? ".jpg"),
                         ContentType = formData.PhotoContentType ?? "image/jpeg",
@@ -575,11 +593,11 @@ else
                                 : "Photo validated - person detected")
                     },
                     // Include video if uploaded (already in Azure from Step 3)
-                    Video = formData.VideoUploaded && !string.IsNullOrEmpty(formData.VideoBlobUri)
+                    Video = formData.VideoUploaded && !string.IsNullOrEmpty(formData.VideoBlobName)
                         ? new FileMetadata
                         {
                             FileName = formData.VideoFileName ?? "video",
-                            StorageReference = formData.VideoBlobUri,
+                            StorageReference = formData.VideoBlobName,
                             FileSizeBytes = formData.VideoSize,
                             Extension = Path.GetExtension(formData.VideoFileName ?? ".mp4"),
                             ContentType = formData.VideoContentType ?? "video/mp4",
@@ -651,7 +669,6 @@ else
                 try
                 {
                     await AuditContextProvider.SetCurrentUserContextAsync();
-                    divisionName = division?.Name ?? "Unknown Division";
                     var categoryName = selectedCategory?.Name ?? "Unknown Category";
 
                     await AuditService.LogAsync(

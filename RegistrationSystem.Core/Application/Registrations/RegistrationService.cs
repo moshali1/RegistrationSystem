@@ -492,6 +492,40 @@ public partial class RegistrationService
         return age <= category.MaxAgeYears.Value;
     }
 
+    /// <summary>
+    /// Validates that a student is registering for themselves (same name/DOB as prior registrations).
+    /// Only applies to users with UserType = Student.
+    /// </summary>
+    public async Task<(bool IsValid, string? Error)> ValidateStudentIdentityAsync(
+        string userId,
+        string firstName,
+        string lastName,
+        DateOnly dateOfBirth,
+        CancellationToken cancellationToken = default)
+    {
+        // Get any existing registration by this user (any year)
+        var existingRegistrations = await _repository.GetByCreatorUserIdAsync(userId, cancellationToken);
+
+        if (!existingRegistrations.Any())
+            return (true, null); // First registration, no lock
+
+        var first = existingRegistrations.First();
+
+        // Compare (case-insensitive, trimmed)
+        var nameMatches =
+            first.PersonalInfo.FirstName.Equals(firstName.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            first.PersonalInfo.LastName.Equals(lastName.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        var dobMatches = first.PersonalInfo.DateOfBirth == dateOfBirth;
+
+        if (!nameMatches || !dobMatches)
+        {
+            return (false, "As a student, you can only register for yourself.");
+        }
+
+        return (true, null);
+    }
+
     #endregion
 
     #region Formatting Helpers

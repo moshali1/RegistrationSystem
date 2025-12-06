@@ -70,7 +70,7 @@ else
         <!-- Header -->
         <div class="flex items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-4">
-                <a href="@(isAdmin ? $"/admin/registrations/{Id}" : $"/registrations/{Id}")"
+                <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
                    class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
                     <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
@@ -165,7 +165,7 @@ else
 
             <!-- Footer Actions -->
             <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                <a href="@(isAdmin ? $"/admin/registrations/{Id}" : $"/registrations/{Id}")"
+                <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
                    class="text-sm text-slate-600 hover:text-slate-800">
                     Cancel
                 </a>
@@ -309,7 +309,7 @@ else
                             <option value="">Select state</option>
                             @foreach (var state in availableStates)
                             {
-                                <option value="@state.Code">@state.Name</option>
+                                <option value="@state.Name">@state.Name</option>
                             }
                         </select>
                     </div>
@@ -410,18 +410,26 @@ else
             <!-- Video Requirement Notice -->
             @if (selectedCategory?.RequiresVideo == true)
             {
-                <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3">
+                var hasVideo = registration!.FileUploadInfo.Video != null || newVideoUploaded;
+                <div class="rounded-lg border @(hasVideo ? "border-cyan-200 bg-cyan-50" : "border-red-200 bg-red-50") px-4 py-3">
                     <div class="flex items-start gap-2">
-                        <svg class="h-5 w-5 text-cyan-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="h-5 w-5 @(hasVideo ? "text-cyan-500" : "text-red-500") mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
                         <div class="text-sm">
-                            <p class="font-medium text-cyan-800">Video Required</p>
-                            <p class="text-cyan-700 mt-0.5">
-                                This category requires a video submission.
+                            <p class="font-medium @(hasVideo ? "text-cyan-800" : "text-red-800")">Video Required</p>
+                            <p class="@(hasVideo ? "text-cyan-700" : "text-red-700") mt-0.5">
+                                @if (hasVideo)
+                                {
+                                    @:Video uploaded ✓
+                                }
+                                else
+                                {
+                                    @:This category requires a video submission. Please go to the Files tab to upload.
+                                }
                                 @if (!string.IsNullOrEmpty(selectedCategory.VideoInstructions))
                                 {
-                                    @selectedCategory.VideoInstructions
+                                    <span class="block mt-1">@selectedCategory.VideoInstructions</span>
                                 }
                             </p>
                         </div>
@@ -503,6 +511,24 @@ else
     RenderFragment RenderFilesTab() => __builder =>
     {
         <div class="space-y-6">
+            <!-- Video Required Warning -->
+            @if (selectedCategory?.RequiresVideo == true && registration!.FileUploadInfo.Video == null && !newVideoUploaded)
+            {
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="h-5 w-5 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <div class="text-sm">
+                            <p class="font-medium text-red-800">Video Required</p>
+                            <p class="text-red-700 mt-0.5">
+                                The selected category requires a video submission. Please upload a video below.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <!-- Niqab Bypass Info -->
             @if (registration!.FileUploadInfo.NiqabBypassApproved)
             {
@@ -1335,6 +1361,89 @@ else
 
         try
         {
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // FRONTEND VALIDATION (same as RegistrationForm)
+            // ═══════════════════════════════════════════════════════════════════════════════
+
+            // Personal Info validation
+            ValidateName(registration.PersonalInfo.FirstName, "First name", minLength: 2, required: true);
+            ValidateName(registration.PersonalInfo.MiddleName, "Middle name", minLength: 1, required: false);
+            ValidateName(registration.PersonalInfo.LastName, "Last name", minLength: 2, required: true);
+            ValidateName(registration.PersonalInfo.PreferredName, "Preferred name", minLength: 1, required: false);
+
+            if (registration.PersonalInfo.DateOfBirth == default)
+                validationErrors.Add("Date of birth is required.");
+
+            if (!string.IsNullOrWhiteSpace(registration.PersonalInfo.PhoneNumber) &&
+                !IsValidPhoneNumber(registration.PersonalInfo.PhoneNumber))
+                validationErrors.Add("Please enter a valid 10-digit phone number.");
+
+            // Address validation
+            if (string.IsNullOrWhiteSpace(registration.AddressInfo.Country))
+                validationErrors.Add("Country is required.");
+            if (string.IsNullOrWhiteSpace(registration.AddressInfo.StateProvince))
+                validationErrors.Add("State/Province is required.");
+            if (string.IsNullOrWhiteSpace(registration.AddressInfo.City))
+                validationErrors.Add("City is required.");
+
+            // Competition validation
+            if (string.IsNullOrWhiteSpace(registration.CompetitionSelection.DivisionId))
+                validationErrors.Add("Please select a division.");
+            if (string.IsNullOrWhiteSpace(registration.CompetitionSelection.CategoryId))
+                validationErrors.Add("Please select a category.");
+
+            // Portion choice validation
+            if (selectedCategory?.PortionOption == PortionOption.TopOrBottom &&
+                registration.CompetitionSelection.PortionChoice == null)
+                validationErrors.Add("Please select a portion (Top or Bottom).");
+
+            // Video validation - required if category requires it
+            if (selectedCategory?.RequiresVideo == true)
+            {
+                var hasExistingVideo = registration.FileUploadInfo.Video != null;
+                var hasNewVideo = newVideoUploaded;
+
+                if (!hasExistingVideo && !hasNewVideo)
+                {
+                    validationErrors.Add("Please upload a video for this category.");
+                }
+                else if (isUploadingVideo)
+                {
+                    validationErrors.Add("Please wait for the video upload to complete.");
+                }
+            }
+
+            // ID and Photo validation - must have existing or new
+            if (registration.FileUploadInfo.IdDocument == null && !newIdValidated)
+                validationErrors.Add("ID document is required.");
+            if (registration.FileUploadInfo.Photo == null && !newPhotoValidated)
+                validationErrors.Add("Photo is required.");
+
+            // Parent validation
+            ValidateName(registration.ParentInfo.FirstName, "Parent/Guardian first name", minLength: 2, required: true);
+            ValidateName(registration.ParentInfo.LastName, "Parent/Guardian last name", minLength: 2, required: true);
+            if (string.IsNullOrWhiteSpace(registration.ParentInfo.PhoneNumber))
+                validationErrors.Add("Parent/Guardian phone number is required.");
+            else if (!IsValidPhoneNumber(registration.ParentInfo.PhoneNumber))
+                validationErrors.Add("Please enter a valid 10-digit phone number for Parent/Guardian.");
+
+            // Teacher validation
+            ValidateName(teacherFirstName, "Teacher first name", minLength: 2, required: true);
+            ValidateName(teacherLastName, "Teacher last name", minLength: 2, required: true);
+            if (string.IsNullOrWhiteSpace(teacherPhone))
+                validationErrors.Add("Teacher phone number is required.");
+            else if (!IsValidPhoneNumber(teacherPhone))
+                validationErrors.Add("Please enter a valid 10-digit phone number for Teacher.");
+            if (string.IsNullOrWhiteSpace(teacherInstitution))
+                validationErrors.Add("Institution name is required.");
+            else if (teacherInstitution.Trim().Length < 2)
+                validationErrors.Add("Institution name must be at least 2 characters.");
+
+            if (validationErrors.Any())
+            {
+                return;
+            }
+
             // Update teacher info
             registration.TeacherInfo = new TeacherInfo
             {
@@ -1357,7 +1466,7 @@ else
             // Upload new files if provided
             await UploadNewFilesAsync();
 
-            // Run validation
+            // Run backend validation (includes duplicate check)
             var validationResult = await RegistrationService.ValidateAsync(registration);
             if (!validationResult.IsValid)
             {
@@ -1411,19 +1520,8 @@ else
                     entityDescription: $"{registration.PersonalInfo.FullName} - {divisionName} / {categoryName}");
             }
 
-            successMessage = "Changes saved successfully!";
-
-            // Update originals for next comparison
-            originalRegistration = CloneRegistration(registration);
-            originalDivisionId = registration.CompetitionSelection.DivisionId;
-            originalFirstName = registration.PersonalInfo.FirstName;
-            originalLastName = registration.PersonalInfo.LastName;
-            originalDateOfBirth = registration.PersonalInfo.DateOfBirth;
-
-            // Clear new file state
-            ClearNewIdFile();
-            ClearNewPhotoFile();
-            ClearNewVideoFile();
+            // Redirect to My Registrations
+            NavigationManager.NavigateTo(isAdmin ? "/admin/registrations" : "/registrations");
         }
         catch (Exception ex)
         {
@@ -1434,6 +1532,30 @@ else
             isSaving = false;
             StateHasChanged();
         }
+    }
+
+    private void ValidateName(string? value, string fieldName, int minLength, bool required)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (required)
+                validationErrors.Add($"{fieldName} is required.");
+            return;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length < minLength)
+            validationErrors.Add($"{fieldName} must be at least {minLength} character{(minLength > 1 ? "s" : "")}.");
+
+        if (trimmed.Any(char.IsDigit))
+            validationErrors.Add($"{fieldName} cannot contain numbers.");
+    }
+
+    private bool IsValidPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return false;
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        return digits.Length == 10;
     }
 
     private async Task UploadNewFilesAsync()
@@ -1628,13 +1750,13 @@ else
 
     private string GetStatusStyles(RegistrationStatus status) => status switch
     {
-        RegistrationStatus.AwaitingReview => "bg-cyan-100 text-cyan-700",
-        RegistrationStatus.Pending => "bg-amber-100 text-amber-700",
-        RegistrationStatus.Reviewed => "bg-cyan-100 text-cyan-700",
-        RegistrationStatus.Verified => "bg-cyan-100 text-cyan-700",
-        RegistrationStatus.Withdrawn => "bg-slate-100 text-slate-600",
-        RegistrationStatus.Disqualified => "bg-slate-100 text-slate-600",
-        _ => "bg-slate-100 text-slate-600"
+        RegistrationStatus.AwaitingReview => "bg-emerald-50 text-emerald-950",
+        RegistrationStatus.Pending => "bg-red-50 text-red-950",
+        RegistrationStatus.Reviewed => "bg-cyan-50 text-cyan-950",
+        RegistrationStatus.Verified => "bg-violet-50 text-violet-950",
+        RegistrationStatus.Withdrawn => "bg-amber-50 text-amber-950",
+        RegistrationStatus.Disqualified => "bg-gray-50 text-gray-950",
+        _ => "bg-slate-50 text-slate-950"
     };
 
     private string FormatFileSize(long bytes)

@@ -1,6 +1,5 @@
-﻿using System.Reflection;
-using System.Text.Json;
-using RegistrationSystem.Core.Domain.Auditing;
+﻿using RegistrationSystem.Core.Domain.Auditing;
+using System.Reflection;
 
 namespace RegistrationSystem.Core.Application.Auditing;
 
@@ -111,6 +110,7 @@ public interface IAuditService
         string entityType,
         string entityId,
         IEnumerable<FieldChange> changes,
+        AuditAction? action = null,
         string? summary = null,
         string? entityDescription = null,
         CancellationToken cancellationToken = default);
@@ -266,6 +266,7 @@ public class AuditService : IAuditService
         string entityType,
         string entityId,
         IEnumerable<FieldChange> changes,
+        AuditAction? action = null,
         string? summary = null,
         string? entityDescription = null,
         CancellationToken cancellationToken = default)
@@ -274,9 +275,10 @@ public class AuditService : IAuditService
         if (changeList.Count == 0)
             return;
 
-        var entry = CreateEntry(AuditAction.Updated, entityType, entityId, entityDescription);
+        var auditAction = action ?? AuditAction.Updated;
+        var entry = CreateEntry(auditAction, entityType, entityId, entityDescription);
         entry.Changes = changeList;
-        entry.Summary = summary ?? BuildChangeSummary(changeList, AuditAction.Updated);
+        entry.Summary = summary ?? BuildChangeSummary(changeList, auditAction);
 
         await _repository.SaveAsync(entry, cancellationToken);
     }

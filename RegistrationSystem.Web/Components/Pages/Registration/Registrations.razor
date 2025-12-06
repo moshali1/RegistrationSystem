@@ -2,8 +2,10 @@
 @attribute [Authorize]
 
 @using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Auditing
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.Settings
 @using RegistrationSystem.Web.Services
@@ -12,6 +14,8 @@
 @inject SettingsService SettingsService
 @inject CurrentUserService CurrentUserService
 @inject NavigationManager NavigationManager
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
 
 <PageTitle>My Registrations</PageTitle>
 
@@ -107,7 +111,7 @@
                         <!-- Status Filter -->
                         <select @bind="filterStatus" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
                             <option value="">All Statuses</option>
-                            @foreach (RegistrationStatus status in Enum.GetValues<RegistrationStatus>())
+                            @foreach (var status in GetUniqueStatuses())
                             {
                                 <option value="@status">@GetStatusDisplayName(status)</option>
                             }
@@ -358,38 +362,12 @@
                         <select @bind="withdrawReasonType"
                                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 cursor-pointer">
                             <option value="">Select a reason...</option>
-                            <option value="NotReady">Not ready to compete this year</option>
-                            <option value="MaybeInFuture">Maybe in the future</option>
-                            <option value="Duplicate">Duplicate registration</option>
-                            <option value="WantToRestart">Want to restart registration</option>
+                            <option value="ScheduleConflict">Schedule conflict</option>
+                            <option value="HealthRelated">Health-related reason</option>
+                            <option value="InsufficientPreparation">Insufficient preparation</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
-
-                    <!-- Alert for "Want to restart" -->
-                    @if (withdrawReasonType == "WantToRestart")
-                    {
-                        <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
-                            <div class="flex gap-3">
-                                <svg class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                                <div class="text-sm">
-                                    <p class="font-medium text-amber-800">Consider editing instead</p>
-                                    <p class="text-amber-700 mt-1">
-                                        @if (withdrawingRegistration.CanEdit)
-                                        {
-                                            <span>You can <a href="/registration/@withdrawingRegistration.Id/edit" class="underline font-medium hover:text-amber-900">edit this registration</a> to make changes without withdrawing.</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Please contact us to request changes to your registration instead of creating a duplicate.</span>
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    }
 
                     <!-- Other reason text field -->
                     @if (withdrawReasonType == "Other")
@@ -517,6 +495,14 @@
             .Where(d => d != null)!;
     }
 
+    private IEnumerable<RegistrationStatus> GetUniqueStatuses()
+    {
+        return registrations
+            .Select(r => r.Status)
+            .Distinct()
+            .OrderBy(s => s);
+    }
+
     private void ClearFilters()
     {
         searchQuery = string.Empty;
@@ -564,10 +550,9 @@
 
     private string GetWithdrawReasonText() => withdrawReasonType switch
     {
-        "NotReady" => "Not ready to compete this year",
-        "MaybeInFuture" => "Maybe in the future",
-        "Duplicate" => "Duplicate registration",
-        "WantToRestart" => "Want to restart registration",
+        "ScheduleConflict" => "Schedule conflict",
+        "HealthRelated" => "Health-related reason",
+        "InsufficientPreparation" => "Insufficient preparation",
         "Other" => $"Other - {withdrawOtherReason.Trim()}",
         _ => string.Empty
     };
@@ -599,11 +584,44 @@
             if (user == null) return;
 
             var reasonText = GetWithdrawReasonText();
+            var previousStatus = withdrawingRegistration.Status.ToString();
+
+            // Get division/category names for audit
+            var division = settings?.FindDivision(withdrawingRegistration.CompetitionSelection.DivisionId);
+            var category = division?.FindCategory(withdrawingRegistration.CompetitionSelection.CategoryId);
+
+            // Set audit context
+            await AuditContextProvider.SetCurrentUserContextAsync();
 
             await RegistrationService.WithdrawAsync(
                 withdrawingRegistration.Id,
                 user.ObjectIdentifier,
                 reasonText);
+
+            // Log audit entry for withdrawal
+            await AuditService.LogFieldChangesAsync(
+                "Registration",
+                withdrawingRegistration.Id,
+                new List<FieldChange>
+                {
+                    new FieldChange
+                    {
+                        FieldName = "Status",
+                        DisplayName = "Status",
+                        OldValue = previousStatus,
+                        NewValue = RegistrationStatus.Withdrawn.ToString()
+                    },
+                    new FieldChange
+                    {
+                        FieldName = "WithdrawComment",
+                        DisplayName = "Withdrawal Reason",
+                        OldValue = null,
+                        NewValue = reasonText
+                    }
+                },
+                action: AuditAction.Withdrawn,
+                summary: $"Registration withdrawn. Reason: {reasonText}",
+                entityDescription: $"{withdrawingRegistration.PersonalInfo.FullName} - {division?.Name ?? "Unknown"} / {category?.Name ?? "Unknown"}");
 
             CloseWithdrawModal();
             await LoadDataAsync();
@@ -624,37 +642,37 @@
 
     private RenderFragment RenderStatusBadge(RegistrationStatus status) => __builder =>
     {
-        var (bgClass, textClass, icon) = status switch
+        var (bgClass, textClass, ringClass, icon) = status switch
         {
-            RegistrationStatus.AwaitingReview => ("bg-amber-100", "text-amber-700", "clock"),
-            RegistrationStatus.Pending => ("bg-orange-100", "text-orange-700", "warning"),
-            RegistrationStatus.Reviewed => ("bg-cyan-100", "text-cyan-700", "check"),
-            RegistrationStatus.Verified => ("bg-emerald-100", "text-emerald-700", "shield"),
-            RegistrationStatus.Withdrawn => ("bg-slate-100", "text-slate-500", "ban"),
-            RegistrationStatus.Disqualified => ("bg-red-100", "text-red-700", "x"),
-            _ => ("bg-slate-100", "text-slate-600", "circle")
+            RegistrationStatus.AwaitingReview => ("bg-emerald-50", "text-emerald-950", "ring-emerald-600/20", "clock"),
+            RegistrationStatus.Pending => ("bg-red-50", "text-red-950", "ring-red-600/20", "warning"),
+            RegistrationStatus.Reviewed => ("bg-cyan-50", "text-cyan-950", "ring-cyan-600/20", "check"),
+            RegistrationStatus.Verified => ("bg-violet-50", "text-violet-950", "ring-violet-600/20", "shield"),
+            RegistrationStatus.Withdrawn => ("bg-amber-50", "text-amber-950", "ring-amber-600/20", "ban"),
+            RegistrationStatus.Disqualified => ("bg-gray-50", "text-gray-950", "ring-gray-600/20", "x"),
+            _ => ("bg-slate-50", "text-slate-950", "ring-slate-600/20", "circle")
         };
 
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium @bgClass @textClass">
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium ring-1 ring-inset @bgClass @textClass @ringClass">
             @switch (icon)
             {
                 case "clock":
-                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     break;
                 case "warning":
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                     break;
                 case "check":
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                     break;
                 case "shield":
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                     break;
                 case "ban":
-                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                     break;
                 case "x":
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
                     break;
             }
             @GetStatusDisplayName(status)
