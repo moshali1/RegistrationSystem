@@ -840,6 +840,8 @@ else
     }
 
     // File upload state
+    private bool isSelectingIdFile = false;
+    private bool isSelectingPhotoFile = false;
     private bool isValidatingId = false;
     private bool isValidatingPhoto = false;
     private string? idValidationError;
@@ -863,6 +865,10 @@ else
         var file = e.File;
         if (file == null) return;
 
+        // Show loading immediately
+        isSelectingIdFile = true;
+        StateHasChanged();
+
         // Reset state
         idValidationError = null;
         idValidationSuccess = null;
@@ -884,9 +890,13 @@ else
         }
         catch (Exception)
         {
+            isSelectingIdFile = false;
             idValidationError = "Error reading file. Please try again or contact administrator.";
+            StateHasChanged();
             return;
         }
+
+        isSelectingIdFile = false;
 
         // If niqab bypass is approved, skip validation
         if (formData.NiqabBypassApproved)
@@ -939,6 +949,10 @@ else
         var file = e.File;
         if (file == null) return;
 
+        // Show loading immediately
+        isSelectingPhotoFile = true;
+        StateHasChanged();
+
         // Reset state
         photoValidationError = null;
         photoValidationSuccess = null;
@@ -951,6 +965,7 @@ else
         // Need ID validated first (unless bypassed)
         if (!formData.IdValidated && !formData.NiqabBypassApproved)
         {
+            isSelectingPhotoFile = false;
             photoValidationError = "Please upload and validate your ID document first.";
             formData.PhotoFileName = null;
             StateHasChanged();
@@ -969,9 +984,13 @@ else
         }
         catch (Exception)
         {
+            isSelectingPhotoFile = false;
             photoValidationError = "Error reading file. Please try again or contact administrator.";
+            StateHasChanged();
             return;
         }
+
+        isSelectingPhotoFile = false;
 
         // If niqab bypass is approved, skip validation
         if (formData.NiqabBypassApproved)
@@ -1021,6 +1040,7 @@ else
 
     private void ClearIdFile()
     {
+        isSelectingIdFile = false;
         formData.IdDocumentBytes = null;
         formData.IdDocumentFileName = null;
         formData.IdDocumentContentType = null;
@@ -1035,6 +1055,7 @@ else
 
     private void ClearPhotoFile()
     {
+        isSelectingPhotoFile = false;
         formData.PhotoBytes = null;
         formData.PhotoFileName = null;
         formData.PhotoContentType = null;
@@ -1549,17 +1570,28 @@ else
                         @if (!formData.HasIdDocument)
                         {
                             <!-- Upload Area -->
-                            <label class="block cursor-pointer">
-                                <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-cyan-400 hover:bg-cyan-50/50 transition-colors">
-                                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                                        <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                        </svg>
-                                    </div>
-                                    <span class="text-sm font-medium text-slate-700">Click to upload ID document</span>
-                                    <span class="text-xs text-slate-500 block mt-1">JPEG, PNG, or PDF up to 5MB</span>
+                            <label class="block @(isSelectingIdFile ? "pointer-events-none" : "cursor-pointer")">
+                                <div class="border-2 border-dashed @(isSelectingIdFile ? "border-cyan-400 bg-cyan-50" : "border-slate-300 hover:border-cyan-400 hover:bg-cyan-50/50") rounded-xl p-8 text-center transition-colors">
+                                    @if (isSelectingIdFile)
+                                    {
+                                        <div class="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center mx-auto mb-3">
+                                            <div class="animate-spin rounded-full h-6 w-6 border-2 border-cyan-600 border-t-transparent"></div>
+                                        </div>
+                                        <span class="text-sm font-medium text-cyan-700">Reading file...</span>
+                                        <span class="text-xs text-cyan-600 block mt-1">Please wait</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                                            <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm font-medium text-slate-700">Click to upload ID document</span>
+                                        <span class="text-xs text-slate-500 block mt-1">JPEG, PNG, or PDF up to 5MB</span>
+                                    }
                                 </div>
-                                <InputFile OnChange="OnIdFileSelected" accept=".jpg,.jpeg,.png,.pdf" class="hidden" />
+                                <InputFile OnChange="OnIdFileSelected" accept=".jpg,.jpeg,.png,.pdf" class="hidden" disabled="@isSelectingIdFile" />
                             </label>
                         }
                         else
@@ -1649,24 +1681,35 @@ else
                         @if (!formData.HasPhoto)
                         {
                             <!-- Upload Area -->
-                            <label class="block cursor-pointer @(!formData.IdValidated && !formData.NiqabBypassApproved ? "opacity-60 pointer-events-none" : "")">
-                                <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-cyan-400 hover:bg-cyan-50/50 transition-colors">
-                                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                                        <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                    @if (!formData.IdValidated && !formData.NiqabBypassApproved)
+                            <label class="block @(isSelectingPhotoFile ? "pointer-events-none" : (!formData.IdValidated && !formData.NiqabBypassApproved ? "opacity-60 pointer-events-none" : "cursor-pointer"))">
+                                <div class="border-2 border-dashed @(isSelectingPhotoFile ? "border-cyan-400 bg-cyan-50" : "border-slate-300 hover:border-cyan-400 hover:bg-cyan-50/50") rounded-xl p-8 text-center transition-colors">
+                                    @if (isSelectingPhotoFile)
                                     {
-                                        <span class="text-sm font-medium text-slate-500">Please upload ID document first</span>
+                                        <div class="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center mx-auto mb-3">
+                                            <div class="animate-spin rounded-full h-6 w-6 border-2 border-cyan-600 border-t-transparent"></div>
+                                        </div>
+                                        <span class="text-sm font-medium text-cyan-700">Reading file...</span>
+                                        <span class="text-xs text-cyan-600 block mt-1">Please wait</span>
                                     }
                                     else
                                     {
-                                        <span class="text-sm font-medium text-slate-700">Click to upload photo</span>
-                                        <span class="text-xs text-slate-500 block mt-1">JPEG or PNG up to 5MB</span>
+                                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                                            <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        @if (!formData.IdValidated && !formData.NiqabBypassApproved)
+                                        {
+                                            <span class="text-sm font-medium text-slate-500">Please upload ID document first</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm font-medium text-slate-700">Click to upload photo</span>
+                                            <span class="text-xs text-slate-500 block mt-1">JPEG or PNG up to 5MB</span>
+                                        }
                                     }
                                 </div>
-                                <InputFile OnChange="OnPhotoFileSelected" accept=".jpg,.jpeg,.png" class="hidden" disabled="@(!formData.IdValidated && !formData.NiqabBypassApproved)" />
+                                <InputFile OnChange="OnPhotoFileSelected" accept=".jpg,.jpeg,.png" class="hidden" disabled="@(isSelectingPhotoFile || (!formData.IdValidated && !formData.NiqabBypassApproved))" />
                             </label>
                         }
                         else
