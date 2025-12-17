@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using RegistrationSystem.Core.Application.Auditing;
+using RegistrationSystem.Core.Application.Azure;
 using RegistrationSystem.Core.Application.Consents;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
@@ -41,15 +42,28 @@ builder.Services.AddHttpContextAccessor();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        // Keep disconnected circuits alive longer (default is 3 minutes)
+        // This gives mobile users more time to find files, switch apps, etc.
+        options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(10);
+
+        // Maximum number of disconnected circuits to retain (default is 100)
+        options.DisconnectedCircuitMaxRetained = 100;
+
+        // Detailed errors in development (already default in dev)
+        options.DetailedErrors = builder.Environment.IsDevelopment();
+    }); ;
 
 // Add Core application services
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ConsentService>();
+builder.Services.AddScoped<VideoUploadService>();
 
 // Add Web services
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<FormDraftService>();
 
 // Add Infrastructure (Mongo, repos)
 builder.Services.AddInfrastructure(builder.Configuration);

@@ -162,4 +162,70 @@ public class BlobSasService
             return false;
         }
     }
+
+    /// <summary>
+    /// Generates a time-limited SAS URI for writing (uploading) a blob.
+    /// Used for direct browser-to-Azure uploads, bypassing the server.
+    /// </summary>
+    /// <param name="containerName">The container name.</param>
+    /// <param name="blobName">The blob name (storage reference).</param>
+    /// <param name="contentType">The expected content type of the upload.</param>
+    /// <param name="expiresInMinutes">How long the URL should be valid (default 30 minutes).</param>
+    /// <returns>A signed URL for uploading the blob, or null if generation fails.</returns>
+    public string? GenerateWriteSasUri(
+        string containerName,
+        string blobName,
+        string contentType,
+        int expiresInMinutes = 30)
+    {
+        if (string.IsNullOrWhiteSpace(containerName) || string.IsNullOrWhiteSpace(blobName))
+            return null;
+
+        try
+        {
+            var sasBuilder = new BlobSasBuilder
+            {
+                BlobContainerName = containerName,
+                BlobName = blobName,
+                Resource = "b", // blob
+                StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5), // Allow for clock skew
+                ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes),
+                ContentType = contentType
+            };
+
+            // Grant Create and Write permissions for upload
+            sasBuilder.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
+
+            var sasToken = sasBuilder.ToSasQueryParameters(_credential);
+
+            var uriBuilder = new UriBuilder
+            {
+                Scheme = "https",
+                Host = $"{_options.AccountName}.blob.core.windows.net",
+                Path = $"{containerName}/{blobName}",
+                Query = sasToken.ToString()
+            };
+
+            return uriBuilder.Uri.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Ensures a container exists, creating it if necessary.
+    /// Must be called before generating a write SAS for a new container.
+    /// </summary>
+    public async Task EnsureContainerExistsAsync(
+        string containerName,
+        CancellationToken cancellationToken = default)
+    {
+        var blobServiceClient = new BlobServiceClient(_options.ConnectionString);
+        var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+        await containerClient.CreateIfNotExistsAsync(
+            global::Azure.Storage.Blobs.Models.PublicAccessType.None,
+            cancellationToken: cancellationToken);
+    }
 }

@@ -1,8 +1,10 @@
 ﻿@page "/register/new"
 @attribute [Authorize]
 
+@using System.Threading
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 @using RegistrationSystem.Core.Application.Auditing
 @using RegistrationSystem.Core.Application.Azure
 @using RegistrationSystem.Core.Application.NiqabBypasses
@@ -22,6 +24,11 @@
 @inject NiqabBypassService NiqabBypassService
 @inject IAuditService AuditService
 @inject BlazorAuditContextProvider AuditContextProvider
+@inject FormDraftService FormDraftService
+@inject VideoUploadService VideoUploadService
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
 
 <PageTitle>New Registration</PageTitle>
 
@@ -69,6 +76,56 @@ else
                 <p class="text-sm text-slate-500">@settings?.CompetitionInfo?.CompetitionName — @competitionYear</p>
             </div>
         </div>
+
+        <!-- Draft Recovery Banner -->
+        @if (showDraftRecoveryBanner)
+        {
+            <div class="rounded-xl border border-cyan-200 bg-cyan-50 p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-semibold text-cyan-900">Draft Restored</h3>
+                        <p class="text-sm text-cyan-700 mt-0.5">
+                            We recovered your previous progress. Your form data has been restored.
+                            @if (draftFilesNeedReupload)
+                            {
+                                <span class="font-medium"> Note: You'll need to re-select your ID and photo files.</span>
+                            }
+                        </p>
+                    </div>
+                    <button @onclick="DismissDraftBanner" class="p-1 rounded-lg text-cyan-600 hover:bg-cyan-100 transition-colors">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- Auto-save Indicator -->
+        @if (isSavingDraft)
+        {
+            <div class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-lg bg-slate-800 text-white px-3 py-2 text-sm shadow-lg">
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Saving draft...
+            </div>
+        }
+        @if (showDraftSavedIndicator)
+        {
+            <div class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm shadow-lg">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Draft saved
+            </div>
+        }
 
         <!-- Main Layout: Form + Side Panel -->
         <div class="flex gap-6">
@@ -199,6 +256,21 @@ else
     private Country? selectedCountry;
     private IReadOnlyList<StateProvince> availableStates = Array.Empty<StateProvince>();
 
+    // Draft persistence state
+    private bool showDraftRecoveryBanner = false;
+    private bool draftFilesNeedReupload = false;
+    private bool isSavingDraft = false;
+    private bool showDraftSavedIndicator = false;
+    private Timer? draftSaveTimer;
+    private bool draftRestoreAttempted = false;
+    private const int DraftSaveDebounceMs = 2000; // Save after 2 seconds of inactivity
+
+    // Direct upload state
+    private string? currentUploadId;
+    private string? pendingBlobUri;
+    private DotNetObjectReference<RegistrationForm>? uploadDotNetRef;
+    private bool videoInputInitialized = false;
+
     protected override async Task OnInitializedAsync()
     {
         isLoading = true;
@@ -226,6 +298,296 @@ else
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Draft restore
+        if (firstRender && !draftRestoreAttempted && !string.IsNullOrEmpty(currentUserId))
+        {
+            draftRestoreAttempted = true;
+            await TryRestoreDraftAsync();
+
+            // Check for video upload that completed during a disconnect
+            await CheckForPendingVideoUploadAsync();
+        }
+
+        // Initialize video input - only when on step 3, category requires video, and not yet initialized
+        if (currentStep == 3 && !videoInputInitialized)
+        {
+            var category = GetSelectedCategory();
+            if (category?.RequiresVideo == true && !formData.VideoUploaded)
+            {
+                await InitializeVideoInput();
+            }
+        }
+    }
+
+    private async Task InitializeVideoInput()
+    {
+        try
+        {
+            uploadDotNetRef?.Dispose();
+            uploadDotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("directUpload.initializeInput", "video-upload-input", uploadDotNetRef);
+            // Only set to true AFTER successful JS call
+            videoInputInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to initialize video input: {ex.Message}");
+            // Don't set videoInputInitialized - will retry on next render
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DRAFT PERSISTENCE METHODS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task TryRestoreDraftAsync()
+    {
+        try
+        {
+            var draft = await FormDraftService.RestoreDraftAsync<RegistrationFormDraft>(currentUserId);
+
+            if (draft == null || draft.IsStale(maxAgeHours: 24))
+            {
+                // No draft or stale draft - clear it
+                if (draft != null)
+                    await FormDraftService.ClearDraftAsync(currentUserId);
+                return;
+            }
+
+            // Restore form data from draft
+            RestoreFormDataFromDraft(draft);
+
+            // Check if files need re-upload
+            draftFilesNeedReupload = string.IsNullOrEmpty(draft.IdDocumentTempBlobName) ||
+                                     string.IsNullOrEmpty(draft.PhotoTempBlobName);
+
+            // Show recovery banner
+            showDraftRecoveryBanner = true;
+
+            // Restore categories if division was selected
+            if (!string.IsNullOrEmpty(formData.DivisionId))
+            {
+                await LoadCategoriesAsync();
+            }
+
+            // Restore country/state selection
+            if (!string.IsNullOrEmpty(formData.Country))
+            {
+                selectedCountry = LocationData.GetCountryByName(formData.Country);
+                availableStates = selectedCountry?.StatesProvinces ?? Array.Empty<StateProvince>();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail - draft restore is best-effort
+            Console.WriteLine($"Draft restore failed: {ex.Message}");
+        }
+    }
+
+    private void RestoreFormDataFromDraft(RegistrationFormDraft draft)
+    {
+        formData.FirstName = draft.FirstName;
+        formData.MiddleName = draft.MiddleName;
+        formData.LastName = draft.LastName;
+        formData.PreferredName = draft.PreferredName;
+        formData.Gender = (Gender)draft.Gender;
+        formData.DateOfBirth = !string.IsNullOrEmpty(draft.DateOfBirth)
+            ? DateOnly.Parse(draft.DateOfBirth)
+            : default;
+        formData.CompetitorPhone = draft.CompetitorPhone;
+
+        formData.Country = draft.Country;
+        formData.StateProvince = draft.StateProvince;
+        formData.City = draft.City;
+
+        formData.DivisionId = draft.DivisionId;
+        formData.CategoryId = draft.CategoryId;
+        formData.PortionChoice = draft.PortionChoice.HasValue ? (PortionChoice)draft.PortionChoice.Value : null;
+
+        formData.ParentFirstName = draft.ParentFirstName;
+        formData.ParentLastName = draft.ParentLastName;
+        formData.ParentPhone = draft.ParentPhone;
+
+        formData.TeacherFirstName = draft.TeacherFirstName;
+        formData.TeacherLastName = draft.TeacherLastName;
+        formData.TeacherPhone = draft.TeacherPhone;
+        formData.TeacherInstitution = draft.TeacherInstitution;
+
+        formData.NiqabBypassApproved = draft.NiqabBypassApproved;
+        formData.NiqabBypassCode = draft.NiqabBypassCode;
+
+        // File metadata (bytes need re-upload but metadata helps UX)
+        formData.IdDocumentFileName = draft.IdDocumentFileName;
+        formData.IdDocumentContentType = draft.IdDocumentContentType;
+        formData.IdDocumentSize = draft.IdDocumentSize;
+        formData.IdValidated = false; // Need to re-validate
+
+        formData.PhotoFileName = draft.PhotoFileName;
+        formData.PhotoContentType = draft.PhotoContentType;
+        formData.PhotoSize = draft.PhotoSize;
+        formData.PhotoValidated = false; // Need to re-validate
+
+        // Video is already in Azure, can be restored
+        formData.VideoBlobName = draft.VideoBlobName;
+        formData.VideoBlobUri = draft.VideoBlobUri;
+        formData.VideoFileName = draft.VideoFileName;
+        formData.VideoContentType = draft.VideoContentType;
+        formData.VideoSize = draft.VideoSize;
+        formData.VideoValidated = draft.VideoValidated;
+        formData.VideoUploaded = draft.VideoUploaded;
+
+        // Restore step
+        currentStep = draft.CurrentStep;
+    }
+
+    private void ScheduleDraftSave()
+    {
+        // Cancel any pending save
+        draftSaveTimer?.Dispose();
+
+        // Schedule a new save after debounce period
+        draftSaveTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await SaveDraftAsync();
+            });
+        }, null, DraftSaveDebounceMs, Timeout.Infinite);
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        try
+        {
+            isSavingDraft = true;
+            StateHasChanged();
+
+            var draft = CreateDraftFromFormData();
+            await FormDraftService.SaveDraftAsync(currentUserId, draft);
+
+            isSavingDraft = false;
+            showDraftSavedIndicator = true;
+            StateHasChanged();
+
+            // Hide the saved indicator after 2 seconds
+            await Task.Delay(2000);
+            showDraftSavedIndicator = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            isSavingDraft = false;
+            StateHasChanged();
+        }
+    }
+
+    private RegistrationFormDraft CreateDraftFromFormData()
+    {
+        return new RegistrationFormDraft
+        {
+            FirstName = formData.FirstName,
+            MiddleName = formData.MiddleName,
+            LastName = formData.LastName,
+            PreferredName = formData.PreferredName,
+            Gender = (int)formData.Gender,
+            DateOfBirth = formData.DateOfBirth != default
+                ? formData.DateOfBirth.ToString("O")
+                : null,
+            CompetitorPhone = formData.CompetitorPhone,
+
+            Country = formData.Country,
+            StateProvince = formData.StateProvince,
+            City = formData.City,
+
+            DivisionId = formData.DivisionId,
+            CategoryId = formData.CategoryId,
+            PortionChoice = formData.PortionChoice.HasValue ? (int)formData.PortionChoice.Value : null,
+
+            ParentFirstName = formData.ParentFirstName,
+            ParentLastName = formData.ParentLastName,
+            ParentPhone = formData.ParentPhone,
+
+            TeacherFirstName = formData.TeacherFirstName,
+            TeacherLastName = formData.TeacherLastName,
+            TeacherPhone = formData.TeacherPhone,
+            TeacherInstitution = formData.TeacherInstitution,
+
+            NiqabBypassApproved = formData.NiqabBypassApproved,
+            NiqabBypassCode = formData.NiqabBypassCode,
+
+            // File metadata
+            IdDocumentFileName = formData.IdDocumentFileName,
+            IdDocumentContentType = formData.IdDocumentContentType,
+            IdDocumentSize = formData.IdDocumentSize,
+            IdValidated = formData.IdValidated,
+
+            PhotoFileName = formData.PhotoFileName,
+            PhotoContentType = formData.PhotoContentType,
+            PhotoSize = formData.PhotoSize,
+            PhotoValidated = formData.PhotoValidated,
+
+            VideoBlobName = formData.VideoBlobName,
+            VideoBlobUri = formData.VideoBlobUri,
+            VideoFileName = formData.VideoFileName,
+            VideoContentType = formData.VideoContentType,
+            VideoSize = formData.VideoSize,
+            VideoValidated = formData.VideoValidated,
+            VideoUploaded = formData.VideoUploaded,
+
+            CurrentStep = currentStep,
+            SavedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    private void DismissDraftBanner()
+    {
+        showDraftRecoveryBanner = false;
+    }
+
+    private async Task ClearDraftAndStartFresh()
+    {
+        await FormDraftService.ClearDraftAsync(currentUserId);
+        formData = new RegistrationFormData();
+        currentStep = 1;
+        showDraftRecoveryBanner = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        draftSaveTimer?.Dispose();
+
+        // Cleanup video upload JS
+        uploadDotNetRef?.Dispose();
+        try
+        {
+            await JS.InvokeVoidAsync("directUpload.dispose");
+        }
+        catch { /* Component disposing, ignore JS errors */ }
+
+
+        // Final save before dispose (if there's meaningful data)
+        if (!string.IsNullOrEmpty(currentUserId) &&
+            (!string.IsNullOrEmpty(formData.FirstName) || !string.IsNullOrEmpty(formData.LastName)))
+        {
+            try
+            {
+                var draft = CreateDraftFromFormData();
+                await FormDraftService.SaveDraftAsync(currentUserId, draft);
+            }
+            catch
+            {
+                // Best effort - component is being disposed
+            }
+        }
+    }
+
     private async Task LoadCategoriesAsync()
     {
         if (string.IsNullOrEmpty(formData.DivisionId))
@@ -245,6 +607,7 @@ else
         {
             validationErrors.Clear();
             currentStep = step;
+            ScheduleDraftSave();
         }
     }
 
@@ -270,6 +633,7 @@ else
         if (currentStep < totalSteps)
         {
             currentStep++;
+            ScheduleDraftSave();
         }
     }
 
@@ -683,7 +1047,11 @@ else
                     // Don't fail the submission if audit logging fails
                 }
 
+                // Clear the draft after successful submission
+                await FormDraftService.ClearDraftAsync(currentUserId);
+
                 NavigationManager.NavigateTo("/registrations");
+                await JS.InvokeVoidAsync("directUpload.clearState");
             }
             else
             {
@@ -718,10 +1086,12 @@ else
         formData.CategoryId = string.Empty;
         formData.PortionChoice = null;
 
-        // Clear video when division changes (category will change)
-        ClearVideoFile();
+        // Clear video when division changes
+        ClearVideoFileAsync();
+        videoInputInitialized = false; // ADD THIS LINE
 
         await LoadCategoriesAsync();
+        ScheduleDraftSave();
     }
 
     private void OnCategoryChanged(ChangeEventArgs e)
@@ -729,8 +1099,12 @@ else
         formData.CategoryId = e.Value?.ToString() ?? string.Empty;
         formData.PortionChoice = null;
 
-        // Clear video when category changes (requirement may change)
-        ClearVideoFile();
+        // Clear video when category changes
+        ClearVideoFileAsync();
+        videoInputInitialized = false; // ADD THIS LINE
+        ScheduleDraftSave();
+
+        StateHasChanged(); // ADD THIS - triggers OnAfterRenderAsync to re-initialize
     }
 
     private void OnCountryChanged(ChangeEventArgs e)
@@ -744,11 +1118,13 @@ else
             : null;
 
         availableStates = selectedCountry?.StatesProvinces ?? Array.Empty<StateProvince>();
+        ScheduleDraftSave();
     }
 
     private void OnStateChanged(ChangeEventArgs e)
     {
         formData.StateProvince = e.Value?.ToString() ?? string.Empty;
+        ScheduleDraftSave();
     }
 
     private void OnDateOfBirthChanged(ChangeEventArgs e)
@@ -758,6 +1134,7 @@ else
             formData.DateOfBirth = date;
             // Refresh categories when DOB changes (age eligibility)
             _ = LoadCategoriesAsync();
+            ScheduleDraftSave();
         }
     }
 
@@ -940,6 +1317,7 @@ else
         finally
         {
             isValidatingId = false;
+            ScheduleDraftSave();
             StateHasChanged();
         }
     }
@@ -1034,6 +1412,7 @@ else
         finally
         {
             isValidatingPhoto = false;
+            ScheduleDraftSave();
             StateHasChanged();
         }
     }
@@ -1069,123 +1448,161 @@ else
     // VIDEO UPLOAD METHODS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private async Task OnVideoFileSelected(InputFileChangeEventArgs e)
+    
+    [JSInvokable]
+    public async Task OnFileSelected(VideoFileInfo fileInfo)
     {
-        var file = e.File;
-        if (file == null) return;
-
         // Reset state
         videoValidationError = null;
         videoUploadSuccess = null;
         videoUploadProgress = 0;
         formData.VideoValidated = false;
         formData.VideoUploaded = false;
-        formData.VideoFileName = file.Name;
-        formData.VideoContentType = file.ContentType;
-        formData.VideoSize = file.Size;
         formData.VideoBlobUri = null;
         formData.VideoBlobName = null;
 
+        if (fileInfo == null)
+        {
+            videoValidationError = "No file selected";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        formData.VideoFileName = fileInfo.Name;
+        formData.VideoContentType = string.IsNullOrEmpty(fileInfo.Type) ? "video/mp4" : fileInfo.Type;
+        formData.VideoSize = fileInfo.Size;
+
         // Validate file before upload
-        var validationResult = FileValidationService.ValidateVideo(file.Name, file.Size, file.ContentType);
+        var validationResult = FileValidationService.ValidateVideo(fileInfo.Name, fileInfo.Size, formData.VideoContentType);
         if (!validationResult.IsValid)
         {
             videoValidationError = validationResult.ErrorSummary;
             formData.VideoFileName = null;
-            StateHasChanged();
+            await JS.InvokeVoidAsync("directUpload.clearInput", "video-upload-input");
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
         formData.VideoValidated = true;
 
-        // Cancel any previous upload
-        videoUploadCts?.Cancel();
-        videoUploadCts = new CancellationTokenSource();
+        // Get division for container naming
+        var selectedDivision = availableDivisions.FirstOrDefault(d => d.Id == formData.DivisionId);
+        var divisionName = selectedDivision?.Name ?? "unknown";
 
-        // CRITICAL: Open the stream BEFORE any StateHasChanged() call
-        // IBrowserFile references become stale after StateHasChanged in Blazor Server
-        Stream? stream = null;
-        try
+        // Prepare upload - generates SAS URL (server-side)
+        var prepareResult = await VideoUploadService.PrepareUploadAsync(
+            competitionYear,
+            divisionName,
+            fileInfo.Name,
+            formData.VideoContentType);
+
+        if (!prepareResult.IsSuccess)
         {
-            stream = file.OpenReadStream(maxAllowedSize: FileValidationService.MaxVideoSize);
-        }
-        catch (Exception)
-        {
-            videoValidationError = "Error reading file. Please try again or contact administrator.";
+            videoValidationError = prepareResult.Error ?? "Failed to prepare upload";
             formData.VideoFileName = null;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
-        // NOW we can update UI
+        // Store blob info for completion
+        currentUploadId = Guid.NewGuid().ToString();
+        formData.VideoBlobName = prepareResult.BlobName;
+        pendingBlobUri = prepareResult.BlobUri;
+
+        // Show uploading state
         isUploadingVideo = true;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
 
-        try
-        {
-            // Get division name for container
-            var selectedDivision = availableDivisions.FirstOrDefault(d => d.Id == formData.DivisionId);
-            var divisionName = selectedDivision?.Name ?? "unknown";
-
-            // Generate container and blob names
-            var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Video);
-            var blobName = BlobStorageService.GenerateVideoBlobName(divisionName, Path.GetExtension(file.Name));
-
-            formData.VideoBlobName = blobName;
-
-            // Create progress handler
-            var progress = new Progress<long>(bytesUploaded =>
-            {
-                if (file.Size > 0)
-                {
-                    videoUploadProgress = (int)((bytesUploaded * 100) / file.Size);
-                    InvokeAsync(StateHasChanged);
-                }
-            });
-
-            // Stream upload directly to Azure
-            var blobUri = await BlobStorageService.UploadWithProgressAsync(
-                stream,
-                file.Size,
-                containerName,
-                blobName,
-                file.ContentType,
-                progress,
-                videoUploadCts.Token);
-
-            formData.VideoBlobUri = blobUri;
-            formData.VideoUploaded = true;
-            videoUploadProgress = 100;
-            videoUploadSuccess = $"Video uploaded successfully ({FormatFileSize(file.Size)}).";
-        }
-        catch (OperationCanceledException)
-        {
-            ClearVideoFile(clearError: false);
-            videoValidationError = "Upload was cancelled.";
-        }
-        catch (Exception)
-        {
-            ClearVideoFile(clearError: false);
-            videoValidationError = "Error detected. Please try again or contact administrator.";
-        }
-        finally
-        {
-            // Always dispose the stream
-            if (stream != null)
-            {
-                await stream.DisposeAsync();
-            }
-            isUploadingVideo = false;
-            StateHasChanged();
-        }
+        // Start direct upload via JavaScript
+        // NOW PASSING blobUri and blobName for localStorage persistence
+        await JS.InvokeVoidAsync(
+            "directUpload.startUpload",
+            currentUploadId,
+            prepareResult.SasUrl,
+            formData.VideoContentType,
+            prepareResult.BlobUri,    // NEW: for localStorage
+            prepareResult.BlobName);  // NEW: for localStorage
     }
 
-    private void CancelVideoUpload()
+
+    [JSInvokable]
+    public async Task OnUploadProgress(int percent, long uploaded, long total)
     {
-        videoUploadCts?.Cancel();
+        videoUploadProgress = percent;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ClearVideoFile(bool clearError = true)
+    [JSInvokable]
+    public async Task OnUploadComplete(bool success, string message)
+    {
+        isUploadingVideo = false;
+
+        if (success)
+        {
+            formData.VideoUploaded = true;
+            formData.VideoBlobUri = pendingBlobUri;
+            videoUploadProgress = 100;
+            videoUploadSuccess = $"Video uploaded successfully ({FormatFileSize(formData.VideoSize)}).";
+        }
+        else
+        {
+            ClearVideoFileAsync(clearError: false);
+            videoValidationError = string.IsNullOrEmpty(message) ? "Upload failed" : message;
+        }
+
+        ScheduleDraftSave();
+        await InvokeAsync(StateHasChanged);
+
+        currentUploadId = null;
+        pendingBlobUri = null;
+    }
+
+    [JSInvokable]
+    public async Task OnUploadError(string error)
+    {
+        isUploadingVideo = false;
+        ClearVideoFileAsync(clearError: false);
+        videoValidationError = error;
+
+        await InvokeAsync(StateHasChanged);
+
+        currentUploadId = null;
+        pendingBlobUri = null;
+    }
+
+    [JSInvokable]
+    public async Task OnUploadCancelled()
+    {
+        isUploadingVideo = false;
+        ClearVideoFileAsync(clearError: false);
+        videoValidationError = "Upload was cancelled.";
+
+        await InvokeAsync(StateHasChanged);
+
+        currentUploadId = null;
+        pendingBlobUri = null;
+    }
+
+
+
+
+    private async Task CancelVideoUpload()
+    {
+        if (!string.IsNullOrEmpty(currentUploadId))
+        {
+            await JS.InvokeVoidAsync("directUpload.cancelUpload", currentUploadId);
+        }
+    }
+
+    public class VideoFileInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public long LastModified { get; set; }
+    }
+
+    private async Task ClearVideoFileAsync(bool clearError = true)
     {
         // Cancel any in-progress upload
         videoUploadCts?.Cancel();
@@ -1204,6 +1621,13 @@ else
         {
             videoValidationError = null;
         }
+
+        // Clear localStorage state
+        try
+        {
+            await JS.InvokeVoidAsync("directUpload.clearState");
+        }
+        catch { /* Ignore JS errors during cleanup */ }
     }
 
     private bool IsVideoRequiredForSelectedCategory()
@@ -1253,6 +1677,54 @@ else
             // Silently ignore errors - bypass is optional
         }
     }
+
+    public class PendingVideoUpload
+    {
+        public string BlobUri { get; set; } = string.Empty;
+        public string BlobName { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public string ContentType { get; set; } = string.Empty;
+        public long CompletedAt { get; set; }
+    }
+
+    private async Task CheckForPendingVideoUploadAsync()
+    {
+        try
+        {
+            var pending = await JS.InvokeAsync<PendingVideoUpload?>("directUpload.checkPendingUpload");
+
+            if (pending != null && !string.IsNullOrEmpty(pending.BlobUri))
+            {
+                // Restore the completed upload
+                formData.VideoBlobUri = pending.BlobUri;
+                formData.VideoBlobName = pending.BlobName;
+                formData.VideoFileName = pending.FileName;
+                formData.VideoSize = pending.FileSize;
+                formData.VideoContentType = pending.ContentType;
+                formData.VideoValidated = true;
+                formData.VideoUploaded = true;
+
+                videoUploadSuccess = $"Video restored ({FormatFileSize(pending.FileSize)}) - upload completed while disconnected.";
+                videoUploadProgress = 100;
+
+                Console.WriteLine($"[VideoUpload] Restored completed upload: {pending.FileName}");
+
+                // Clear the pending state now that we've restored it
+                await JS.InvokeVoidAsync("directUpload.clearState");
+
+                ScheduleDraftSave();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VideoUpload] Error checking pending upload: {ex.Message}");
+        }
+    }
+
+
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INFO PANEL (Right side)
@@ -2023,9 +2495,17 @@ else
                                 <div class="space-y-3">
                                     <label class="block">
                                         <div class="rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center cursor-pointer hover:border-cyan-400 hover:bg-cyan-50/50 transition-all">
-                                            <InputFile OnChange="OnVideoFileSelected"
-                                                       accept="@FileValidationService.AllowedVideoExtensionsString"
-                                                       class="hidden" />
+                                            <input type="file"
+                                                   id="video-upload-input"
+                                                   accept="video/*"
+                                                   disabled="@(isUploadingVideo || string.IsNullOrEmpty(formData.DivisionId))"
+                                                   class="block w-full text-sm text-slate-500
+                                                                          file:mr-4 file:py-2 file:px-4
+                                                                          file:rounded-lg file:border-0
+                                                                          file:text-sm file:font-medium
+                                                                          file:bg-cyan-50 file:text-cyan-700
+                                                                          hover:file:bg-cyan-100
+                                                                          disabled:opacity-50 disabled:cursor-not-allowed" />
                                             <svg class="h-10 w-10 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                             </svg>
@@ -2073,7 +2553,7 @@ else
                                             <p class="text-sm text-emerald-700 truncate">@formData.VideoFileName</p>
                                             <p class="text-xs text-emerald-600 mt-1">@FormatFileSize(formData.VideoSize)</p>
                                         </div>
-                                        <button type="button" @onclick="() => ClearVideoFile()"
+                                        <button type="button" @onclick="() => ClearVideoFileAsync()"
                                                 class="text-slate-400 hover:text-red-500 transition-colors p-1"
                                                 title="Remove video">
                                             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
