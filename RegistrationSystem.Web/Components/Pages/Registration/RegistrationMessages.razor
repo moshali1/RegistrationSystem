@@ -1,0 +1,421 @@
+﻿@page "/registration/{RegistrationId}/messages"
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.CompetitionRounds
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.CompetitionRounds
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+
+@inject RegistrationService RegistrationService
+@inject CompetitionRoundService CompetitionRoundService
+@inject SettingsService SettingsService
+@inject CurrentUserService CurrentUserService
+@inject NavigationManager NavigationManager
+@inject IAuthorizationService AuthorizationService
+
+<PageTitle>Competition Messages</PageTitle>
+
+<div class="max-w-4xl mx-auto">
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-16">
+            <div class="flex flex-col items-center gap-3">
+                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+                <span class="text-sm text-slate-500">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (registration == null)
+    {
+        <div class="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+            <p class="text-red-700">Registration not found.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Back Button -->
+        <div class="mb-6">
+            <a href="/registrations" class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Registrations
+            </a>
+        </div>
+
+        <!-- Header -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-slate-800">Competition Messages</h1>
+            <p class="text-sm text-slate-500 mt-1">@registration.PersonalInfo.FullName</p>
+        </div>
+
+        @if (competitionRound == null)
+        {
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+                <p class="text-slate-600">No messages at this time.</p>
+            </div>
+        }
+        else
+        {
+            <!-- Video Qualification Failed -->
+            @if (competitionRound.VideoQualification == VideoQualificationStatus.Fail)
+            {
+                <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <h2 class="text-base font-semibold text-slate-800 mb-2">Video Upload Result</h2>
+                    <p class="text-sm text-slate-700 mb-2">Unfortunately, you have not qualified for the next competition rounds. May Allah reward you for your efforts.</p>
+                    <p class="text-sm text-slate-700 mb-2">We encourage you to keep practicing and memorizing the Quran for future opportunities. Your dedication is appreciated and valued.</p>
+                    <p class="text-sm text-slate-700">Thank you for your efforts and dedication towards the Quran. May Allah reward the teachers, parents, and students who put in the effort. <strong>JazakAllahu Khayran.</strong></p>
+                    @if (!string.IsNullOrEmpty(competitionRound.VideoQualificationComment))
+                    {
+                        <div class="mt-3 rounded bg-slate-100 border border-slate-200 p-2">
+                            <p class="text-xs font-medium text-slate-600">Note from Organizers:</p>
+                            <p class="text-sm text-slate-700">@competitionRound.VideoQualificationComment</p>
+                        </div>
+                    }
+                </div>
+            }
+            <!-- Video Qualification Passed -->
+            else if (competitionRound.VideoQualification == VideoQualificationStatus.Pass)
+            {
+                <!-- Preliminary Round Did Not Pass (IsAttended = false) -->
+                @if (competitionRound.HasPreliminaryRound && competitionRound.IsAttended == false)
+                {
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                        <h2 class="text-base font-semibold text-slate-800 mb-2">Preliminary Round Result</h2>
+                        <p class="text-sm text-slate-700 mb-2">Unfortunately, you have not qualified for the Final Round of the @settings?.CompetitionInfo?.CompetitionName.</p>
+                        <p class="text-sm text-slate-700 mb-2">We sincerely appreciate your participation in the Preliminary Round and commend your dedication to memorizing the Quran. May Allah reward you for your efforts and commitment.</p>
+                        <p class="text-sm text-slate-700 mb-2">We encourage you to continue your memorization journey and look forward to seeing you in future competitions, insha'Allah.</p>
+                        <p class="text-sm text-slate-700">Thank you for your efforts and dedication towards the Quran. May Allah reward the teachers, parents, and students who put in the effort. <strong>JazakAllahu Khayran.</strong></p>
+                    </div>
+                }
+                <!-- Preliminary Round Passed (IsAttended = true) - Show Final Round Info -->
+                else if (competitionRound.HasPreliminaryRound && competitionRound.IsAttended == true && competitionRound.HasFinalRound)
+                {
+                    <!-- Congratulations Message -->
+                    <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 mb-4">
+                        <h2 class="text-base font-semibold text-slate-800 mb-2">Masha'Allah! Congratulations, @registration.PersonalInfo.FirstName! 🎉</h2>
+                        <p class="text-sm text-slate-700 mb-2">You have successfully advanced to the <strong>Final Round</strong> of the @settings?.CompetitionInfo?.CompetitionName.</p>
+                        <p class="text-sm text-slate-700">Your dedication, hard work, and mastery of Quranic memorization have brought you to this momentous stage. May Allah continue to bless you, your teachers, and your family for their unwavering support. <strong>JazakAllahu Khayran.</strong></p>
+                    </div>
+
+                    <!-- Final Round Details Card -->
+                    <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div class="bg-slate-800 px-4 py-3">
+                            <h3 class="text-base font-semibold text-white">Final Round Details</h3>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- Date & Time -->
+                            <div>
+                                <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Competition Date & Time</p>
+                                @{
+                                    var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+                                    var finalCentralTime = competitionRound.FinalRoundDateTime.HasValue
+                                    ? TimeZoneInfo.ConvertTimeFromUtc(competitionRound.FinalRoundDateTime.Value.UtcDateTime, centralZone)
+                                    : (DateTime?)null;
+                                }
+                                <p class="text-base font-semibold text-slate-800">@finalCentralTime?.ToString("dddd, MMMM d, yyyy")</p>
+                                <p class="text-sm text-slate-600">@finalCentralTime?.ToString("h:mm tt") CT</p>
+                            </div>
+
+                            <!-- Location -->
+                            <div>
+                                <p class="text-xs font-semibold text-slate-600 uppercase mb-1">Location - In Person</p>
+                                <p class="text-sm font-semibold text-slate-800">Karmel Community Prayer Center (3rd Floor)</p>
+                                <p class="text-sm text-slate-600">2910 Pillsbury Ave, Minneapolis, MN 55408</p>
+                                <a href="https://maps.google.com/?q=2910+Pillsbury+Ave,+Minneapolis,+MN+55408"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800 mt-1">
+                                    Get Directions →
+                                </a>
+                            </div>
+
+                            <!-- Critical Warnings -->
+                            <div class="border-t border-slate-200 pt-4">
+                                <p class="text-xs font-semibold text-slate-800 uppercase mb-2">⚠️ Important - Please Read</p>
+
+                                <div class="space-y-2">
+                                    <div class="rounded bg-red-50 border border-red-200 p-3">
+                                        <p class="text-xs font-semibold text-red-900 mb-1">STRICT TIMING - NO EXCEPTIONS</p>
+                                        <p class="text-sm text-red-800">The Final Round takes place during Ramadan with strict scheduling. There are <strong>NO opportunities to postpone or reschedule</strong> if you miss your time slot. Plan accordingly and arrive early.</p>
+                                    </div>
+
+                                    <div class="rounded bg-amber-50 border border-amber-200 p-3">
+                                        <p class="text-xs font-semibold text-amber-900 mb-1">OUT-OF-STATE PARTICIPANTS</p>
+                                        <p class="text-sm text-amber-800">If traveling from outside Minnesota, <strong>arrive the night before</strong> to avoid delays from flight cancellations, traffic, or weather. We cannot accommodate last-minute travel issues.</p>
+                                    </div>
+
+                                    <div class="rounded bg-blue-50 border border-blue-200 p-3">
+                                        <p class="text-xs font-semibold text-blue-900 mb-1">AWARD CEREMONY</p>
+                                        <p class="text-sm text-blue-800">The Award Ceremony will be held on <strong>Saturday, February 28th</strong> after Isha Prayer at the same location. All finalists and their families are invited to attend.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Competition Day Instructions -->
+                            <div class="border-t border-slate-200 pt-4">
+                                <p class="text-xs font-semibold text-slate-800 uppercase mb-2">Competition Day Instructions</p>
+                                <ul class="space-y-1.5 text-sm text-slate-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Arrive at least <strong>45 minutes before</strong> your scheduled time</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Competition is on the <strong>3rd Floor</strong> of the center</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Dress appropriately and modestly</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Bring valid identification for check-in</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Parents and guardians are welcome to attend</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Dua -->
+                            <div class="border-t border-slate-200 pt-4">
+                                <p class="text-sm text-slate-600 italic text-center">May Allah grant you success in your recitation and make the Quran a source of light and guidance in your life. Ameen.</p>
+                            </div>
+
+                            <!-- Acknowledgment -->
+                            @if (competitionRound.FinalRoundAcknowledged)
+                            {
+                                <div class="border-t border-slate-200 pt-4">
+                                    <div class="rounded bg-emerald-50 border border-emerald-200 p-2 flex items-center gap-2">
+                                        <svg class="h-4 w-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        <div class="text-xs text-emerald-900">
+                                            <span class="font-medium">Viewed</span>
+                                            <span class="text-emerald-700"> on @competitionRound.FinalRoundAcknowledgedAt?.ToString("MMM d, yyyy 'at' h:mm tt")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                <!-- Attended Preliminary but NOT Qualified for Final (IsAttended = true but HasFinalRound = false) -->
+                else if (competitionRound.HasPreliminaryRound && competitionRound.IsAttended == true && !competitionRound.HasFinalRound)
+                {
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                        <h2 class="text-base font-semibold text-slate-800 mb-2">Preliminary Round Result</h2>
+                        <p class="text-sm text-slate-700 mb-2">Thank you for attending the Preliminary Round of the @settings?.CompetitionInfo?.CompetitionName.</p>
+                        <p class="text-sm text-slate-700 mb-2">Unfortunately, you have not qualified to advance to the Final Round. We sincerely appreciate your participation and commend your dedication to memorizing the Quran. May Allah reward you for your efforts and commitment.</p>
+                        <p class="text-sm text-slate-700 mb-2">We encourage you to continue your memorization journey and look forward to seeing you in future competitions, insha'Allah.</p>
+                        <p class="text-sm text-slate-700">Thank you for your efforts and dedication towards the Quran. May Allah reward the teachers, parents, and students who put in the effort. <strong>JazakAllahu Khayran.</strong></p>
+                    </div>
+                }
+                <!-- Still in Preliminary Round (no IsAttended status yet) -->
+                else if (competitionRound.HasPreliminaryRound && !competitionRound.IsAttended)
+                {
+                    <div class="rounded-lg border border-cyan-200 bg-cyan-50 p-4 mb-4">
+                        <h2 class="text-base font-semibold text-slate-800 mb-2">Congratulations! 🎉</h2>
+                        <p class="text-sm text-slate-700 mb-2">You have qualified for <strong>Round I (Preliminary Round)</strong> of the @settings?.CompetitionInfo?.CompetitionName.</p>
+                        <p class="text-sm text-slate-700">We extend our heartfelt gratitude for your dedication and efforts. May Allah reward you, your teachers, and your parents for their unwavering support and guidance. <strong>JazakAllahu Khayran.</strong></p>
+                    </div>
+
+                    <!-- Preliminary Round Details -->
+                    <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div class="bg-slate-100 px-4 py-3 border-b border-slate-200">
+                            <h3 class="text-base font-semibold text-slate-800">Preliminary Round Details</h3>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- Date & Time -->
+                            <div>
+                                <p class="text-xs font-medium text-slate-600 mb-1">Test Date & Time</p>
+                                @{
+                                    var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+                                    var centralTime = competitionRound.PreliminaryRoundDateTime.HasValue
+                                    ? TimeZoneInfo.ConvertTimeFromUtc(competitionRound.PreliminaryRoundDateTime.Value.UtcDateTime, centralZone)
+                                    : (DateTime?)null;
+                                }
+                                <p class="text-base font-semibold text-slate-800">@centralTime?.ToString("dddd, MMMM d, yyyy")</p>
+                                <p class="text-sm text-slate-600">@centralTime?.ToString("h:mm tt") CT</p>
+                            </div>
+
+                            <!-- Format -->
+                            <div>
+                                <p class="text-xs font-medium text-slate-600 mb-1">Competition Format</p>
+                                <p class="text-base font-semibold text-slate-800">Virtual (Zoom Conference)</p>
+                            </div>
+
+                            <!-- Instructions -->
+                            <div class="border-t border-slate-200 pt-4">
+                                <p class="text-xs font-semibold text-slate-800 uppercase mb-2">Important Instructions</p>
+                                <ul class="space-y-1.5 text-sm text-slate-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Join the Zoom Conference <strong>30 minutes before</strong> your scheduled time</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Wear appropriate clothing and position your camera against a well-lit background</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-cyan-600 mt-0.5">•</span>
+                                        <span>Locate yourself in a private, quiet room for virtual inspection</span>
+                                    </li>
+                                </ul>
+
+                                <div class="mt-3 rounded bg-amber-50 border border-amber-200 p-2">
+                                    <p class="text-sm text-amber-900">
+                                        <strong>Note:</strong> Further instructions will be provided upon joining. The session will be recorded.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Virtual Link -->
+                            <div class="border-t border-slate-200 pt-4">
+                                <p class="text-xs font-semibold text-slate-800 mb-2">Virtual Conference Link:</p>
+                                <a href="https://streamyard.com/if2di843fe"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1 text-sm font-medium text-cyan-700 hover:text-cyan-800 underline">
+                                    streamyard.com/if2di843fe →
+                                </a>
+                                <p class="text-xs text-slate-600 mt-1">Join 30 minutes before your scheduled time</p>
+                            </div>
+
+                            <!-- Acknowledgment -->
+                            @if (competitionRound.PreliminaryRoundAcknowledged)
+                            {
+                                <div class="border-t border-slate-200 pt-4">
+                                    <div class="rounded bg-emerald-50 border border-emerald-200 p-2 flex items-center gap-2">
+                                        <svg class="h-4 w-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        <div class="text-xs text-emerald-900">
+                                            <span class="font-medium">Viewed</span>
+                                            <span class="text-emerald-700"> on @competitionRound.PreliminaryRoundAcknowledgedAt?.ToString("MMM d, yyyy 'at' h:mm tt")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string RegistrationId { get; set; } = string.Empty;
+
+    private bool isLoading = true;
+    private Registration? registration;
+    private CompetitionRound? competitionRound;
+    private CompetitionSettings? settings;
+    private bool isAdmin;
+    private string currentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+
+        // Check if user is admin (just role check, no URL check needed)
+        var user = await CurrentUserService.GetCurrentUserAsync();
+        if (user == null)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        currentUserId = user.ObjectIdentifier;
+        isAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+        // Auto-acknowledge for non-admin users
+        if (!isAdmin && competitionRound != null)
+        {
+            await AutoAcknowledgeRounds();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            var user = await CurrentUserService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            // Check if user is admin
+            var isUserAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+            registration = await RegistrationService.GetByIdAsync(RegistrationId);
+
+            // Allow access if user is the creator OR if user is an admin
+            if (registration == null || (registration.CreatorUserId != user.ObjectIdentifier && !isUserAdmin))
+            {
+                registration = null;
+                return;
+            }
+
+            settings = await SettingsService.GetSettingsAsync();
+            competitionRound = await CompetitionRoundService.GetByRegistrationIdAsync(RegistrationId);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AutoAcknowledgeRounds()
+    {
+        bool needsReload = false;
+
+        // Auto-acknowledge preliminary round if exists and not yet acknowledged
+        if (competitionRound.HasPreliminaryRound && !competitionRound.PreliminaryRoundAcknowledged)
+        {
+            try
+            {
+                await CompetitionRoundService.AcknowledgePreliminaryRoundAsync(RegistrationId, currentUserId);
+                needsReload = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error auto-acknowledging preliminary round: {ex.Message}");
+            }
+        }
+
+        // Auto-acknowledge final round if exists and not yet acknowledged
+        if (competitionRound.HasFinalRound && !competitionRound.FinalRoundAcknowledged)
+        {
+            try
+            {
+                await CompetitionRoundService.AcknowledgeFinalRoundAsync(RegistrationId, currentUserId);
+                needsReload = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error auto-acknowledging final round: {ex.Message}");
+            }
+        }
+
+        // Reload if any acknowledgments were made
+        if (needsReload)
+        {
+            await LoadDataAsync();
+        }
+    }
+}

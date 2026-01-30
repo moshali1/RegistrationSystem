@@ -1,14 +1,17 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using RegistrationSystem.Core.Application.Auditing;
 using RegistrationSystem.Core.Application.Azure;
+using RegistrationSystem.Core.Application.CompetitionRounds;
 using RegistrationSystem.Core.Application.NiqabBypasses;
 using RegistrationSystem.Core.Application.Registrations;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
+using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Core.Domain.Users;
@@ -67,11 +70,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRegistrationRepository, MongoRegistrationRepository>();
         services.AddScoped<INiqabBypassRepository, MongoNiqabBypassRepository>();
         services.AddScoped<IAuditRepository, MongoAuditRepository>();
+        services.AddScoped<ICompetitionRoundRepository, MongoCompetitionRoundRepository>();
 
         // Application Services
         services.AddScoped<RegistrationService>();
         services.AddScoped<NiqabBypassService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<CompetitionRoundService>();
+
+
 
         return services;
     }
@@ -80,5 +87,17 @@ public static class ServiceCollectionExtensions
     {
         // These calls are safe to make once per app start
         BsonSerializer.RegisterSerializer(new DateOnlySerializer());
+
+        // CompetitionRound - Map ObjectId to string for Id property
+        if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionRound)))
+        {
+            BsonClassMap.RegisterClassMap<CompetitionRound>(cm =>
+            {
+                cm.AutoMap();
+                cm.MapIdProperty(c => c.Id)
+                    .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance)
+                    .SetSerializer(new StringSerializer(BsonType.ObjectId));
+            });
+        }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using MongoDB.Driver;
+using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.NiqabBypasses;
 using RegistrationSystem.Core.Domain.Registrations;
@@ -15,6 +16,7 @@ public class MongoRegistrationSystemContext
     public IMongoCollection<ConsentRecord> Consents { get; }
     public IMongoCollection<Registration> Registrations { get; }
     public IMongoCollection<NiqabBypass> NiqabBypasses { get; }
+    public IMongoCollection<CompetitionRound> CompetitionRounds { get; }
 
     public MongoRegistrationSystemContext(MongoClient client, MongoOptions options)
     {
@@ -34,5 +36,8 @@ public class MongoRegistrationSystemContext
 
         NiqabBypasses = Database.GetCollection<NiqabBypass>(
             options.NiqabBypassesCollectionName);
+
+        CompetitionRounds = Database.GetCollection<CompetitionRound>(
+            options.CompetitionRoundsCollectionName);
     }
 }

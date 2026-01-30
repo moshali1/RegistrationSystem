@@ -3,6 +3,7 @@ using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using RegistrationSystem.Core.Application.Auditing;
 using RegistrationSystem.Core.Application.Azure;
+using RegistrationSystem.Core.Application.CompetitionRounds;
 using RegistrationSystem.Core.Application.Consents;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
@@ -74,6 +75,9 @@ builder.Services.AddScoped<IAuditRepository, MongoAuditRepository>();
 
 // Register audit service
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Resiter competition round service
+builder.Services.AddScoped<CompetitionRoundService>();
 
 // Register Blazor audit context provider (captures user from auth state)
 builder.Services.AddScoped<BlazorAuditContextProvider>();

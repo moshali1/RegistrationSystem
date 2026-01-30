@@ -3,14 +3,17 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.CompetitionRounds
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
 @using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.CompetitionRounds
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.Settings
 @using RegistrationSystem.Web.Services
 
 @inject RegistrationService RegistrationService
+@inject CompetitionRoundService CompetitionRoundService
 @inject SettingsService SettingsService
 @inject CurrentUserService CurrentUserService
 @inject NavigationManager NavigationManager
@@ -23,18 +26,40 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-800">My Registrations</h1>
+            <h1 class="text-2xl font-bold text-slate-800">@(showAllRegistrations && isAdmin ? "All Registrations" : "My Registrations")</h1>
             <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo?.CompetitionName — @competitionYear</p>
         </div>
-        @if (settings?.RegistrationEnabled == true)
-        {
-            <a href="/register/new" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg active:scale-[0.98]">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                New Registration
-            </a>
-        }
+        <div class="flex items-center gap-3">
+            <!-- Admin Toggle - Only visible to admins -->
+            @if (isAdmin)
+            {
+                <button type="button"
+                        class="cursor-pointer inline-flex items-center gap-2 rounded-xl border @(showAllRegistrations ? "border-cyan-600 bg-cyan-50 text-cyan-700" : "border-slate-300 bg-white text-slate-600") px-4 py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors"
+                        @onclick="ToggleShowAllRegistrations">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    @if (showAllRegistrations)
+                    {
+                        <span>Showing All Users</span>
+                    }
+                    else
+                    {
+                        <span>My Registrations</span>
+                    }
+                </button>
+            }
+
+            @if (settings?.RegistrationEnabled == true)
+            {
+                <a href="/register/new" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg active:scale-[0.98]">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    New Registration
+                </a>
+            }
+        </div>
     </div>
 
     @if (isLoading)
@@ -141,6 +166,10 @@
             <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
                 <span class="text-slate-600">
                     Showing <span class="font-semibold text-slate-800">@FilteredRegistrations.Count()</span> of <span class="font-semibold text-slate-800">@registrations.Count</span> registrations
+                    @if (showAllRegistrations && isAdmin)
+                    {
+                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-cyan-100 text-cyan-800">All Users</span>
+                    }
                 </span>
             </div>
         </div>
@@ -231,20 +260,34 @@
 
                                 <!-- Message -->
                                 <td class="px-4 py-4">
-                                    <div class="text-sm text-slate-500 max-w-[200px] truncate">
-                                        @if (!string.IsNullOrEmpty(reg.StatusComment))
-                                        {
-                                            @reg.StatusComment
-                                        }
-                                        else if (!string.IsNullOrEmpty(reg.WithdrawComment))
-                                        {
-                                            @reg.WithdrawComment
-                                        }
-                                        else
-                                        {
-                                            <span class="text-slate-300">—</span>
-                                        }
-                                    </div>
+                                    @{
+                                        var hasNotification = HasRoundNotification(reg.Id);
+                                        var hasUnacknowledged = HasUnacknowledgedRound(reg.Id);
+                                    }
+                                    @if (hasNotification)
+                                    {
+                                        <a href="/registration/@reg.Id/messages" class="inline-flex items-center gap-2 group">
+                                            <!-- Inbox Icon -->
+                                            <div class="relative">
+                                                <svg class="h-5 w-5 text-slate-400 group-hover:text-cyan-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                                </svg>
+                                                @if (hasUnacknowledged)
+                                                {
+                                                    <!-- Red unread badge -->
+                                                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500 ring-2 ring-white"></span>
+                                                    </span>
+                                                }
+                                            </div>
+                                            <span class="text-sm text-slate-600 group-hover:text-cyan-700 transition-colors">Messages</span>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300 text-sm">—</span>
+                                    }
                                 </td>
 
                                 <!-- Actions -->
@@ -413,6 +456,10 @@
     private CompetitionSettings? settings;
     private int competitionYear;
     private IReadOnlyList<Registration> registrations = Array.Empty<Registration>();
+    private Dictionary<string, CompetitionRound> competitionRounds = new();
+    private bool isAdmin;
+    private bool showAllRegistrations = false;
+
 
     // Filters
     private string searchQuery = string.Empty;
@@ -472,10 +519,33 @@
             var user = await CurrentUserService.GetCurrentUserAsync();
             if (user == null) return;
 
+            isAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
-            registrations = await RegistrationService.GetUserRegistrationsAsync(user.ObjectIdentifier, competitionYear);
+            // Load registrations based on toggle state
+            if (showAllRegistrations && isAdmin)
+            {
+                // Admin viewing all registrations
+                registrations = await RegistrationService.GetAllByYearAsync(competitionYear);
+            }
+            else
+            {
+                // Normal user or admin viewing only their registrations
+                registrations = await RegistrationService.GetUserRegistrationsAsync(user.ObjectIdentifier, competitionYear);
+            }
+
+            // Load competition rounds for all registrations
+            competitionRounds.Clear();
+            foreach (var reg in registrations)
+            {
+                var round = await CompetitionRoundService.GetByRegistrationIdAsync(reg.Id);
+                if (round != null)
+                {
+                    competitionRounds[reg.Id] = round;
+                }
+            }
         }
         finally
         {
@@ -678,4 +748,30 @@
             @GetStatusDisplayName(status)
         </span>
     };
+
+    private bool HasRoundNotification(string registrationId)
+    {
+        if (!competitionRounds.TryGetValue(registrationId, out var round))
+            return false;
+
+        // Show notification if video qualification has been assessed (Pass or Fail)
+        // return round.VideoQualification != VideoQualificationStatus.Pending;
+
+        return round.IsAttended;
+    }
+
+    private bool HasUnacknowledgedRound(string registrationId)
+    {
+        if (!competitionRounds.TryGetValue(registrationId, out var round))
+            return false;
+
+        // Show unread badge if any round assignment is pending acknowledgment
+        return round.HasPendingAcknowledgment;
+    }
+
+    private async Task ToggleShowAllRegistrations()
+    {
+        showAllRegistrations = !showAllRegistrations;
+        await LoadDataAsync();
+    }
 }
