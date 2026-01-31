@@ -1,4 +1,4 @@
-﻿namespace RegistrationSystem.Core.Domain.Registrations;
+﻿namespace RegistrationSystem.Infrastructure.ReferenceData;
 
 /// <summary>
 /// Static location data for supported countries and their states/provinces.
