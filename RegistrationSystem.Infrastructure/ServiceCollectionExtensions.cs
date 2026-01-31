@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Driver;
 using RegistrationSystem.Core.Application.Auditing;
 using RegistrationSystem.Core.Application.Azure;
 using RegistrationSystem.Core.Application.CompetitionRounds;

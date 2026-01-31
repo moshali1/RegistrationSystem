@@ -6,28 +6,14 @@
 /// </summary>
 public enum RegistrationClosedReason
 {
-    /// <summary>Registration is currently open.</summary>
     Open = 0,
-
-    /// <summary>Global registration toggle is OFF (admin control).</summary>
     GloballyDisabled = 1,
-
-    /// <summary>Division is manually disabled.</summary>
     DivisionDisabled = 2,
-
-    /// <summary>Category is manually disabled.</summary>
     CategoryDisabled = 3,
-
-    /// <summary>Current date is before the effective start date.</summary>
     NotStarted = 4,
-
-    /// <summary>Current date is after the effective end date.</summary>
     Ended = 5
 }
 
-/// <summary>
-/// Registration status for a single category.
-/// </summary>
 public class CategoryRegistrationStatus
 {
     public required string CategoryId { get; init; }
@@ -35,102 +21,43 @@ public class CategoryRegistrationStatus
     public required string DivisionId { get; init; }
     public required string DivisionName { get; init; }
 
-    /// <summary>Whether registration is currently open for this category.</summary>
-    public bool IsOpen { get; init; }
-
-    /// <summary>If closed, the reason why.</summary>
-    public RegistrationClosedReason Reason { get; init; }
-
-    /// <summary>The effective start date (override or global).</summary>
-    public DateTimeOffset? EffectiveStart { get; init; }
-
-    /// <summary>The effective end date (override or global).</summary>
-    public DateTimeOffset? EffectiveEnd { get; init; }
-
-    /// <summary>Whether this category has override dates (different from global).</summary>
-    public bool HasOverride { get; init; }
-
-    /// <summary>Whether the category's manual enabled flag is true.</summary>
-    public bool IsManuallyEnabled { get; init; }
-
-    /// <summary>Human-readable status message.</summary>
-    public string StatusMessage { get; init; } = string.Empty;
-
-    /// <summary>Short status label for UI badges.</summary>
-    public string StatusLabel { get; init; } = string.Empty;
+    public bool IsOpen { get; init; } // Whether registration is currently open
+    public RegistrationClosedReason Reason { get; init; } // If closed, the reason why
+    public DateTimeOffset? EffectiveStart { get; init; } // Effective start date (override or global)
+    public DateTimeOffset? EffectiveEnd { get; init; } // Effective end date (override or global)
+    public bool HasOverride { get; init; } // Category has override dates (different from global)
+    public bool IsManuallyEnabled { get; init; } // Category's manual enabled flag is true
+    public string StatusMessage { get; init; } = string.Empty; // Human-readable status message
+    public string StatusLabel { get; init; } = string.Empty; // Short status label for UI badges
 }
 
-/// <summary>
-/// Registration status summary for a division.
-/// </summary>
 public class DivisionRegistrationStatus
 {
     public required string DivisionId { get; init; }
     public required string DivisionName { get; init; }
 
-    /// <summary>Whether the division's manual enabled flag is true.</summary>
-    public bool IsManuallyEnabled { get; init; }
-
-    /// <summary>Whether any categories in this division are currently open.</summary>
-    public bool HasOpenCategories => OpenCategoryCount > 0;
-
-    /// <summary>Count of categories currently open for registration.</summary>
-    public int OpenCategoryCount { get; init; }
-
-    /// <summary>Total number of categories in this division.</summary>
-    public int TotalCategoryCount { get; init; }
-
-    /// <summary>Count of categories that are manually enabled (regardless of date status).</summary>
-    public int EnabledCategoryCount { get; init; }
-
-    /// <summary>Count of categories using override dates.</summary>
-    public int OverrideCategoryCount { get; init; }
-
-    /// <summary>Detailed status for each category.</summary>
+    public bool IsManuallyEnabled { get; init; } // Division's manual enabled flag is true
+    public bool HasOpenCategories => OpenCategoryCount > 0; // Any categories currently open
+    public int OpenCategoryCount { get; init; } // Categories currently open for registration
+    public int TotalCategoryCount { get; init; } // Total number of categories in this division
+    public int EnabledCategoryCount { get; init; } // Categories manually enabled (regardless of date status)
+    public int OverrideCategoryCount { get; init; } // Categories using override dates
     public List<CategoryRegistrationStatus> Categories { get; init; } = new();
 }
 
-/// <summary>
-/// Complete registration status for the entire competition.
-/// </summary>
 public class GlobalRegistrationStatus
 {
-    /// <summary>Whether the global registration toggle is ON.</summary>
-    public bool IsGloballyEnabled { get; init; }
-
-    /// <summary>Global registration start date (applies to categories without overrides).</summary>
-    public DateTimeOffset? GlobalStart { get; init; }
-
-    /// <summary>Global registration end date (applies to categories without overrides).</summary>
-    public DateTimeOffset? GlobalEnd { get; init; }
-
-    /// <summary>Age cutoff date for eligibility calculations.</summary>
-    public DateOnly AgeCutoffDate { get; init; }
-
-    /// <summary>Whether we're currently within the global date window.</summary>
-    public bool IsWithinGlobalDateWindow { get; init; }
-
-    /// <summary>Total categories currently open for registration.</summary>
-    public int TotalOpenCategories { get; init; }
-
-    /// <summary>Total categories across all divisions.</summary>
-    public int TotalCategories { get; init; }
-
-    /// <summary>Total categories that are manually enabled.</summary>
-    public int TotalEnabledCategories { get; init; }
-
-    /// <summary>Categories using override dates.</summary>
-    public int CategoriesWithOverrides { get; init; }
-
-    /// <summary>Total divisions.</summary>
-    public int TotalDivisions { get; init; }
-
-    /// <summary>Divisions that are manually enabled.</summary>
-    public int EnabledDivisions { get; init; }
-
-    /// <summary>Detailed status for each division.</summary>
+    public bool IsGloballyEnabled { get; init; } // Global registration toggle is ON
+    public DateTimeOffset? GlobalStart { get; init; } // Global registration start date
+    public DateTimeOffset? GlobalEnd { get; init; } // Global registration end date
+    public DateOnly AgeCutoffDate { get; init; } // Age cutoff date for eligibility calculations
+    public bool IsWithinGlobalDateWindow { get; init; } // Currently within the global date window
+    public int TotalOpenCategories { get; init; } // Total categories currently open
+    public int TotalCategories { get; init; } // Total categories across all divisions
+    public int TotalEnabledCategories { get; init; } // Total categories manually enabled
+    public int CategoriesWithOverrides { get; init; } // Categories using override dates
+    public int TotalDivisions { get; init; } // Total divisions
+    public int EnabledDivisions { get; init; } // Divisions manually enabled
     public List<DivisionRegistrationStatus> Divisions { get; init; } = new();
-
-    /// <summary>Summary message for the dashboard.</summary>
-    public string SummaryMessage { get; init; } = string.Empty;
+    public string SummaryMessage { get; init; } = string.Empty; // Summary message for the dashboard
 }

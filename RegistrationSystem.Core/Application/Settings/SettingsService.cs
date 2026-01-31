@@ -5,10 +5,20 @@ namespace RegistrationSystem.Core.Application.Settings;
 public class SettingsService
 {
     private readonly ICompetitionSettingsRepository _repository;
+    private readonly CompetitionSettingsValidator _validator;
 
     public SettingsService(ICompetitionSettingsRepository repository)
     {
         _repository = repository;
+        _validator = new CompetitionSettingsValidator();
+    }
+
+    public async Task SaveSettingsAsync(
+        CompetitionSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        _validator.Validate(settings).ThrowIfInvalid();
+        await _repository.SaveAsync(settings, cancellationToken);
     }
 
     #region CRUD Operations
@@ -16,14 +26,6 @@ public class SettingsService
     public Task<CompetitionSettings> GetSettingsAsync(
         CancellationToken cancellationToken = default)
         => _repository.GetAsync(cancellationToken);
-
-    public async Task SaveSettingsAsync(
-        CompetitionSettings settings,
-        CancellationToken cancellationToken = default)
-    {
-        Validate(settings);
-        await _repository.SaveAsync(settings, cancellationToken);
-    }
 
     #endregion
 
@@ -80,7 +82,7 @@ public class SettingsService
         DateTimeOffset now)
     {
         var categories = division.Categories
-            .Select(c => GetCategoryStatus(settings, division, c, now))
+            .Select(c => GetCategoryStatusInternal(settings, division, c, now))
             .ToList();
 
         return new DivisionRegistrationStatus
@@ -138,13 +140,13 @@ public class SettingsService
             };
         }
 
-        return GetCategoryStatus(settings, division, category, now);
+        return GetCategoryStatusInternal(settings, division, category, now);
     }
 
     /// <summary>
     /// Get registration status for a specific category (internal overload).
     /// </summary>
-    public CategoryRegistrationStatus GetCategoryStatus(
+    private CategoryRegistrationStatus GetCategoryStatusInternal(
         CompetitionSettings settings,
         Division division,
         Category category,
@@ -410,56 +412,5 @@ public class SettingsService
             return false;
         return true;
     }
-
-    private static void Validate(CompetitionSettings settings)
-    {
-        // Global registration validation
-        if (settings.RegistrationEnabled)
-        {
-            if (!settings.RegistrationStart.HasValue || !settings.RegistrationEnd.HasValue)
-                throw new ValidationException("Start and end dates are required when registration is enabled.");
-
-            if (settings.RegistrationEnd <= settings.RegistrationStart)
-                throw new ValidationException("Global registration end must be after start.");
-        }
-
-        // Division validation
-        var divisionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var division in settings.Divisions)
-        {
-            if (string.IsNullOrWhiteSpace(division.Name))
-                throw new ValidationException("Division name cannot be empty.");
-
-            if (!divisionNames.Add(division.Name))
-                throw new ValidationException($"Duplicate division name: {division.Name}");
-
-            // Category validation within division
-            var categoryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var category in division.Categories)
-            {
-                if (string.IsNullOrWhiteSpace(category.Name))
-                    throw new ValidationException($"Category name cannot be empty in division '{division.Name}'.");
-
-                if (!categoryNames.Add(category.Name))
-                    throw new ValidationException($"Duplicate category name '{category.Name}' in division '{division.Name}'.");
-
-                if (category.MaxAgeYears is < 0)
-                    throw new ValidationException($"Max age cannot be negative for category '{category.Name}'.");
-
-                if (category.RegistrationStart.HasValue &&
-                    category.RegistrationEnd.HasValue &&
-                    category.RegistrationEnd <= category.RegistrationStart)
-                {
-                    throw new ValidationException($"Category '{category.Name}' registration end must be after start.");
-                }
-            }
-        }
-    }
-
     #endregion
-}
-
-public class ValidationException : Exception
-{
-    public ValidationException(string message) : base(message) { }
 }

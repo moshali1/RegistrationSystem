@@ -72,24 +72,16 @@ public partial class Settings : ComponentBase, IDisposable
     // DATE BINDING HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private DateTime? globalRegistrationStart
+    private void SetGlobalStart(string? value)
     {
-        get => settings?.RegistrationStart?.LocalDateTime;
-        set
-        {
-            if (settings is not null)
-                settings.RegistrationStart = value.HasValue ? new DateTimeOffset(value.Value) : null;
-        }
+        if (settings is null) return;
+        settings.RegistrationStart = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
     }
 
-    private DateTime? globalRegistrationEnd
+    private void SetGlobalEnd(string? value)
     {
-        get => settings?.RegistrationEnd?.LocalDateTime;
-        set
-        {
-            if (settings is not null)
-                settings.RegistrationEnd = value.HasValue ? new DateTimeOffset(value.Value) : null;
-        }
+        if (settings is null) return;
+        settings.RegistrationEnd = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
     }
 
     private string ageCutoffDateString => settings?.AgeCutoffDate.ToString("yyyy-MM-dd") ?? string.Empty;
@@ -106,7 +98,7 @@ public partial class Settings : ComponentBase, IDisposable
     // CHANGE DETECTION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private bool HasUnsavedChanges => !AreSettingsEqual(settings, originalSnapshot);
+    private bool HasUnsavedChanges => !SettingsComparer.AreEqual(settings, originalSnapshot);
 
     private bool HasEditPanelChanges
     {
@@ -114,148 +106,14 @@ public partial class Settings : ComponentBase, IDisposable
         {
             if (editingDivision is not null && selectedDivision is not null)
             {
-                return !AreDivisionsEqual(editingDivision, selectedDivision);
+                return !SettingsComparer.AreDivisionsEqual(editingDivision, selectedDivision);
             }
             if (editingCategory is not null && selectedCategory is not null)
             {
-                return !AreCategoriesEqual(editingCategory, selectedCategory);
+                return !SettingsComparer.AreCategoriesEqual(editingCategory, selectedCategory);
             }
             return false;
         }
-    }
-
-    private static bool AreSettingsEqual(CompetitionSettings? a, CompetitionSettings? b)
-    {
-        if (a is null || b is null) return a is null && b is null;
-
-        if (a.RegistrationEnabled != b.RegistrationEnabled) return false;
-        if (a.RegistrationStart != b.RegistrationStart) return false;
-        if (a.RegistrationEnd != b.RegistrationEnd) return false;
-        if (a.AgeCutoffDate != b.AgeCutoffDate) return false;
-
-        var aDivisions = a.Divisions ?? new List<Division>();
-        var bDivisions = b.Divisions ?? new List<Division>();
-        if (aDivisions.Count != bDivisions.Count) return false;
-
-        for (int i = 0; i < aDivisions.Count; i++)
-        {
-            if (!AreDivisionsEqual(aDivisions[i], bDivisions[i])) return false;
-        }
-
-        if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
-
-        return true;
-    }
-
-    private static bool AreCompetitionInfoEqual(CompetitionInfo? a, CompetitionInfo? b)
-    {
-        if (a is null || b is null) return a is null && b is null;
-
-        return a.CompetitionName == b.CompetitionName
-            && a.CompetitionYear == b.CompetitionYear
-            && a.PrivacyPolicyUrl == b.PrivacyPolicyUrl
-            && a.TermsOfServiceUrl == b.TermsOfServiceUrl
-            && a.RulesUrl == b.RulesUrl;
-    }
-
-    private static bool AreDivisionsEqual(Division a, Division b)
-    {
-        if (a.Id != b.Id) return false;
-        if (a.Name != b.Name) return false;
-        if (a.IsEnabled != b.IsEnabled) return false;
-
-        var aCategories = a.Categories ?? new List<Category>();
-        var bCategories = b.Categories ?? new List<Category>();
-        if (aCategories.Count != bCategories.Count) return false;
-
-        for (int i = 0; i < aCategories.Count; i++)
-        {
-            if (!AreCategoriesEqual(aCategories[i], bCategories[i])) return false;
-        }
-
-        return true;
-    }
-
-    private static bool AreCategoriesEqual(Category a, Category b)
-    {
-        return a.Id == b.Id
-            && a.Name == b.Name
-            && a.AlternateName == b.AlternateName
-            && a.IsEnabled == b.IsEnabled
-            && a.PortionOption == b.PortionOption
-            && a.MaxAgeYears == b.MaxAgeYears
-            && a.RegistrationStart == b.RegistrationStart
-            && a.RegistrationEnd == b.RegistrationEnd
-            && a.RequiresVideo == b.RequiresVideo
-            && a.VideoInstructions == b.VideoInstructions
-            && a.AllowMultipleInDivision == b.AllowMultipleInDivision
-            && a.AllowEdit == b.AllowEdit
-            && a.AllowWithdraw == b.AllowWithdraw;
-    }
-
-    private CompetitionSettings CloneSettings(CompetitionSettings source)
-    {
-        return new CompetitionSettings
-        {
-            Id = source.Id,
-            RegistrationEnabled = source.RegistrationEnabled,
-            RegistrationStart = source.RegistrationStart,
-            RegistrationEnd = source.RegistrationEnd,
-            AgeCutoffDate = source.AgeCutoffDate,
-            Divisions = (source.Divisions ?? new List<Division>()).Select(CloneDivision).ToList(),
-            CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo)
-        };
-    }
-
-    private CompetitionInfo CloneCompetitionInfo(CompetitionInfo? source)
-    {
-        if (source is null)
-        {
-            return new CompetitionInfo
-            {
-                CompetitionYear = DateTime.UtcNow.Year
-            };
-        }
-
-        return new CompetitionInfo
-        {
-            CompetitionName = source.CompetitionName,
-            CompetitionYear = source.CompetitionYear,
-            PrivacyPolicyUrl = source.PrivacyPolicyUrl,
-            TermsOfServiceUrl = source.TermsOfServiceUrl,
-            RulesUrl = source.RulesUrl
-        };
-    }
-
-    private Division CloneDivision(Division source)
-    {
-        return new Division
-        {
-            Id = source.Id,
-            Name = source.Name,
-            IsEnabled = source.IsEnabled,
-            Categories = (source.Categories ?? new List<Category>()).Select(CloneCategory).ToList()
-        };
-    }
-
-    private Category CloneCategory(Category source)
-    {
-        return new Category
-        {
-            Id = source.Id,
-            Name = source.Name,
-            AlternateName = source.AlternateName,
-            IsEnabled = source.IsEnabled,
-            PortionOption = source.PortionOption,
-            MaxAgeYears = source.MaxAgeYears,
-            RegistrationStart = source.RegistrationStart,
-            RegistrationEnd = source.RegistrationEnd,
-            RequiresVideo = source.RequiresVideo,
-            VideoInstructions = source.VideoInstructions,
-            AllowMultipleInDivision = source.AllowMultipleInDivision,
-            AllowEdit = source.AllowEdit,
-            AllowWithdraw = source.AllowWithdraw
-        };
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -277,26 +135,7 @@ public partial class Settings : ComponentBase, IDisposable
         {
             settings = await SettingsService.GetSettingsAsync();
 
-            // Create default settings if none exist
-            if (settings is null)
-            {
-                settings = new CompetitionSettings
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    RegistrationEnabled = false,
-                    AgeCutoffDate = new DateOnly(DateTime.UtcNow.Year, 1, 1),
-                    Divisions = new List<Division>(),
-                    CompetitionInfo = new CompetitionInfo
-                    {
-                        CompetitionYear = DateTime.UtcNow.Year
-                    }
-                };
-
-                // Save the default settings
-                await SettingsService.SaveSettingsAsync(settings);
-            }
-
-            originalSnapshot = CloneSettings(settings);
+            originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, Now);
 
             // Close edit panel on reload
@@ -330,7 +169,7 @@ public partial class Settings : ComponentBase, IDisposable
         try
         {
             await SettingsService.SaveSettingsAsync(settings);
-            originalSnapshot = CloneSettings(settings);
+            originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, Now);
             ShowSuccessMessage("Settings saved successfully.");
 
@@ -448,7 +287,7 @@ public partial class Settings : ComponentBase, IDisposable
         selectedCategoryId = null;
 
         // Create editing copy
-        editingDivision = CloneDivision(division);
+        editingDivision = SettingsCloner.CloneDivision(division);
         editingCategory = null;
 
         editPanelOpen = true;
@@ -491,7 +330,7 @@ public partial class Settings : ComponentBase, IDisposable
             await SettingsService.SaveSettingsAsync(settings);
 
             // Update snapshot and status
-            originalSnapshot = CloneSettings(settings);
+            originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, Now);
 
             ShowSuccessMessage("Division saved successfully.");
@@ -537,7 +376,7 @@ public partial class Settings : ComponentBase, IDisposable
 
         // Create editing copies
         editingDivision = null;
-        editingCategory = CloneCategory(category);
+        editingCategory = SettingsCloner.CloneCategory(category);
 
         editPanelOpen = true;
     }
@@ -590,7 +429,7 @@ public partial class Settings : ComponentBase, IDisposable
             await SettingsService.SaveSettingsAsync(settings);
 
             // Update snapshot and status
-            originalSnapshot = CloneSettings(settings);
+            originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, Now);
 
             ShowSuccessMessage("Category saved successfully.");
@@ -749,7 +588,7 @@ public partial class Settings : ComponentBase, IDisposable
 
         var division = new Division
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid().ToString("N"),
             Name = newDivisionName.Trim(),
             IsEnabled = false,
             Categories = new List<Category>()
@@ -785,7 +624,7 @@ public partial class Settings : ComponentBase, IDisposable
 
         var category = new Category
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid().ToString("N"),
             Name = newCategoryName.Trim(),
             IsEnabled = false,
             PortionOption = PortionOption.NotApplicable
