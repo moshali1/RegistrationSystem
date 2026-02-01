@@ -1,0 +1,242 @@
+﻿@page "/register/new"
+@attribute [Authorize]
+
+@namespace RegistrationSystem.Web.Components.Pages.Registration.RegistrationForm
+@using RegistrationSystem.Web.Components.Pages.Registration.Steps
+
+<PageTitle>New Registration</PageTitle>
+
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            <span class="text-sm text-slate-500">Loading...</span>
+        </div>
+    </div>
+}
+else if (settings?.RegistrationEnabled != true)
+{
+    <div class="max-w-lg mx-auto">
+        <div class="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-8 text-center shadow-sm">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mx-auto mb-4 shadow">
+                <svg class="h-7 w-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-800 mb-2">Registration Closed</h2>
+            <p class="text-sm text-slate-600 mb-6">Registration is not currently open. Please check back later.</p>
+            <a href="/registrations" class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700 text-white px-5 py-2.5 text-sm font-medium hover:from-slate-700 hover:to-slate-800 transition-all shadow-sm">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+                Back to Registrations
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center gap-4 mb-6">
+            <a href="/registrations" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">New Registration</h1>
+                <p class="text-sm text-slate-500">@settings?.CompetitionInfo?.CompetitionName — @competitionYear</p>
+            </div>
+        </div>
+
+        <!-- Draft Recovery Banner -->
+        @if (showDraftRecoveryBanner)
+        {
+            <div class="rounded-xl border border-cyan-200 bg-cyan-50 p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center flex-shrink-0">
+                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-semibold text-cyan-900">Draft Restored</h3>
+                        <p class="text-sm text-cyan-700 mt-0.5">
+                            We recovered your previous progress. Your form data has been restored.
+                            @if (draftFilesNeedReupload)
+                            {
+                                <span class="font-medium"> Note: You'll need to re-select your ID and photo files.</span>
+                            }
+                        </p>
+                        <button @onclick="StartFresh" class="mt-2 text-sm font-medium text-cyan-700 hover:text-cyan-900 underline underline-offset-2 transition-colors">
+                            Start fresh instead
+                        </button>
+                    </div>
+                    <button @onclick="DismissDraftBanner" class="p-1 rounded-lg text-cyan-600 hover:bg-cyan-100 transition-colors">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- Auto-save Indicators -->
+        @if (isSavingDraft)
+        {
+            <div class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-lg bg-slate-800 text-white px-3 py-2 text-sm shadow-lg">
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Saving draft...
+            </div>
+        }
+        @if (showDraftSavedIndicator)
+        {
+            <div class="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm shadow-lg">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Draft saved
+            </div>
+        }
+
+        <!-- Main Layout -->
+        <div class="flex gap-6">
+            <!-- Form Area -->
+            <div class="flex-1 min-w-0">
+                <!-- Progress Bar -->
+                <div class="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-700 to-slate-800 shadow-lg mb-4 overflow-hidden">
+                    <div class="px-5 py-4">
+                        <div class="flex items-center gap-1">
+                            @for (var i = 1; i <= totalSteps; i++)
+                            {
+                                var step = i;
+                                var isActive = currentStep == step;
+                                var isCompleted = currentStep > step;
+
+                                <div class="flex-1 flex items-center gap-1">
+                                    <button type="button"
+                                            class="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all @(isActive ? "bg-cyan-500 text-white ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-700" : isCompleted ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-400")"
+                                            @onclick="() => GoToStep(step)"
+                                            disabled="@(!isCompleted && !isActive)">
+                                        @if (isCompleted)
+                                        {
+                                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        }
+                                        else
+                                        {
+                                            @step
+                                        }
+                                    </button>
+                                    @if (step < totalSteps)
+                                    {
+                                        <div class="flex-1 h-1 rounded-full @(isCompleted ? "bg-cyan-600" : "bg-slate-600")"></div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="mt-2 flex text-xs">
+                            <span class="flex-1 text-center @(currentStep == 1 ? "text-cyan-400 font-medium" : "text-slate-400")">Personal</span>
+                            <span class="flex-1 text-center @(currentStep == 2 ? "text-cyan-400 font-medium" : "text-slate-400")">Uploads</span>
+                            <span class="flex-1 text-center @(currentStep == 3 ? "text-cyan-400 font-medium" : "text-slate-400")">Competition</span>
+                            <span class="flex-1 text-center @(currentStep == 4 ? "text-cyan-400 font-medium" : "text-slate-400")">Contact</span>
+                            <span class="flex-1 text-center @(currentStep == 5 ? "text-cyan-400 font-medium" : "text-slate-400")">Review</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                @if (validationErrors.Any())
+                {
+                    <div class="mb-4 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-white px-4 py-3 shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                                <svg class="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="text-sm">
+                                <p class="font-medium text-red-800">Please fix the following:</p>
+                                <ul class="mt-1.5 space-y-1 text-red-700">
+                                    @foreach (var error in validationErrors)
+                                    {
+                                        <li class="flex items-start gap-1.5">
+                                            <span class="text-red-400 mt-1">•</span>
+                                            @error
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Form Card -->
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    @switch (currentStep)
+                    {
+                        case 1:
+                            <Step1PersonalInfo FormState="formState"
+                                               Settings="settings"
+                                               OnDataChanged="HandleDataChanged"
+                                               OnNext="HandleNext"
+                                               OnBack="HandleBack" />
+                            break;
+                        case 2:
+                            <Step2FileUpload FormState="formState"
+                                             OnDataChanged="HandleDataChanged"
+                                             OnNext="HandleNext"
+                                             OnBack="HandleBack" />
+                            break;
+                        case 3:
+                            <Step3Competition FormState="formState"
+                                              Settings="settings"
+                                              AvailableDivisions="availableDivisions"
+                                              AvailableCategories="availableCategories"
+                                              OnDivisionChanged="HandleDivisionChanged"
+                                              OnCategoryChanged="HandleCategoryChanged"
+                                              OnDataChanged="HandleDataChanged"
+                                              OnNext="HandleNext"
+                                              OnBack="HandleBack" />
+                            break;
+                        case 4:
+                            <Step4Contact FormState="formState"
+                                          SelectedCountry="selectedCountry"
+                                          AvailableStates="availableStates"
+                                          OnCountryChanged="HandleCountryChanged"
+                                          OnStateChanged="HandleStateChanged"
+                                          OnDataChanged="HandleDataChanged"
+                                          OnNext="HandleNext"
+                                          OnBack="HandleBack" />
+                            break;
+                        case 5:
+                            <Step5Review FormState="formState"
+                                         Settings="settings"
+                                         SelectedDivision="GetSelectedDivision()"
+                                         SelectedCategory="GetSelectedCategory()"
+                                         SelectedCountry="selectedCountry"
+                                         OnGoToStep="GoToStep"
+                                         OnSubmit="SubmitRegistration"
+                                         IsSubmitting="isSubmitting" />
+                            break;
+                    }
+                </div>
+            </div>
+
+            <!-- Side Panel -->
+            <div class="hidden lg:block w-80 flex-shrink-0">
+                <div class="sticky top-6">
+                    <RegistrationInfoPanel CurrentStep="currentStep"
+                                           TotalSteps="totalSteps"
+                                           Settings="settings" />
+                </div>
+            </div>
+        </div>
+    </div>
+}

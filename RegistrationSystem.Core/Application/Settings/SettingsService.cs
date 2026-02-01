@@ -1,7 +1,14 @@
 ﻿using RegistrationSystem.Core.Domain.Settings;
 
 namespace RegistrationSystem.Core.Application.Settings;
-
+/// <summary>
+/// Provides services for managing and evaluating competition registration settings, including saving settings and
+/// computing registration status for divisions and categories.
+/// </summary>
+/// <remarks>The SettingsService coordinates validation, persistence, and status computation for competition
+/// registration settings. It offers methods to determine registration availability and eligibility at the global,
+/// division, and category levels, as well as to check age-based eligibility. This service is intended for use in
+/// administrative dashboards and registration workflows that require up-to-date status and validation logic.</remarks>
 public class SettingsService
 {
     private readonly ICompetitionSettingsRepository _repository;

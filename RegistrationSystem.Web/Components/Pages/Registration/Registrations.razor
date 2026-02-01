@@ -1,17 +1,6 @@
 ﻿@page "/registrations"
 @attribute [Authorize]
 
-@using Microsoft.AspNetCore.Authorization
-@using RegistrationSystem.Core.Application.Auditing
-@using RegistrationSystem.Core.Application.CompetitionRounds
-@using RegistrationSystem.Core.Application.Registrations
-@using RegistrationSystem.Core.Application.Settings
-@using RegistrationSystem.Core.Domain.Auditing
-@using RegistrationSystem.Core.Domain.CompetitionRounds
-@using RegistrationSystem.Core.Domain.Registrations
-@using RegistrationSystem.Core.Domain.Settings
-@using RegistrationSystem.Web.Services
-
 @inject RegistrationService RegistrationService
 @inject CompetitionRoundService CompetitionRoundService
 @inject SettingsService SettingsService
@@ -24,35 +13,38 @@
 
 <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800">@(showAllRegistrations && isAdmin ? "All Registrations" : "My Registrations")</h1>
             <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo?.CompetitionName — @competitionYear</p>
         </div>
-        <div class="flex items-center gap-3">
-            <!-- Admin Toggle - Only visible to admins -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <!-- Admin Toggle -->
             @if (isAdmin)
             {
-                <button type="button"
-                        class="cursor-pointer inline-flex items-center gap-2 rounded-xl border @(showAllRegistrations ? "border-cyan-600 bg-cyan-50 text-cyan-700" : "border-slate-300 bg-white text-slate-600") px-4 py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors"
-                        @onclick="ToggleShowAllRegistrations">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    @if (showAllRegistrations)
-                    {
-                        <span>Showing All Users</span>
-                    }
-                    else
-                    {
-                        <span>My Registrations</span>
-                    }
-                </button>
+                <div class="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                    <button type="button"
+                            class="cursor-pointer flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all @(showAllRegistrations ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50")"
+                            @onclick="() => SetViewMode(true)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        All
+                    </button>
+                    <button type="button"
+                            class="cursor-pointer flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all @(!showAllRegistrations ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50")"
+                            @onclick="() => SetViewMode(false)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Mine
+                    </button>
+                </div>
             }
 
             @if (settings?.RegistrationEnabled == true)
             {
-                <a href="/register/new" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg active:scale-[0.98]">
+                <a href="/register/new" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg active:scale-[0.98]">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
@@ -81,7 +73,16 @@
                 </svg>
             </div>
             <h2 class="text-xl font-semibold text-slate-800 mb-2">No Registrations Yet</h2>
-            <p class="text-slate-600 mb-6 max-w-md mx-auto">You haven't registered any competitors for this year's competition. Start by creating a new registration.</p>
+            <p class="text-slate-600 mb-6 max-w-md mx-auto">
+                @if (showAllRegistrations && isAdmin)
+                {
+                    <span>No registrations have been submitted for this year's competition yet.</span>
+                }
+                else
+                {
+                    <span>You haven't registered any competitors for this year's competition. Start by creating a new registration.</span>
+                }
+            </p>
             @if (settings?.RegistrationEnabled == true)
             {
                 <a href="/register/new" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-6 py-3 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg active:scale-[0.98]">
@@ -105,9 +106,9 @@
     else
     {
         <!-- Filters & Search Bar -->
-        <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-4 overflow-hidden">
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-4">
             <div class="p-4">
-                <div class="flex flex-col lg:flex-row gap-4">
+                <div class="flex flex-col lg:flex-row gap-3">
                     <!-- Search -->
                     <div class="flex-1">
                         <div class="relative">
@@ -123,9 +124,8 @@
                     </div>
 
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-3">
-                        <!-- Division Filter -->
-                        <select @bind="filterDivision" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                    <div class="flex flex-col sm:flex-row gap-2.5">
+                        <select @bind="filterDivision" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
                             <option value="">All Divisions</option>
                             @foreach (var div in GetUniqueDivisions())
                             {
@@ -133,8 +133,7 @@
                             }
                         </select>
 
-                        <!-- Status Filter -->
-                        <select @bind="filterStatus" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <select @bind="filterStatus" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
                             <option value="">All Statuses</option>
                             @foreach (var status in GetUniqueStatuses())
                             {
@@ -142,8 +141,7 @@
                             }
                         </select>
 
-                        <!-- Gender Filter -->
-                        <select @bind="filterGender" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <select @bind="filterGender" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
                             <option value="">All Genders</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -151,7 +149,7 @@
 
                         @if (HasActiveFilters)
                         {
-                            <button type="button" class="cursor-pointer text-sm text-slate-500 hover:text-slate-700 px-3 py-2.5 flex items-center gap-1" @onclick="ClearFilters">
+                            <button type="button" class="cursor-pointer text-sm text-slate-500 hover:text-slate-700 px-3 py-2.5 flex items-center gap-1 self-center" @onclick="ClearFilters">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -163,7 +161,7 @@
             </div>
 
             <!-- Results Count -->
-            <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
+            <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm rounded-b-xl">
                 <span class="text-slate-600">
                     Showing <span class="font-semibold text-slate-800">@FilteredRegistrations.Count()</span> of <span class="font-semibold text-slate-800">@registrations.Count</span> registrations
                     @if (showAllRegistrations && isAdmin)
@@ -174,18 +172,146 @@
             </div>
         </div>
 
-        <!-- Registrations Table -->
-        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <!-- Mobile Card List -->
+        <div class="md:hidden space-y-3">
+            @foreach (var reg in FilteredRegistrations)
+            {
+                var division = settings?.FindDivision(reg.CompetitionSelection.DivisionId);
+                var category = division?.FindCategory(reg.CompetitionSelection.CategoryId);
+                var hasNotification = HasRoundNotification(reg.Id);
+                var hasUnacknowledged = HasUnacknowledgedRound(reg.Id);
+
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <!-- Tappable main area → details -->
+                    <a href="/registration/@reg.Id" class="block">
+                        <!-- Card Header -->
+                        <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-4 py-3">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-1.5 h-8 rounded-full flex-shrink-0 @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-400" : "bg-pink-400")"></div>
+                                <div class="min-w-0 flex-1">
+                                    <span class="font-semibold text-white truncate block">@reg.PersonalInfo.FullName</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        @if (!string.IsNullOrEmpty(reg.Cid))
+                                        {
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-600 text-slate-300 text-xs font-mono">
+                                                @reg.Cid
+                                            </span>
+                                        }
+                                        @RenderStatusBadge(reg.Status)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Body -->
+                        <div class="px-4 py-3 space-y-2">
+                            <!-- Division / Category -->
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <div class="text-sm font-medium text-slate-800">@(division?.Name ?? "—")</div>
+                                    <div class="text-xs text-slate-500 flex items-center gap-1 flex-wrap mt-0.5">
+                                        <span>@(category?.Name ?? "—")</span>
+                                        @if (reg.CompetitionSelection.PortionChoice.HasValue)
+                                        {
+                                            <span class="text-slate-300">•</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs">
+                                                @(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼") @reg.CompetitionSelection.PortionChoice
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="text-right flex-shrink-0 text-xs text-slate-500">
+                                    <span>@reg.PersonalInfo.Gender</span>
+                                    @if (settings != null)
+                                    {
+                                        <span class="text-slate-300 mx-1">•</span>
+                                        <span class="text-cyan-600 font-medium">@reg.CalculateAgeAsOf(settings.AgeCutoffDate) yrs</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Location -->
+                            @if (!string.IsNullOrEmpty(reg.AddressInfo.City))
+                            {
+                                <div class="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <svg class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span>@reg.AddressInfo.City, @reg.AddressInfo.StateProvince</span>
+                                </div>
+                            }
+                        </div>
+                    </a>
+
+                    <!-- Action footer (not part of the tap target) -->
+                    <div class="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            @if (CanEdit(reg))
+                            {
+                                <a href="/registration/@reg.Id/edit"
+                                   class="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Edit
+                                </a>
+                            }
+
+                            @if (hasNotification)
+                            {
+                                <a href="/registration/@reg.Id/messages" class="relative inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Messages
+                                    @if (hasUnacknowledged)
+                                    {
+                                        <span class="inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                                    }
+                                </a>
+                            }
+                        </div>
+
+                        @if (CanWithdraw(reg))
+                        {
+                            <button type="button"
+                                    @onclick="() => ShowWithdrawModal(reg)"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 text-sm text-red-500 font-medium">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                Withdraw
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (!FilteredRegistrations.Any())
+            {
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm px-4 py-12 text-center">
+                    <svg class="h-12 w-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <p class="text-slate-500">No registrations match your filters.</p>
+                    <button type="button" class="cursor-pointer mt-2 text-sm text-cyan-700 hover:text-cyan-800 font-medium" @onclick="ClearFilters">Clear filters</button>
+                </div>
+            }
+        </div>
+
+        <!-- Desktop Table -->
+        <div class="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Competitor</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Competition</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Location</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Message</th>
-                            <th class="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                        <tr class="bg-gradient-to-r from-slate-700 to-slate-800">
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Competitor</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Competition</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Location</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Status</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Message</th>
+                            <th class="text-center px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider w-32">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -198,23 +324,28 @@
                                 <!-- Competitor -->
                                 <td class="px-4 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-1.5 h-10 rounded-full @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-500" : "bg-pink-500")"></div>
-                                        <div>
+                                        <div class="w-1.5 h-10 rounded-full flex-shrink-0 @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-500" : "bg-pink-500")"></div>
+                                        <div class="min-w-0 flex-1">
                                             <div class="flex items-center gap-2">
-                                                <span class="font-medium text-slate-800">@reg.PersonalInfo.FullName</span>
+                                                <span class="font-medium text-slate-800 truncate max-w-[200px]"
+                                                      title="@reg.PersonalInfo.FullName">
+                                                    @reg.PersonalInfo.FullName
+                                                </span>
                                                 @if (!string.IsNullOrEmpty(reg.Cid))
                                                 {
-                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-mono">@reg.Cid</span>
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-mono whitespace-nowrap flex-shrink-0">
+                                                        @reg.Cid
+                                                    </span>
                                                 }
                                             </div>
                                             <div class="text-xs text-slate-500 flex items-center gap-2">
                                                 <span>@reg.PersonalInfo.Gender</span>
                                                 <span class="text-slate-300">•</span>
-                                                <span>@reg.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")</span>
+                                                <span class="whitespace-nowrap">@reg.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")</span>
                                                 @if (settings != null)
                                                 {
                                                     <span class="text-slate-300">•</span>
-                                                    <span class="text-cyan-600 font-medium">@reg.CalculateAgeAsOf(settings.AgeCutoffDate) yrs</span>
+                                                    <span class="text-cyan-600 font-medium whitespace-nowrap">@reg.CalculateAgeAsOf(settings.AgeCutoffDate) yrs</span>
                                                 }
                                             </div>
                                         </div>
@@ -225,12 +356,12 @@
                                 <td class="px-4 py-4">
                                     <div class="text-sm">
                                         <div class="font-medium text-slate-800">@(division?.Name ?? "—")</div>
-                                        <div class="text-xs text-slate-500 flex items-center gap-1">
+                                        <div class="text-xs text-slate-500 flex items-center gap-1 flex-wrap">
                                             <span>@(category?.Name ?? "—")</span>
                                             @if (reg.CompetitionSelection.PortionChoice.HasValue)
                                             {
                                                 <span class="text-slate-300">•</span>
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs">
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs whitespace-nowrap">
                                                     @(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼") @reg.CompetitionSelection.PortionChoice
                                                 </span>
                                             }
@@ -267,21 +398,19 @@
                                     @if (hasNotification)
                                     {
                                         <a href="/registration/@reg.Id/messages" class="inline-flex items-center gap-2 group">
-                                            <!-- Inbox Icon -->
                                             <div class="relative">
                                                 <svg class="h-5 w-5 text-slate-400 group-hover:text-cyan-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                                                 </svg>
                                                 @if (hasUnacknowledged)
                                                 {
-                                                    <!-- Red unread badge -->
                                                     <span class="absolute -top-1 -right-1 flex h-3 w-3">
                                                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                                         <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500 ring-2 ring-white"></span>
                                                     </span>
                                                 }
                                             </div>
-                                            <span class="text-sm text-slate-600 group-hover:text-cyan-700 transition-colors">Messages</span>
+                                            <span class="text-sm text-slate-600 group-hover:text-cyan-700 transition-colors whitespace-nowrap">Messages</span>
                                         </a>
                                     }
                                     else
@@ -290,46 +419,38 @@
                                     }
                                 </td>
 
-                                <!-- Actions -->
-                                <td class="px-4 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <!-- Details - Always visible -->
-                                        <a href="/registration/@reg.Id" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors">
-                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <!-- Actions - Icon Buttons -->
+                                <td class="px-4 py-4 whitespace-nowrap text-right">
+                                    <div class="inline-flex items-center gap-1 justify-end">
+                                        <a href="/registration/@reg.Id"
+                                           class="p-2 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200"
+                                           title="View Details">
+                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
-                                            Details
                                         </a>
 
-                                        @{
-                                            var canEditStatus = reg.CanEdit;
-                                            var canWithdrawStatus = reg.CanWithdraw;
-                                            var categoryAllowsEdit = category?.AllowEdit ?? true;
-                                            var categoryAllowsWithdraw = category?.AllowWithdraw ?? true;
-                                        }
-
-                                        <!-- Edit - Visible when status allows AND category allows -->
-                                        @if (canEditStatus && categoryAllowsEdit)
+                                        @if (CanEdit(reg))
                                         {
-                                            <a href="/registration/@reg.Id/edit" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-700 hover:text-cyan-800 hover:bg-cyan-50 transition-colors">
-                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <a href="/registration/@reg.Id/edit"
+                                               class="p-2 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200"
+                                               title="Edit Registration">
+                                                <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
-                                                Edit
                                             </a>
                                         }
 
-                                        <!-- Withdraw - Visible when status allows AND category allows -->
-                                        @if (canWithdrawStatus && categoryAllowsWithdraw)
+                                        @if (CanWithdraw(reg))
                                         {
                                             <button type="button"
-                                                    class="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
-                                                    @onclick="() => ShowWithdrawModal(reg)">
-                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    @onclick="() => ShowWithdrawModal(reg)"
+                                                    class="p-2 text-slate-400 hover:text-red-500 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200 cursor-pointer"
+                                                    title="Withdraw Registration">
+                                                <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                                                 </svg>
-                                                Withdraw
                                             </button>
                                         }
                                     </div>
@@ -456,10 +577,10 @@
     private CompetitionSettings? settings;
     private int competitionYear;
     private IReadOnlyList<Registration> registrations = Array.Empty<Registration>();
-    private Dictionary<string, CompetitionRound> competitionRounds = new();
+    private IReadOnlyDictionary<string, CompetitionRound> competitionRounds = new Dictionary<string, CompetitionRound>();
     private bool isAdmin;
-    private bool showAllRegistrations = false;
-
+    private bool showAllRegistrations = true;
+    private string? currentUserId;
 
     // Filters
     private string searchQuery = string.Empty;
@@ -501,7 +622,7 @@
                 result = result.Where(r => r.PersonalInfo.Gender == gender);
             }
 
-            return result.OrderByDescending(r => r.CreatedAt);
+            return result.OrderByDescending(r => r.Id);
         }
     }
 
@@ -519,37 +640,63 @@
             var user = await CurrentUserService.GetCurrentUserAsync();
             if (user == null) return;
 
+            currentUserId = user.ObjectIdentifier;
             isAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
 
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
-            // Load registrations based on toggle state
+            // Load registrations
             if (showAllRegistrations && isAdmin)
             {
-                // Admin viewing all registrations
                 registrations = await RegistrationService.GetAllByYearAsync(competitionYear);
             }
             else
             {
-                // Normal user or admin viewing only their registrations
-                registrations = await RegistrationService.GetUserRegistrationsAsync(user.ObjectIdentifier, competitionYear);
+                registrations = await RegistrationService.GetUserRegistrationsAsync(currentUserId, competitionYear);
             }
 
-            // Load competition rounds for all registrations
-            competitionRounds.Clear();
-            foreach (var reg in registrations)
-            {
-                var round = await CompetitionRoundService.GetByRegistrationIdAsync(reg.Id);
-                if (round != null)
-                {
-                    competitionRounds[reg.Id] = round;
-                }
-            }
+            // BATCH load competition rounds - single query instead of N queries
+            var registrationIds = registrations.Select(r => r.Id).ToList();
+            competitionRounds = await CompetitionRoundService.GetByRegistrationIdsAsync(registrationIds);
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    // Client-side permission checks - no async calls needed
+    private bool CanEdit(Registration reg)
+    {
+        if (reg.Status != RegistrationStatus.AwaitingReview &&
+            reg.Status != RegistrationStatus.Pending)
+            return false;
+
+        var category = settings?.FindDivision(reg.CompetitionSelection.DivisionId)
+            ?.FindCategory(reg.CompetitionSelection.CategoryId);
+
+        return category?.AllowEdit ?? true;
+    }
+
+    private bool CanWithdraw(Registration reg)
+    {
+        if (reg.Status == RegistrationStatus.Withdrawn ||
+            reg.Status == RegistrationStatus.Disqualified)
+            return false;
+
+        var category = settings?.FindDivision(reg.CompetitionSelection.DivisionId)
+            ?.FindCategory(reg.CompetitionSelection.CategoryId);
+
+        return category?.AllowWithdraw ?? true;
+    }
+
+    private async Task SetViewMode(bool viewAll)
+    {
+        if (showAllRegistrations != viewAll)
+        {
+            showAllRegistrations = viewAll;
+            await LoadDataAsync();
         }
     }
 
@@ -629,7 +776,7 @@
 
     private async Task ConfirmWithdraw()
     {
-        if (withdrawingRegistration == null) return;
+        if (withdrawingRegistration == null || string.IsNullOrEmpty(currentUserId)) return;
 
         // Validate selection
         if (string.IsNullOrWhiteSpace(withdrawReasonType))
@@ -650,9 +797,6 @@
 
         try
         {
-            var user = await CurrentUserService.GetCurrentUserAsync();
-            if (user == null) return;
-
             var reasonText = GetWithdrawReasonText();
             var previousStatus = withdrawingRegistration.Status.ToString();
 
@@ -665,7 +809,7 @@
 
             await RegistrationService.WithdrawAsync(
                 withdrawingRegistration.Id,
-                user.ObjectIdentifier,
+                currentUserId,
                 reasonText);
 
             // Log audit entry for withdrawal
@@ -712,37 +856,37 @@
 
     private RenderFragment RenderStatusBadge(RegistrationStatus status) => __builder =>
     {
-        var (bgClass, textClass, ringClass, icon) = status switch
+        var (bgClass, icon) = status switch
         {
-            RegistrationStatus.AwaitingReview => ("bg-emerald-50", "text-emerald-950", "ring-emerald-600/20", "clock"),
-            RegistrationStatus.Pending => ("bg-red-50", "text-red-950", "ring-red-600/20", "warning"),
-            RegistrationStatus.Reviewed => ("bg-cyan-50", "text-cyan-950", "ring-cyan-600/20", "check"),
-            RegistrationStatus.Verified => ("bg-violet-50", "text-violet-950", "ring-violet-600/20", "shield"),
-            RegistrationStatus.Withdrawn => ("bg-amber-50", "text-amber-950", "ring-amber-600/20", "ban"),
-            RegistrationStatus.Disqualified => ("bg-gray-50", "text-gray-950", "ring-gray-600/20", "x"),
-            _ => ("bg-slate-50", "text-slate-950", "ring-slate-600/20", "circle")
+            RegistrationStatus.AwaitingReview => ("bg-emerald-600", "clock"),
+            RegistrationStatus.Pending => ("bg-red-500", "warning"),
+            RegistrationStatus.Reviewed => ("bg-cyan-600", "check"),
+            RegistrationStatus.Verified => ("bg-violet-600", "shield"),
+            RegistrationStatus.Withdrawn => ("bg-amber-700", "ban"),
+            RegistrationStatus.Disqualified => ("bg-gray-600", "x"),
+            _ => ("bg-slate-600", "circle")
         };
 
-        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium ring-1 ring-inset @bgClass @textClass @ringClass">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-sm @bgClass">
             @switch (icon)
             {
                 case "clock":
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     break;
                 case "warning":
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                     break;
                 case "check":
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                     break;
                 case "shield":
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                     break;
                 case "ban":
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                     break;
                 case "x":
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
                     break;
             }
             @GetStatusDisplayName(status)
@@ -754,9 +898,6 @@
         if (!competitionRounds.TryGetValue(registrationId, out var round))
             return false;
 
-        // Show notification if video qualification has been assessed (Pass or Fail)
-        // return round.VideoQualification != VideoQualificationStatus.Pending;
-
         return round.IsAttended;
     }
 
@@ -765,13 +906,6 @@
         if (!competitionRounds.TryGetValue(registrationId, out var round))
             return false;
 
-        // Show unread badge if any round assignment is pending acknowledgment
         return round.HasPendingAcknowledgment;
-    }
-
-    private async Task ToggleShowAllRegistrations()
-    {
-        showAllRegistrations = !showAllRegistrations;
-        await LoadDataAsync();
     }
 }

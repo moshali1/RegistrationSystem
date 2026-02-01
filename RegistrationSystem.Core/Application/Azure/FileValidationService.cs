@@ -248,16 +248,13 @@ public class FileValidationService
     /// Creates a FileValidationResult for storage in the domain model.
     /// </summary>
     public static FileValidationResult CreateFileValidationResult(
-        bool isValid,
-        string validationMethod,
-        string? details = null)
+    bool isValid,
+    string? details = null)
     {
         return new FileValidationResult
         {
             IsValid = isValid,
-            ValidationMethod = validationMethod,
-            Details = details,
-            ValidatedAt = DateTimeOffset.UtcNow
+            Details = details
         };
     }
 

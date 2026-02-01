@@ -1,0 +1,172 @@
+﻿@namespace RegistrationSystem.Web.Components.Pages.Registration.Steps
+
+<div class="p-6">
+    <div class="flex items-center gap-3 mb-6">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow-lg">
+            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </div>
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Contact Information</h2>
+            <p class="text-sm text-slate-500">Address, guardian, and teacher details</p>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <!-- Address Section -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Address
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">Country <span class="text-red-500">*</span></label>
+                        <select @onchange="HandleCountryChanged"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow">
+                            <option value="">Select country...</option>
+                            @foreach (var country in LocationData.Countries)
+                            {
+                                <option value="@country.Name" selected="@(FormState.Country == country.Name)">
+                                    @country.Name
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">
+                            @(SelectedCountry?.StateLabel ?? "State/Province") <span class="text-red-500">*</span>
+                        </label>
+                        @if (SelectedCountry != null && AvailableStates.Any())
+                        {
+                            <select @onchange="HandleStateChanged"
+                                    class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow">
+                                <option value="">Select @SelectedCountry.StateLabel.ToLower()...</option>
+                                @foreach (var state in AvailableStates)
+                                {
+                                    <option value="@state.Name" selected="@(FormState.StateProvince == state.Name)">
+                                        @state.Name
+                                    </option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" disabled placeholder="Select country first"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-400" />
+                        }
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-sm font-medium text-slate-700">City <span class="text-red-500">*</span></label>
+                    <input type="text"
+                           @bind="FormState.City"
+                           @bind:event="oninput"
+                           @bind:after="OnInputChanged"
+                           placeholder="City name"
+                           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Parent/Guardian Section -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Parent/Guardian
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">First Name <span class="text-red-500">*</span></label>
+                        <input type="text"
+                               @bind="FormState.ParentFirstName"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="Parent's first name"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">Last Name <span class="text-red-500">*</span></label>
+                        <input type="text"
+                               @bind="FormState.ParentLastName"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="Parent's last name"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-sm font-medium text-slate-700">Phone Number <span class="text-red-500">*</span></label>
+                    <input type="tel"
+                           @bind="FormState.ParentPhone"
+                           @bind:event="oninput"
+                           @bind:after="OnInputChanged"
+                           placeholder="(555) 123-4567"
+                           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Teacher Section -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Teacher/Institution
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">First Name <span class="text-red-500">*</span></label>
+                        <input type="text"
+                               @bind="FormState.TeacherFirstName"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="Teacher's first name"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">Last Name <span class="text-red-500">*</span></label>
+                        <input type="text"
+                               @bind="FormState.TeacherLastName"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="Teacher's last name"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">Phone Number <span class="text-red-500">*</span></label>
+                        <input type="tel"
+                               @bind="FormState.TeacherPhone"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="(555) 123-4567"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700">Institution <span class="text-red-500">*</span></label>
+                        <input type="text"
+                               @bind="FormState.TeacherInstitution"
+                               @bind:event="oninput"
+                               @bind:after="OnInputChanged"
+                               placeholder="Qur'an Institution"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<StepFooter ShowBack="true" OnNext="OnNext" OnBack="OnBack" />

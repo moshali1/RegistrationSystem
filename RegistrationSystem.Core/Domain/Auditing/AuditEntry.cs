@@ -187,6 +187,7 @@ public enum AuditAction
     Withdrawn = 14,
     WithdrawalRequested = 15,
     Verified = 16,
+    Disqualified = 17,
 
     // File operations
     FileUploaded = 20,

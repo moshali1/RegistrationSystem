@@ -1,0 +1,111 @@
+﻿@using RegistrationSystem.Core.Domain.Settings
+
+<div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-6">
+    <div class="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-800 border-b border-slate-600">
+        <div class="flex items-center gap-2">
+            <svg class="h-5 w-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 class="text-sm font-semibold text-white">Step @CurrentStep of @TotalSteps</h3>
+        </div>
+    </div>
+
+    <div class="p-5">
+        @switch (CurrentStep)
+        {
+            case 1:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-slate-800">Personal Information</h4>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <p>Enter the competitor's legal name exactly as it appears on their ID document.</p>
+                        <p>Preferred name is optional and will be used during announcements if provided.</p>
+                        @if (Settings != null)
+                        {
+                            <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+                                Age will be calculated as of <span class="font-medium text-slate-700">@Settings.AgeCutoffDate.ToString("MMMM d, yyyy")</span>
+                            </p>
+                        }
+                    </div>
+                </div>
+                break;
+
+            case 2:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-slate-800">ID & Photo Verification</h4>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <p><strong>ID Document:</strong> Upload a clear photo of a government-issued ID (passport, driver's license, or birth certificate).</p>
+                        <p><strong>Photo:</strong> Upload a recent standalone photo with a plain background. This will be used publicly at the competition.</p>
+                        <p class="text-xs text-amber-700 font-medium">⚠️ Do not upload parent's photo. Upload competitor's photo only.</p>
+                        <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+                            Files are validated automatically using AI. Both documents must be validated before proceeding.
+                        </p>
+                    </div>
+                </div>
+                break;
+
+            case 3:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-slate-800">Competition Selection</h4>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <p>Select the division and category based on the competitor's age and memorization level.</p>
+                        <p>Some categories may require a video recitation. If required, you'll be able to upload it on this step.</p>
+                        @if (Settings != null)
+                        {
+                            <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+                                Age eligibility is based on age as of <span class="font-medium text-slate-700">@Settings.AgeCutoffDate.ToString("MMM d, yyyy")</span>
+                            </p>
+                        }
+                    </div>
+                </div>
+                break;
+
+            case 4:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-slate-800">Contact Information</h4>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <p>Provide address and contact details for the competitor's parent/guardian and Quran teacher.</p>
+                        <p>This information will be used for competition updates and communications.</p>
+                        <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+                            Phone numbers should be 10-digit US/Canada numbers.
+                        </p>
+                    </div>
+                </div>
+                break;
+
+            case 5:
+                <div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-slate-800">Review & Submit</h4>
+                    <div class="space-y-2 text-sm text-slate-600">
+                        <p>Review all information carefully before submitting.</p>
+                        <p>You can click "Edit" on any section to make changes.</p>
+                        <p>Once submitted, your registration will be reviewed by our team.</p>
+                        <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+                            After submission, you can withdraw or edit your registration from the registrations list if needed.
+                        </p>
+                    </div>
+                </div>
+                break;
+        }
+
+        <!-- General Tips -->
+        <div class="mt-5 pt-5 border-t border-slate-200">
+            <div class="rounded-lg bg-cyan-50 border border-cyan-200 px-3 py-2.5">
+                <div class="flex items-start gap-2">
+                    <svg class="h-4 w-4 text-cyan-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    <div class="text-xs text-cyan-800">
+                        <p class="font-medium mb-1">Auto-save enabled</p>
+                        <p>Your progress is automatically saved as you fill out the form.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int CurrentStep { get; set; }
+    [Parameter] public int TotalSteps { get; set; }
+    [Parameter] public CompetitionSettings? Settings { get; set; }
+}

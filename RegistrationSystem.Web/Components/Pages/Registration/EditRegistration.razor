@@ -1,17 +1,6 @@
 ﻿@page "/registration/{Id}/edit"
 @page "/admin/registration/{Id}/edit"
 
-@using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Forms
-@using RegistrationSystem.Core.Application.Auditing
-@using RegistrationSystem.Core.Application.Azure
-@using RegistrationSystem.Core.Application.Registrations
-@using RegistrationSystem.Core.Application.Settings
-@using RegistrationSystem.Core.Domain.Auditing
-@using RegistrationSystem.Core.Domain.Registrations
-@using RegistrationSystem.Core.Domain.Settings
-@using RegistrationSystem.Web.Services
-
 @inject RegistrationService RegistrationService
 @inject SettingsService SettingsService
 @inject CurrentUserService CurrentUserService
@@ -66,30 +55,25 @@ else if (registration == null || !canEdit)
 }
 else
 {
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-7xl mx-auto">
         <!-- Header -->
-        <div class="flex items-center justify-between gap-4 mb-6">
-            <div class="flex items-center gap-4">
-                <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
-                   class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-                    <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                    </svg>
-                </a>
-                <div>
-                    <h1 class="text-xl font-bold text-slate-800">Edit Registration</h1>
-                    <p class="text-sm text-slate-500">
-                        @originalRegistration!.PersonalInfo.FullName
-                        @if (!string.IsNullOrEmpty(originalRegistration.Cid))
-                        {
-                            <span class="font-mono ml-1">(@originalRegistration.Cid)</span>
-                        }
-                    </p>
-                </div>
+        <div class="flex items-center gap-4 mb-6">
+            <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
+               class="w-10 h-10 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 flex items-center justify-center transition-all shadow-sm">
+                <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Edit Registration</h1>
+                <p class="text-sm text-slate-500">
+                    @originalRegistration!.PersonalInfo.FullName
+                    @if (!string.IsNullOrEmpty(originalRegistration.Cid))
+                    {
+                        <span class="font-mono ml-1">(@originalRegistration.Cid)</span>
+                    }
+                </p>
             </div>
-            <span class="@GetStatusStyles(registration.Status) px-3 py-1 rounded-lg text-sm font-medium">
-                @registration.Status
-            </span>
         </div>
 
         <!-- Error Messages -->
@@ -115,36 +99,24 @@ else
             </div>
         }
 
-        <!-- Success Message -->
-        @if (!string.IsNullOrEmpty(successMessage))
-        {
-            <div class="mb-4 rounded-xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-white px-4 py-3 shadow-sm">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
-                        <svg class="h-4 w-4 text-cyan-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <p class="text-sm text-cyan-800">@successMessage</p>
-                </div>
-            </div>
-        }
-
         <!-- Tabs -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="border-b border-slate-200">
-                <nav class="flex -mb-px">
+        <!-- Tabs -->
+        <div class="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-700 to-slate-800 shadow-lg mb-4 overflow-hidden">
+            <div class="px-5 py-4">
+                <div class="flex gap-2">
                     @foreach (var tab in tabs)
                     {
                         <button type="button"
                                 @onclick="() => activeTab = tab.Key"
-                                class="flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors @(activeTab == tab.Key ? "border-cyan-500 text-cyan-600" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300")">
+                                class="cursor-pointer flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all @(activeTab == tab.Key ? "bg-cyan-500 text-white shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-600")">
                             @tab.Value
                         </button>
                     }
-                </nav>
+                </div>
             </div>
+        </div>
 
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-6">
                 @switch (activeTab)
                 {
@@ -166,13 +138,13 @@ else
             <!-- Footer Actions -->
             <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
                 <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
-                   class="text-sm text-slate-600 hover:text-slate-800">
+                   class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
                     Cancel
                 </a>
                 <button type="button"
                         @onclick="SaveChanges"
                         disabled="@isSaving"
-                        class="px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white text-sm font-medium transition-colors flex items-center gap-2">
+                        class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 text-white text-sm font-semibold transition-all shadow-lg active:scale-[0.98] flex items-center gap-2">
                     @if (isSaving)
                     {
                         <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -778,7 +750,6 @@ else
     private bool canEdit = false;
     private string activeTab = "competitor";
     private List<string> validationErrors = new();
-    private string? successMessage;
 
     // Data
     private Registration? registration;
@@ -876,18 +847,10 @@ else
                 return;
             }
 
-            // Check permissions
+            // Check ownership
             if (!isAdmin && registration.CreatorUserId != currentUserId)
             {
                 registration = null;
-                isLoading = false;
-                return;
-            }
-
-            // Check if can edit (AwaitingReview or Pending for users, always for admin)
-            canEdit = isAdmin || registration.CanEdit;
-            if (!canEdit)
-            {
                 isLoading = false;
                 return;
             }
@@ -912,6 +875,14 @@ else
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
+            // Check edit permission — needs settings loaded for category-level AllowEdit check
+            canEdit = isAdmin || CanEdit(registration);
+            if (!canEdit)
+            {
+                isLoading = false;
+                return;
+            }
+
             // Load divisions and categories
             availableDivisions = await RegistrationService.GetAvailableDivisionsAsync();
             await LoadCategoriesAsync();
@@ -926,9 +897,28 @@ else
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PERMISSIONS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private bool CanEdit(Registration reg)
+    {
+        if (reg.Status != RegistrationStatus.AwaitingReview &&
+            reg.Status != RegistrationStatus.Pending)
+            return false;
+
+        var cat = settings?.FindDivision(reg.CompetitionSelection.DivisionId)
+            ?.FindCategory(reg.CompetitionSelection.CategoryId);
+
+        return cat?.AllowEdit ?? true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // DATA LOADING
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     private Registration CloneRegistration(Registration source)
     {
-        // Deep clone for comparison
         return new Registration
         {
             Id = source.Id,
@@ -978,10 +968,7 @@ else
             },
             Status = source.Status,
             StatusComment = source.StatusComment,
-            CreatorUserId = source.CreatorUserId,
-            CreatedAt = source.CreatedAt,
-            UpdatedAt = source.UpdatedAt,
-            SubmittedAt = source.SubmittedAt
+            CreatorUserId = source.CreatorUserId
         };
     }
 
@@ -1061,7 +1048,6 @@ else
     {
         UpdateSelectedCategory();
 
-        // Clear portion choice if not applicable
         if (selectedCategory?.PortionOption != PortionOption.TopOrBottom)
         {
             registration!.CompetitionSelection.PortionChoice = null;
@@ -1085,7 +1071,6 @@ else
         newIdContentType = file.ContentType;
         newIdSize = file.Size;
 
-        // Read file bytes
         byte[] fileBytes;
         try
         {
@@ -1102,7 +1087,6 @@ else
             return;
         }
 
-        // Skip validation if niqab bypass
         if (registration!.FileUploadInfo.NiqabBypassApproved)
         {
             newIdValidated = true;
@@ -1159,7 +1143,6 @@ else
         newPhotoContentType = file.ContentType;
         newPhotoSize = file.Size;
 
-        // Read file bytes
         byte[] fileBytes;
         try
         {
@@ -1176,7 +1159,6 @@ else
             return;
         }
 
-        // Skip validation if niqab bypass
         if (registration!.FileUploadInfo.NiqabBypassApproved)
         {
             newPhotoValidated = true;
@@ -1233,7 +1215,6 @@ else
         newVideoContentType = file.ContentType;
         newVideoSize = file.Size;
 
-        // Validate first
         var validationResult = FileValidationService.ValidateVideo(file.Name, file.Size, file.ContentType);
         if (!validationResult.IsValid)
         {
@@ -1243,7 +1224,6 @@ else
             return;
         }
 
-        // Open stream before StateHasChanged
         Stream? stream = null;
         try
         {
@@ -1355,17 +1335,15 @@ else
         if (registration == null || originalRegistration == null) return;
 
         validationErrors.Clear();
-        successMessage = null;
         isSaving = true;
         StateHasChanged();
 
         try
         {
             // ═══════════════════════════════════════════════════════════════════════════════
-            // FRONTEND VALIDATION (same as RegistrationForm)
+            // VALIDATION
             // ═══════════════════════════════════════════════════════════════════════════════
 
-            // Personal Info validation
             ValidateName(registration.PersonalInfo.FirstName, "First name", minLength: 2, required: true);
             ValidateName(registration.PersonalInfo.MiddleName, "Middle name", minLength: 1, required: false);
             ValidateName(registration.PersonalInfo.LastName, "Last name", minLength: 2, required: true);
@@ -1378,7 +1356,6 @@ else
                 !IsValidPhoneNumber(registration.PersonalInfo.PhoneNumber))
                 validationErrors.Add("Please enter a valid 10-digit phone number.");
 
-            // Address validation
             if (string.IsNullOrWhiteSpace(registration.AddressInfo.Country))
                 validationErrors.Add("Country is required.");
             if (string.IsNullOrWhiteSpace(registration.AddressInfo.StateProvince))
@@ -1386,40 +1363,31 @@ else
             if (string.IsNullOrWhiteSpace(registration.AddressInfo.City))
                 validationErrors.Add("City is required.");
 
-            // Competition validation
             if (string.IsNullOrWhiteSpace(registration.CompetitionSelection.DivisionId))
                 validationErrors.Add("Please select a division.");
             if (string.IsNullOrWhiteSpace(registration.CompetitionSelection.CategoryId))
                 validationErrors.Add("Please select a category.");
 
-            // Portion choice validation
             if (selectedCategory?.PortionOption == PortionOption.TopOrBottom &&
                 registration.CompetitionSelection.PortionChoice == null)
                 validationErrors.Add("Please select a portion (Top or Bottom).");
 
-            // Video validation - required if category requires it
             if (selectedCategory?.RequiresVideo == true)
             {
                 var hasExistingVideo = registration.FileUploadInfo.Video != null;
                 var hasNewVideo = newVideoUploaded;
 
                 if (!hasExistingVideo && !hasNewVideo)
-                {
                     validationErrors.Add("Please upload a video for this category.");
-                }
                 else if (isUploadingVideo)
-                {
                     validationErrors.Add("Please wait for the video upload to complete.");
-                }
             }
 
-            // ID and Photo validation - must have existing or new
             if (registration.FileUploadInfo.IdDocument == null && !newIdValidated)
                 validationErrors.Add("ID document is required.");
             if (registration.FileUploadInfo.Photo == null && !newPhotoValidated)
                 validationErrors.Add("Photo is required.");
 
-            // Parent validation
             ValidateName(registration.ParentInfo.FirstName, "Parent/Guardian first name", minLength: 2, required: true);
             ValidateName(registration.ParentInfo.LastName, "Parent/Guardian last name", minLength: 2, required: true);
             if (string.IsNullOrWhiteSpace(registration.ParentInfo.PhoneNumber))
@@ -1427,7 +1395,6 @@ else
             else if (!IsValidPhoneNumber(registration.ParentInfo.PhoneNumber))
                 validationErrors.Add("Please enter a valid 10-digit phone number for Parent/Guardian.");
 
-            // Teacher validation
             ValidateName(teacherFirstName, "Teacher first name", minLength: 2, required: true);
             ValidateName(teacherLastName, "Teacher last name", minLength: 2, required: true);
             if (string.IsNullOrWhiteSpace(teacherPhone))
@@ -1440,11 +1407,12 @@ else
                 validationErrors.Add("Institution name must be at least 2 characters.");
 
             if (validationErrors.Any())
-            {
                 return;
-            }
 
-            // Update teacher info
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // PREPARE & SAVE
+            // ═══════════════════════════════════════════════════════════════════════════════
+
             registration.TeacherInfo = new TeacherInfo
             {
                 FirstName = teacherFirstName,
@@ -1453,46 +1421,28 @@ else
                 Institution = string.IsNullOrWhiteSpace(teacherInstitution) ? null : teacherInstitution
             };
 
-            // Check if name/DOB changed - clear niqab bypass if so
+            // Clear niqab bypass if name or DOB changed
             var nameOrDobChanged = registration.PersonalInfo.FirstName != originalFirstName ||
                                    registration.PersonalInfo.LastName != originalLastName ||
                                    registration.PersonalInfo.DateOfBirth != originalDateOfBirth;
 
             if (nameOrDobChanged && registration.FileUploadInfo.NiqabBypassApproved)
-            {
                 registration.FileUploadInfo.NiqabBypassApproved = false;
-            }
 
-            // Upload new files if provided
             await UploadNewFilesAsync();
 
-            // Run backend validation (includes duplicate check)
-            var validationResult = await RegistrationService.ValidateAsync(registration);
-            if (!validationResult.IsValid)
-            {
-                validationErrors.AddRange(validationResult.Errors);
-                return;
-            }
-
-            // Check if division changed - CID will be regenerated by service
-            var needsNewCid = divisionChanged;
-
-            // Set audit context
             await AuditContextProvider.SetCurrentUserContextAsync();
 
-            // Build changes list for audit
             var changes = BuildChangesList();
 
-            // Update via service (handles CID regeneration if needed)
             var updateResult = await RegistrationService.UpdateAsync(registration);
-
             if (!updateResult.IsValid)
             {
                 validationErrors.AddRange(updateResult.Errors);
                 return;
             }
 
-            // Reload to get potentially new CID
+            // Check if CID was regenerated (division change)
             var updated = await RegistrationService.GetByIdAsync(registration.Id);
             if (updated != null && updated.Cid != originalRegistration.Cid)
             {
@@ -1503,10 +1453,8 @@ else
                     OldValue = originalRegistration.Cid ?? "(none)",
                     NewValue = updated.Cid ?? "(none)"
                 });
-                registration.Cid = updated.Cid;
             }
 
-            // Log audit entry with all changes
             if (changes.Any())
             {
                 var divisionName = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId)?.Name ?? "Unknown";
@@ -1520,8 +1468,8 @@ else
                     entityDescription: $"{registration.PersonalInfo.FullName} - {divisionName} / {categoryName}");
             }
 
-            // Redirect to My Registrations
-            NavigationManager.NavigateTo(isAdmin ? "/admin/registrations" : "/registrations");
+            // Redirect back to this registration's details page
+            NavigationManager.NavigateTo(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}");
         }
         catch (Exception ex)
         {
@@ -1565,7 +1513,6 @@ else
         var division = availableDivisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
         var divisionName = division?.Name ?? "unknown";
 
-        // Upload new ID if provided
         if (newIdBytes != null && newIdValidated)
         {
             var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Id);
@@ -1585,12 +1532,10 @@ else
                 StorageReference = blobName,
                 FileSizeBytes = newIdSize,
                 Extension = Path.GetExtension(newIdFileName ?? ".jpg"),
-                ContentType = newIdContentType ?? "image/jpeg",
-                UploadedAt = DateTimeOffset.UtcNow
+                ContentType = newIdContentType ?? "image/jpeg"
             };
         }
 
-        // Upload new photo if provided
         if (newPhotoBytes != null && newPhotoValidated)
         {
             var containerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Photo);
@@ -1610,12 +1555,10 @@ else
                 StorageReference = blobName,
                 FileSizeBytes = newPhotoSize,
                 Extension = Path.GetExtension(newPhotoFileName ?? ".jpg"),
-                ContentType = newPhotoContentType ?? "image/jpeg",
-                UploadedAt = DateTimeOffset.UtcNow
+                ContentType = newPhotoContentType ?? "image/jpeg"
             };
         }
 
-        // Update video reference if new video uploaded (already in Azure)
         if (newVideoUploaded && !string.IsNullOrEmpty(newVideoBlobUri))
         {
             registration.FileUploadInfo.Video = new FileMetadata
@@ -1624,8 +1567,7 @@ else
                 StorageReference = newVideoBlobName ?? "video.mp4",
                 FileSizeBytes = newVideoSize,
                 Extension = Path.GetExtension(newVideoFileName ?? ".mp4"),
-                ContentType = newVideoContentType ?? "video/mp4",
-                UploadedAt = DateTimeOffset.UtcNow
+                ContentType = newVideoContentType ?? "video/mp4"
             };
         }
     }
@@ -1681,7 +1623,7 @@ else
         AddChange(changes, "TeacherInfo.PhoneNumber", "Teacher Phone", origTeacher?.PhoneNumber ?? "", newTeacher?.PhoneNumber ?? "");
         AddChange(changes, "TeacherInfo.Institution", "Institution", origTeacher?.Institution ?? "", newTeacher?.Institution ?? "");
 
-        // Files (track old reference for audit)
+        // Files
         if (newIdBytes != null && newIdValidated)
         {
             changes.Add(new FieldChange
@@ -1715,7 +1657,6 @@ else
             });
         }
 
-        // Niqab bypass cleared
         if (originalRegistration.FileUploadInfo.NiqabBypassApproved && !registration.FileUploadInfo.NiqabBypassApproved)
         {
             changes.Add(new FieldChange
@@ -1748,6 +1689,17 @@ else
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
 
+    private string GetStatusDisplayName(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "Awaiting Review",
+        RegistrationStatus.Pending => "Pending",
+        RegistrationStatus.Reviewed => "Reviewed",
+        RegistrationStatus.Verified => "Verified",
+        RegistrationStatus.Withdrawn => "Withdrawn",
+        RegistrationStatus.Disqualified => "Disqualified",
+        _ => status.ToString()
+    };
+
     private string GetStatusStyles(RegistrationStatus status) => status switch
     {
         RegistrationStatus.AwaitingReview => "bg-emerald-50 text-emerald-950",
@@ -1757,6 +1709,17 @@ else
         RegistrationStatus.Withdrawn => "bg-amber-50 text-amber-950",
         RegistrationStatus.Disqualified => "bg-gray-50 text-gray-950",
         _ => "bg-slate-50 text-slate-950"
+    };
+
+    private string GetStatusRing(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "ring-emerald-600/20",
+        RegistrationStatus.Pending => "ring-red-600/20",
+        RegistrationStatus.Reviewed => "ring-cyan-600/20",
+        RegistrationStatus.Verified => "ring-violet-600/20",
+        RegistrationStatus.Withdrawn => "ring-amber-600/20",
+        RegistrationStatus.Disqualified => "ring-gray-600/20",
+        _ => "ring-slate-600/20"
     };
 
     private string FormatFileSize(long bytes)

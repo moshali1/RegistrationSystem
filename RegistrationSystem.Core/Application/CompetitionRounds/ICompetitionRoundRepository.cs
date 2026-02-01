@@ -9,6 +9,10 @@ public interface ICompetitionRoundRepository
     /// </summary>
     Task<CompetitionRound?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<CompetitionRound>> GetByRegistrationIdsAsync(
+    IEnumerable<string> registrationIds,
+    CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Gets a competition round by registration ID.
     /// </summary>

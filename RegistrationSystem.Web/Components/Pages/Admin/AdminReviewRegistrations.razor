@@ -230,7 +230,7 @@
                                             <span class="font-mono text-cyan-300 text-sm">@selectedRegistration.Cid</span>
                                         }
                                         <span class="text-slate-400 text-sm">•</span>
-                                        <span class="text-slate-300 text-sm">Submitted @FormatDate(selectedRegistration.SubmittedAt)</span>
+                                       @*  <span class="text-slate-300 text-sm">Submitted @FormatDate(selectedRegistration.SubmittedAt)</span> *@
                                     </div>
                                 </div>
                                 <span class="@GetStatusBadgeClass(selectedRegistration.Status) px-3 py-1.5 rounded-lg text-sm font-medium">
@@ -697,7 +697,6 @@
         .Where(r => string.IsNullOrEmpty(searchQuery) ||
                     r.PersonalInfo.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
                     (r.Cid?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false))
-        .OrderBy(r => r.SubmittedAt)
         .ToList();
 
     private int currentIndex => selectedRegistration != null
@@ -838,7 +837,6 @@
 
             selectedRegistration.Status = newStatusEnum;
             selectedRegistration.StatusComment = string.IsNullOrWhiteSpace(newComment) ? null : newComment;
-            selectedRegistration.UpdatedAt = DateTimeOffset.UtcNow;
 
             // Handle withdrawal comment
             if (newStatusEnum == RegistrationStatus.Withdrawn)

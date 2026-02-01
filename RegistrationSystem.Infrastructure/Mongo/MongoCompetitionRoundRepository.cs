@@ -1,5 +1,4 @@
-﻿using MongoDB.Driver;
-using RegistrationSystem.Core.Application.CompetitionRounds;
+﻿using RegistrationSystem.Core.Application.CompetitionRounds;
 using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Infrastructure.Mongo;
 
@@ -22,6 +21,14 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
         return await _collection
             .Find(r => r.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CompetitionRound>> GetByRegistrationIdsAsync(
+    IEnumerable<string> registrationIds,
+    CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<CompetitionRound>.Filter.In(r => r.RegistrationId, registrationIds);
+        return await _collection.Find(filter).ToListAsync(cancellationToken);
     }
 
     public async Task<CompetitionRound?> GetByRegistrationIdAsync(

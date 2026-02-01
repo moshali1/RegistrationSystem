@@ -1,4 +1,5 @@
-﻿using RegistrationSystem.Core.Domain.CompetitionRounds;
+﻿using RegistrationSystem.Core.Application.Registrations;
+using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Registrations;
 
 namespace RegistrationSystem.Core.Application.CompetitionRounds;
@@ -61,6 +62,15 @@ public class CompetitionRoundService
         round.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _roundRepository.SaveAsync(round, cancellationToken);
+    }
+
+
+    public async Task<IReadOnlyDictionary<string, CompetitionRound>> GetByRegistrationIdsAsync(
+    IEnumerable<string> registrationIds,
+    CancellationToken cancellationToken = default)
+    {
+        var rounds = await _roundRepository.GetByRegistrationIdsAsync(registrationIds, cancellationToken);
+        return rounds.ToDictionary(r => r.RegistrationId, r => r);
     }
 
     /// <summary>
