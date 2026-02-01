@@ -4,9 +4,6 @@ using RegistrationSystem.Infrastructure.Mongo;
 
 namespace RegistrationSystem.Infrastructure.Persistence;
 
-/// <summary>
-/// MongoDB implementation of ICompetitionRoundRepository.
-/// </summary>
 public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
 {
     private readonly IMongoCollection<CompetitionRound> _collection;
@@ -23,14 +20,6 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CompetitionRound>> GetByRegistrationIdsAsync(
-    IEnumerable<string> registrationIds,
-    CancellationToken cancellationToken = default)
-    {
-        var filter = Builders<CompetitionRound>.Filter.In(r => r.RegistrationId, registrationIds);
-        return await _collection.Find(filter).ToListAsync(cancellationToken);
-    }
-
     public async Task<CompetitionRound?> GetByRegistrationIdAsync(
         string registrationId,
         CancellationToken cancellationToken = default)
@@ -38,6 +27,14 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
         return await _collection
             .Find(r => r.RegistrationId == registrationId)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CompetitionRound>> GetByRegistrationIdsAsync(
+        IEnumerable<string> registrationIds,
+        CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<CompetitionRound>.Filter.In(r => r.RegistrationId, registrationIds);
+        return await _collection.Find(filter).ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<CompetitionRound>> GetByCompetitionYearAsync(
@@ -69,12 +66,10 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
         var filter = Builders<CompetitionRound>.Filter.And(
             Builders<CompetitionRound>.Filter.Eq(r => r.CompetitionYear, competitionYear),
             Builders<CompetitionRound>.Filter.Or(
-                // Has preliminary round but not acknowledged
                 Builders<CompetitionRound>.Filter.And(
                     Builders<CompetitionRound>.Filter.Ne(r => r.PreliminaryRoundDateTime, null),
                     Builders<CompetitionRound>.Filter.Eq(r => r.PreliminaryRoundAcknowledged, false)
                 ),
-                // Has final round but not acknowledged
                 Builders<CompetitionRound>.Filter.And(
                     Builders<CompetitionRound>.Filter.Ne(r => r.FinalRoundDateTime, null),
                     Builders<CompetitionRound>.Filter.Eq(r => r.FinalRoundAcknowledged, false)
@@ -156,12 +151,9 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
 
     public async Task SaveAsync(CompetitionRound round, CancellationToken cancellationToken = default)
     {
-        round.UpdatedAt = DateTimeOffset.UtcNow;
-
         if (string.IsNullOrEmpty(round.Id))
         {
             round.Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString();
-            round.CreatedAt = DateTimeOffset.UtcNow;
             await _collection.InsertOneAsync(round, cancellationToken: cancellationToken);
         }
         else
