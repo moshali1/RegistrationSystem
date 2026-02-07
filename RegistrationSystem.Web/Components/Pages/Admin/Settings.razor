@@ -182,185 +182,141 @@
 </div>
 
 <!-- Modals -->
-@if (showDeleteModal)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @onclick="CloseDeleteModal"></div>
-            <div class="relative bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
-                <div class="px-6 pt-6 pb-4">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <h3 class="text-lg font-semibold text-slate-900">Confirm Delete</h3>
-                            <p class="mt-2 text-sm text-slate-600">@deleteModalMessage</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3 justify-end">
-                    <button type="button"
-                            class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
-                            @onclick="CloseDeleteModal">
-                        Cancel
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 text-sm font-medium hover:from-red-700 hover:to-red-800 transition-all shadow-sm"
-                            @onclick="ConfirmDelete">
-                        Delete
-                    </button>
-                </div>
-            </div>
+<Modal Visible="@showDeleteModal"
+       Title="Confirm Delete"
+       IconBgClass="bg-red-600"
+       OnBackdropClick="CloseDeleteModal">
+    <Icon>
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+    </Icon>
+    <ChildContent>
+        <p>@deleteModalMessage</p>
+    </ChildContent>
+    <Footer>
+        <div class="flex gap-3 justify-end">
+            <button type="button"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
+                    @onclick="CloseDeleteModal">
+                Cancel
+            </button>
+            <button type="button"
+                    class="cursor-pointer rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                    @onclick="ConfirmDelete">
+                Delete
+            </button>
         </div>
-    </div>
-}
+    </Footer>
+</Modal>
 
-@if (showHierarchyModal)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @onclick="CloseHierarchyModal"></div>
-            <div class="relative bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
-                <div class="px-6 pt-6 pb-4">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg">
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <h3 class="text-lg font-semibold text-slate-900">Cannot Enable</h3>
-                            <p class="mt-2 text-sm text-slate-600">@hierarchyModalMessage</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                    <button type="button"
-                            class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm"
-                            @onclick="CloseHierarchyModal">
-                        Understood
-                    </button>
-                </div>
-            </div>
+<Modal Visible="@showHierarchyModal"
+       Title="Cannot Enable"
+       IconBgClass="bg-amber-600"
+       OnBackdropClick="CloseHierarchyModal">
+    <Icon>
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+    </Icon>
+    <ChildContent>
+        <p>@hierarchyModalMessage</p>
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end">
+            <button type="button"
+                    class="cursor-pointer rounded-lg bg-cyan-700 text-white px-5 py-2 text-sm font-medium hover:bg-cyan-800 transition-colors shadow-sm"
+                    @onclick="CloseHierarchyModal">
+                Understood
+            </button>
         </div>
-    </div>
-}
+    </Footer>
+</Modal>
 
-@if (showInfoModal)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @onclick="CloseInfoModal"></div>
-            <div class="relative bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
-                <div class="px-6 pt-6 pb-4">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow-lg">
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <h3 class="text-lg font-semibold text-slate-900">@infoModalTitle</h3>
-                            <div class="mt-2 text-sm text-slate-600 prose prose-sm prose-slate">@((MarkupString)infoModalContent)</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                    <button type="button"
-                            class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm"
-                            @onclick="CloseInfoModal">
-                        Close
-                    </button>
-                </div>
-            </div>
+<Modal Visible="@showInfoModal"
+       Title="@infoModalTitle"
+       IconBgClass="bg-cyan-600"
+       OnBackdropClick="CloseInfoModal">
+    <Icon>
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+    </Icon>
+    <ChildContent>
+        <div class="prose prose-sm prose-slate">@((MarkupString)infoModalContent)</div>
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end">
+            <button type="button"
+                    class="cursor-pointer rounded-lg bg-cyan-700 text-white px-5 py-2 text-sm font-medium hover:bg-cyan-800 transition-colors shadow-sm"
+                    @onclick="CloseInfoModal">
+                Close
+            </button>
         </div>
-    </div>
-}
+    </Footer>
+</Modal>
 
-@if (showUnsavedWarningModal)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
-            <div class="relative bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
-                <div class="px-6 pt-6 pb-4">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg">
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <h3 class="text-lg font-semibold text-slate-900">Unsaved Changes</h3>
-                            <p class="mt-2 text-sm text-slate-600">You have unsaved changes. What would you like to do?</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
-                    <button type="button"
-                            class="cursor-pointer w-full rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2.5 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm"
-                            @onclick="SaveAndSwitchTab">
-                        Save changes
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
-                            @onclick="ConfirmDiscardAndSwitchTab">
-                        Discard changes
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer w-full text-sm text-slate-500 hover:text-slate-700 py-2 transition-colors"
-                            @onclick="CancelTabSwitch">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<Modal Visible="@showUnsavedWarningModal"
+       Title="Unsaved Changes"
+       IconBgClass="bg-amber-600"
+       AllowBackdropClose="false">
+    <Icon>
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+    </Icon>
+    <ChildContent>
+        <p>You have unsaved changes. What would you like to do?</p>
+    </ChildContent>
+    <Footer>
+        <button type="button"
+                class="cursor-pointer w-full rounded-lg bg-cyan-700 text-white px-4 py-2.5 text-sm font-medium hover:bg-cyan-800 transition-colors shadow-sm"
+                @onclick="SaveAndSwitchTab">
+            Save changes
+        </button>
+        <button type="button"
+                class="cursor-pointer w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
+                @onclick="ConfirmDiscardAndSwitchTab">
+            Discard changes
+        </button>
+        <button type="button"
+                class="cursor-pointer w-full text-sm text-slate-500 hover:text-slate-700 py-2 transition-colors"
+                @onclick="CancelTabSwitch">
+            Cancel
+        </button>
+    </Footer>
+</Modal>
 
-@if (showUnsavedEditModal)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-        <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
-            <div class="relative bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
-                <div class="px-6 pt-6 pb-4">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg">
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <h3 class="text-lg font-semibold text-slate-900">Unsaved Edits</h3>
-                            <p class="mt-2 text-sm text-slate-600">You have unsaved edits. Save them before switching?</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
-                    <button type="button"
-                            class="cursor-pointer w-full rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2.5 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm"
-                            @onclick="SaveAndProceedPendingAction">
-                        Save & continue
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
-                            @onclick="DiscardAndProceedPendingAction">
-                        Discard & continue
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer w-full text-sm text-slate-500 hover:text-slate-700 py-2 transition-colors"
-                            @onclick="CancelPendingAction">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<Modal Visible="@showUnsavedEditModal"
+       Title="Unsaved Edits"
+       IconBgClass="bg-amber-600"
+       AllowBackdropClose="false">
+    <Icon>
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+    </Icon>
+    <ChildContent>
+        <p>You have unsaved edits. Save them before switching?</p>
+    </ChildContent>
+    <Footer>
+        <button type="button"
+                class="cursor-pointer w-full rounded-lg bg-cyan-700 text-white px-4 py-2.5 text-sm font-medium hover:bg-cyan-800 transition-colors shadow-sm"
+                @onclick="SaveAndProceedPendingAction">
+            Save & continue
+        </button>
+        <button type="button"
+                class="cursor-pointer w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
+                @onclick="DiscardAndProceedPendingAction">
+            Discard & continue
+        </button>
+        <button type="button"
+                class="cursor-pointer w-full text-sm text-slate-500 hover:text-slate-700 py-2 transition-colors"
+                @onclick="CancelPendingAction">
+            Cancel
+        </button>
+    </Footer>
+</Modal>
 
 @code {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -566,10 +522,7 @@
                         <span class="text-xs font-semibold @(settings!.RegistrationEnabled ? "text-cyan-700" : "text-slate-400")">
                             @(settings.RegistrationEnabled ? "ON" : "OFF")
                         </span>
-                        <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                            <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                            <input type="checkbox" checked="@settings.RegistrationEnabled" @onchange="ToggleGlobalRegistration" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                        </label>
+                        <ToggleSwitch Value="@settings.RegistrationEnabled" OnToggled="ToggleGlobalRegistration" />
                     </div>
                 </div>
             </section>
@@ -1094,10 +1047,7 @@
                         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
                     </button>
                 </div>
-                <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                    <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                    <input type="checkbox" checked="@editingDivision!.IsEnabled" @onchange="TryToggleEditingDivision" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                </label>
+                <ToggleSwitch Value="@editingDivision!.IsEnabled" OnToggled="TryToggleEditingDivision" />
             </div>
         </div>
 
@@ -1157,10 +1107,7 @@
                         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
                     </button>
                 </div>
-                <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                    <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                    <input type="checkbox" checked="@editingCategory.IsEnabled" @onchange="TryToggleEditingCategory" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                </label>
+                <ToggleSwitch Value="@editingCategory.IsEnabled" OnToggled="TryToggleEditingCategory" />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -1191,10 +1138,7 @@
                         </svg>
                         <label class="text-sm font-medium text-slate-700">Requires Video Upload</label>
                     </div>
-                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                        <input type="checkbox" @bind="editingCategory.RequiresVideo" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                    </label>
+                    <ToggleSwitch @bind-Value="editingCategory.RequiresVideo" />
                 </div>
                 @if (editingCategory.RequiresVideo)
                 {
@@ -1220,10 +1164,7 @@
                             <p class="text-xs text-slate-500">Pass/fail qualification round (some competitors may bypass)</p>
                         </div>
                     </div>
-                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                        <input type="checkbox" @bind="editingCategory.ScreeningRoundEnabled" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                    </label>
+                    <ToggleSwitch @bind-Value="editingCategory.ScreeningRoundEnabled" />
                 </div>
             </div>
 
@@ -1239,10 +1180,7 @@
                             <p class="text-xs text-slate-500">Allow competitor to register for other categories in same division</p>
                         </div>
                     </div>
-                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                        <input type="checkbox" @bind="editingCategory.AllowMultipleInDivision" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                    </label>
+                    <ToggleSwitch @bind-Value="editingCategory.AllowMultipleInDivision" />
                 </div>
             </div>
 
@@ -1266,10 +1204,7 @@
                             <p class="text-xs text-slate-500">Allow users to edit registrations sent back for corrections</p>
                         </div>
                     </div>
-                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                        <input type="checkbox" @bind="editingCategory.AllowEdit" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                    </label>
+                    <ToggleSwitch @bind-Value="editingCategory.AllowEdit" />
                 </div>
 
                 <!-- Allow Withdraw -->
@@ -1283,10 +1218,7 @@
                             <p class="text-xs text-slate-500">Allow users to withdraw their registrations</p>
                         </div>
                     </div>
-                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
-                        <input type="checkbox" @bind="editingCategory.AllowWithdraw" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
-                    </label>
+                    <ToggleSwitch @bind-Value="editingCategory.AllowWithdraw" />
                 </div>
             </div>
 

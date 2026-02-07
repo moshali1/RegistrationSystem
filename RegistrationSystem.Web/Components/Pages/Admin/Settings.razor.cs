@@ -16,9 +16,6 @@ public partial class Settings : ComponentBase, IDisposable
     private CompetitionSettings? originalSnapshot;
     private GlobalRegistrationStatus? globalStatus;
 
-    // Current time for status calculations
-    private DateTimeOffset Now => DateTimeOffset.Now;
-
     private bool isLoading = true;
     private bool isSaving;
     private string? errorMessage;
@@ -136,7 +133,7 @@ public partial class Settings : ComponentBase, IDisposable
             settings = await SettingsService.GetSettingsAsync();
 
             originalSnapshot = SettingsCloner.Clone(settings);
-            globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
 
             // Close edit panel on reload
             CloseEditPanel();
@@ -170,7 +167,7 @@ public partial class Settings : ComponentBase, IDisposable
         {
             await SettingsService.SaveSettingsAsync(settings);
             originalSnapshot = SettingsCloner.Clone(settings);
-            globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
             ShowSuccessMessage("Settings saved successfully.");
 
             // Close edit panel after save
@@ -322,16 +319,13 @@ public partial class Settings : ComponentBase, IDisposable
 
         try
         {
-            // Apply changes from editing copy to actual settings
-            selectedDivision.Name = editingDivision.Name;
-            selectedDivision.IsEnabled = editingDivision.IsEnabled;
+            SettingsCloner.ApplyDivisionChanges(editingDivision, selectedDivision);
 
-            // Save to database
             await SettingsService.SaveSettingsAsync(settings);
 
             // Update snapshot and status
             originalSnapshot = SettingsCloner.Clone(settings);
-            globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
 
             ShowSuccessMessage("Division saved successfully.");
             CloseEditPanel();
@@ -409,29 +403,13 @@ public partial class Settings : ComponentBase, IDisposable
 
         try
         {
-            // Apply changes from editing copy to actual settings
-            selectedCategory.Name = editingCategory.Name;
-            selectedCategory.AlternateName = editingCategory.AlternateName;
-            selectedCategory.IsEnabled = editingCategory.IsEnabled;
-            selectedCategory.PortionOption = editingCategory.PortionOption;
-            selectedCategory.MaxAgeYears = editingCategory.MaxAgeYears;
-            selectedCategory.RegistrationStart = editingCategory.RegistrationStart;
-            selectedCategory.RegistrationEnd = editingCategory.RegistrationEnd;
+            SettingsCloner.ApplyCategoryChanges(editingCategory, selectedCategory);
 
-            // New category properties
-            selectedCategory.RequiresVideo = editingCategory.RequiresVideo;
-            selectedCategory.VideoInstructions = editingCategory.VideoInstructions;
-            selectedCategory.ScreeningRoundEnabled = editingCategory.ScreeningRoundEnabled;
-            selectedCategory.AllowMultipleInDivision = editingCategory.AllowMultipleInDivision;
-            selectedCategory.AllowEdit = editingCategory.AllowEdit;
-            selectedCategory.AllowWithdraw = editingCategory.AllowWithdraw;
-
-            // Save to database
             await SettingsService.SaveSettingsAsync(settings);
 
             // Update snapshot and status
             originalSnapshot = SettingsCloner.Clone(settings);
-            globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
 
             ShowSuccessMessage("Category saved successfully.");
             CloseEditPanel();
@@ -564,7 +542,7 @@ public partial class Settings : ComponentBase, IDisposable
         settings.RegistrationEnabled = !settings.RegistrationEnabled;
 
         // Refresh status after toggle
-        globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+        globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -596,7 +574,7 @@ public partial class Settings : ComponentBase, IDisposable
         };
 
         settings.Divisions.Add(division);
-        globalStatus = SettingsService.GetGlobalStatus(settings, Now);
+        globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
 
         isAddingDivision = false;
         newDivisionName = string.Empty;
@@ -632,7 +610,7 @@ public partial class Settings : ComponentBase, IDisposable
         };
 
         division.Categories.Add(category);
-        globalStatus = SettingsService.GetGlobalStatus(settings!, Now);
+        globalStatus = SettingsService.GetGlobalStatus(settings!, DateTimeOffset.Now);
 
         addingCategoryToDivisionId = null;
         newCategoryName = string.Empty;
@@ -648,7 +626,7 @@ public partial class Settings : ComponentBase, IDisposable
         deleteConfirmAction = () =>
         {
             settings?.Divisions.Remove(division);
-            globalStatus = SettingsService.GetGlobalStatus(settings!, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings!, DateTimeOffset.Now);
             CloseEditPanel();
         };
         showDeleteModal = true;
@@ -660,7 +638,7 @@ public partial class Settings : ComponentBase, IDisposable
         deleteConfirmAction = () =>
         {
             division.Categories.Remove(category);
-            globalStatus = SettingsService.GetGlobalStatus(settings!, Now);
+            globalStatus = SettingsService.GetGlobalStatus(settings!, DateTimeOffset.Now);
             CloseEditPanel();
         };
         showDeleteModal = true;

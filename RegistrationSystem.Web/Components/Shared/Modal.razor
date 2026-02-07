@@ -1,0 +1,44 @@
+@if (Visible)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+                 @onclick="HandleBackdropClick"></div>
+            <div class="relative bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
+                <div class="px-6 pt-6 pb-4">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl @IconBgClass flex items-center justify-center shadow-lg">
+                            @Icon
+                        </div>
+                        <div class="flex-1 pt-1">
+                            <h3 class="text-lg font-semibold text-slate-900">@Title</h3>
+                            <div class="mt-2 text-sm text-slate-600">@ChildContent</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-2 @FooterAlignClass">
+                    @Footer
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string IconBgClass { get; set; } = "bg-cyan-600";
+    [Parameter] public RenderFragment? Icon { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public EventCallback OnBackdropClick { get; set; }
+    [Parameter] public bool AllowBackdropClose { get; set; } = true;
+
+    private string FooterAlignClass => Footer is not null ? "" : "justify-end";
+
+    private async Task HandleBackdropClick()
+    {
+        if (AllowBackdropClose && OnBackdropClick.HasDelegate)
+            await OnBackdropClick.InvokeAsync();
+    }
+}

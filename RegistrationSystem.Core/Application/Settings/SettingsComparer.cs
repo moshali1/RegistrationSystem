@@ -1,6 +1,6 @@
 ﻿using RegistrationSystem.Core.Domain.Settings;
 
-namespace RegistrationSystem.Web.Components.Pages.Admin;
+namespace RegistrationSystem.Core.Application.Settings;
 
 public static class SettingsComparer
 {
