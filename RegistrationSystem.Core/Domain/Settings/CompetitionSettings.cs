@@ -46,6 +46,8 @@ public class Category
     public bool RequiresVideo { get; set; }
     public string? VideoInstructions { get; set; }
 
+    public bool ScreeningRoundEnabled { get; set; }
+
     public bool AllowMultipleInDivision { get; set; }
     public bool AllowEdit { get; set; } = true;
     public bool AllowWithdraw { get; set; } = true;

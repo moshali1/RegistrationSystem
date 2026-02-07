@@ -44,6 +44,7 @@ public static class SettingsCloner
             RegistrationEnd = source.RegistrationEnd,
             RequiresVideo = source.RequiresVideo,
             VideoInstructions = source.VideoInstructions,
+            ScreeningRoundEnabled = source.ScreeningRoundEnabled,
             AllowMultipleInDivision = source.AllowMultipleInDivision,
             AllowEdit = source.AllowEdit,
             AllowWithdraw = source.AllowWithdraw

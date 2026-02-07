@@ -421,6 +421,7 @@ public partial class Settings : ComponentBase, IDisposable
             // New category properties
             selectedCategory.RequiresVideo = editingCategory.RequiresVideo;
             selectedCategory.VideoInstructions = editingCategory.VideoInstructions;
+            selectedCategory.ScreeningRoundEnabled = editingCategory.ScreeningRoundEnabled;
             selectedCategory.AllowMultipleInDivision = editingCategory.AllowMultipleInDivision;
             selectedCategory.AllowEdit = editingCategory.AllowEdit;
             selectedCategory.AllowWithdraw = editingCategory.AllowWithdraw;

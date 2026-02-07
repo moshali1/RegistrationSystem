@@ -48,6 +48,7 @@ public static class SettingsComparer
             && a.RegistrationEnd == b.RegistrationEnd
             && a.RequiresVideo == b.RequiresVideo
             && a.VideoInstructions == b.VideoInstructions
+            && a.ScreeningRoundEnabled == b.ScreeningRoundEnabled
             && a.AllowMultipleInDivision == b.AllowMultipleInDivision
             && a.AllowEdit == b.AllowEdit
             && a.AllowWithdraw == b.AllowWithdraw;

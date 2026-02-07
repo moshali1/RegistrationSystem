@@ -7,6 +7,8 @@
 @inject IAuditService AuditService
 @inject NavigationManager NavigationManager
 
+@implements IDisposable
+
 <PageTitle>Audit Trail - Admin</PageTitle>
 
 <!-- Header -->
@@ -90,22 +92,20 @@
         <div class="space-y-1.5">
             <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">From Date</label>
             <input type="date"
-                   value="@fromDate?.ToString("yyyy-MM-dd")"
-                   @onchange="OnFromDateChanged"
+                   @bind="fromDate"
                    class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
         </div>
         <div class="space-y-1.5">
             <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">To Date</label>
             <input type="date"
-                   value="@toDate?.ToString("yyyy-MM-dd")"
-                   @onchange="OnToDateChanged"
+                   @bind="toDate"
                    class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
         </div>
 
         <!-- Entity Type -->
         <div class="space-y-1.5">
             <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">Entity Type</label>
-            <select @bind="selectedEntityType" @bind:after="ApplyFilters"
+            <select @bind="selectedEntityType"
                     class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all">
                 <option value="">All Types</option>
                 <option value="Registration">Registration</option>
@@ -117,7 +117,7 @@
         <!-- Action Type -->
         <div class="space-y-1.5">
             <label class="text-xs font-medium text-slate-600 uppercase tracking-wide">Action</label>
-            <select @bind="selectedAction" @bind:after="ApplyFilters"
+            <select @bind="selectedAction"
                     class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all">
                 <option value="">All Actions</option>
                 @foreach (var action in Enum.GetValues<AuditAction>())
@@ -134,7 +134,6 @@
                 <input type="text"
                        @bind="searchText"
                        @bind:event="oninput"
-                       @bind:after="OnSearchDebounced"
                        placeholder="ID, name, CID..."
                        class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all" />
                 <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,6 +141,43 @@
                 </svg>
             </div>
         </div>
+    </div>
+
+    <!-- Filter Actions -->
+    <div class="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+        <div class="flex items-center gap-2">
+            @if (hasActiveFilters)
+            {
+                <button type="button"
+                        @onclick="ClearAllFilters"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear Filters
+                </button>
+            }
+        </div>
+
+        <button type="button"
+                @onclick="ApplyFilters"
+                disabled="@isLoading"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 text-white text-sm font-semibold hover:from-cyan-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm">
+            @if (isLoading)
+            {
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            }
+            else
+            {
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+            }
+            Apply Filters
+        </button>
     </div>
 
     <!-- Active Entity Filter -->
@@ -340,29 +376,46 @@ else
     private int pageSize = 20;
     private int totalPages => (int)Math.Ceiling((double)totalCount / pageSize);
 
-    // Filters
+    // Bind directly to DateOnly? — works with <input type="date"> in .NET 10 Blazor
     private DateOnly? fromDate;
     private DateOnly? toDate;
     private string selectedEntityType = "";
     private string selectedAction = "";
     private string searchText = "";
-    private System.Timers.Timer? searchDebounceTimer;
+
+    private bool hasActiveFilters =>
+        fromDate.HasValue ||
+        toDate.HasValue ||
+        !string.IsNullOrEmpty(selectedEntityType) ||
+        !string.IsNullOrEmpty(selectedAction) ||
+        !string.IsNullOrEmpty(searchText);
 
     protected override async Task OnInitializedAsync()
     {
-        // Default to today
-        fromDate = DateOnly.FromDateTime(DateTime.Today);
-        toDate = DateOnly.FromDateTime(DateTime.Today);
-
-        // If entity-specific URL, set filter
-        if (!string.IsNullOrEmpty(EntityType) && !string.IsNullOrEmpty(EntityId))
-        {
-            selectedEntityType = EntityType;
-            fromDate = null; // Show all history for entity
-            toDate = null;
-        }
-
+        InitializeFilters();
         await LoadData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        currentPage = 1;
+        InitializeFilters();
+        await LoadData();
+    }
+
+    private void InitializeFilters()
+    {
+        if (string.IsNullOrEmpty(EntityType) || string.IsNullOrEmpty(EntityId))
+        {
+            fromDate = TodayCentral;
+            toDate = TodayCentral;
+        }
+        else
+        {
+            fromDate = null;
+            toDate = null;
+            selectedEntityType = EntityType;
+        }
     }
 
     private async Task LoadData()
@@ -372,10 +425,8 @@ else
 
         try
         {
-            // Load daily stats
-            dailyStats = await AuditService.GetDailyStatsAsync(DateOnly.FromDateTime(DateTime.Today));
+            dailyStats = await AuditService.GetDailyStatsAsync(TodayCentral);
 
-            // Build search criteria
             var criteria = new AuditSearchCriteria
             {
                 EntityType = !string.IsNullOrEmpty(EntityType) ? EntityType :
@@ -402,50 +453,30 @@ else
 
     private async Task ApplyFilters()
     {
+        // fromDate and toDate are already bound directly via <input type="date">
         currentPage = 1;
         await LoadData();
     }
 
-    private async Task OnFromDateChanged(ChangeEventArgs e)
+    private async Task ClearAllFilters()
     {
-        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
-        {
-            fromDate = date;
-            await ApplyFilters();
-        }
-    }
-
-    private async Task OnToDateChanged(ChangeEventArgs e)
-    {
-        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
-        {
-            toDate = date;
-            await ApplyFilters();
-        }
-    }
-
-    private void OnSearchDebounced()
-    {
-        searchDebounceTimer?.Stop();
-        searchDebounceTimer?.Dispose();
-
-        searchDebounceTimer = new System.Timers.Timer(300);
-        searchDebounceTimer.Elapsed += async (s, e) =>
-        {
-            searchDebounceTimer?.Stop();
-            await InvokeAsync(ApplyFilters);
-        };
-        searchDebounceTimer.Start();
+        fromDate = DateOnly.FromDateTime(DateTime.Today);
+        toDate = DateOnly.FromDateTime(DateTime.Today);
+        selectedEntityType = "";
+        selectedAction = "";
+        searchText = "";
+        currentPage = 1;
+        await LoadData();
     }
 
     private void ClearEntityFilter()
     {
-        NavigationManager.NavigateTo("/admin/audit");
+        NavigationManager.NavigateTo("/admin/audit", forceLoad: true);
     }
 
     private void ViewEntityHistory(string entityType, string entityId)
     {
-        NavigationManager.NavigateTo($"/admin/audit/{entityType}/{entityId}");
+        NavigationManager.NavigateTo($"/admin/audit/{entityType}/{entityId}", forceLoad: true);
     }
 
     private async Task PreviousPage()
@@ -466,7 +497,6 @@ else
         }
     }
 
-    // Consistent styling based on action type - using cyan/amber/slate palette
     private (string bg, string badge) GetActionStyles(AuditAction action) => action switch
     {
         AuditAction.Created or AuditAction.Submitted =>
@@ -572,8 +602,14 @@ else
         }
     };
 
+    // Add a helper to get "today" in Central Time
+    private static readonly TimeZoneInfo CentralTz =
+        TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+
+    private static DateOnly TodayCentral =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTz));
+
     public void Dispose()
     {
-        searchDebounceTimer?.Dispose();
     }
 }

@@ -1,0 +1,886 @@
+﻿@page "/admin/competition-tracking"
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.CompetitionRounds
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Core.Application.Settings
+
+@inject RegistrationService RegistrationService
+@inject CompetitionRoundService CompetitionRoundService
+@inject SettingsService SettingsService
+
+<PageTitle>Competition Tracking</PageTitle>
+
+<div class="space-y-4">
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-16">
+            <div class="flex flex-col items-center gap-3">
+                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+                <span class="text-sm text-slate-500">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Page Header -->
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-semibold text-slate-800">Competition Tracking</h1>
+                <p class="text-sm text-slate-500 mt-0.5">Monitor progress across all divisions and categories</p>
+            </div>
+            <div class="flex items-center gap-6 text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500">Total:</span>
+                    <span class="font-semibold text-slate-900">@allRegistrations.Count</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500">Rounds:</span>
+                    <span class="font-semibold text-slate-900">@allRounds.Count</span>
+                </div>
+                @if (allRounds.Any(r => r.HasPendingAcknowledgment))
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-500">Pending:</span>
+                        <span class="font-semibold text-red-600">@allRounds.Count(r => r.HasPendingAcknowledgment)</span>
+                        <span class="flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Divisions -->
+        <div class="space-y-3">
+            @foreach (var division in settings.Divisions.Where(d => d.IsEnabled))
+            {
+                var divisionRegs = allRegistrations.Where(r => r.CompetitionSelection.DivisionId == division.Id).ToList();
+                var divisionRounds = allRounds.Where(r => r.DivisionId == division.Id).ToList();
+                var hasStarted = divisionRounds.Count > 0;
+                
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    
+                    <!-- Division Header -->
+                    <button @onclick="() => ToggleDivisionExpanded(division.Id)"
+                            class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                        <div class="flex items-center gap-3">
+                            <svg class="h-4 w-4 text-slate-400 transition-transform group-hover:text-cyan-600 @(expandedDivisions.Contains(division.Id) ? "rotate-90" : "")" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                            <div class="w-8 h-8 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
+                                <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                            <div class="text-left">
+                                <h2 class="font-semibold text-slate-900">@division.Name</h2>
+                                <p class="text-xs text-slate-500">@divisionRegs.Count competitors</p>
+                            </div>
+                        </div>
+                        @if (!hasStarted)
+                        {
+                            <span class="text-xs text-slate-400 italic">Not started</span>
+                        }
+                    </button>
+
+                    <!-- Division Content -->
+                    @if (expandedDivisions.Contains(division.Id))
+                    {
+                        <div class="border-t border-slate-200 p-4 bg-slate-50">
+                            
+                            @if (!hasStarted)
+                            {
+                                <!-- Placeholder for division with no rounds -->
+                                <div class="text-center py-12">
+                                    <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-4">
+                                        <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <p class="text-sm font-medium text-slate-600">Competition not yet started</p>
+                                    <p class="text-xs text-slate-500 mt-1">No rounds have been assigned for this division</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <!-- Categories Grid - 2 per row -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    @foreach (var category in division.Categories.Where(c => c.IsEnabled))
+                                    {
+                                        var categoryRegs = divisionRegs.Where(r => r.CompetitionSelection.CategoryId == category.Id).ToList();
+                                        var categoryRounds = divisionRounds.Where(r => r.CategoryId == category.Id).ToList();
+                                        
+                                        @if (categoryRounds.Count > 0)
+                                        {
+                                            <div class="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                                                
+                                                <!-- Category Header -->
+                                                <div class="px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+                                                    <div class="flex items-center justify-between">
+                                                        <div>
+                                                            <h3 class="font-semibold text-slate-900 text-sm">@category.Name</h3>
+                                                            @if (!string.IsNullOrEmpty(category.AlternateName))
+                                                            {
+                                                                <p class="text-xs text-slate-500">@category.AlternateName</p>
+                                                            }
+                                                        </div>
+                                                        <span class="text-xs text-slate-500">@categoryRegs.Count</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Category Content -->
+                                                <div class="p-4 space-y-4">
+                                                    
+                                                    <!-- Video Qualification -->
+                                                    @if (category.RequiresVideo)
+                                                    {
+                                                        var videoStats = GetVideoStats(categoryRounds);
+                                                        
+                                                        <div class="space-y-2">
+                                                            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Video Qualification</div>
+                                                            
+                                                            <!-- Pending Status -->
+                                                            @if (videoStats.Pending > 0)
+                                                            {
+                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
+                                                                     @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Pending)">
+                                                                    <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    <span class="text-sm font-medium">Pending Review</span>
+                                                                    <span class="ml-auto text-lg font-bold">@videoStats.Pending</span>
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Pass/Fail Progress Bar -->
+                                                            @if (videoStats.Pass > 0 || videoStats.Fail > 0)
+                                                            {
+                                                                var total = videoStats.Pass + videoStats.Fail;
+                                                                var passPercent = (int)((videoStats.Pass / (double)total) * 100);
+                                                                var failPercent = 100 - passPercent;
+                                                                
+                                                                <div class="space-y-1.5">
+                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                        @if (videoStats.Pass > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(passPercent)%"
+                                                                                 @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Pass)">
+                                                                                <span class="text-sm font-bold">✓ @videoStats.Pass</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (videoStats.Fail > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(failPercent)%"
+                                                                                 @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Fail)">
+                                                                                <span class="text-sm font-bold">✗ @videoStats.Fail</span>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                    <div class="flex justify-between text-xs text-slate-500">
+                                                                        <span>@passPercent% passed</span>
+                                                                        <span>@failPercent% failed</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Schedule Acknowledgment -->
+                                                            @if (videoStats.Pass > 0)
+                                                            {
+                                                                var prelimAssigned = categoryRounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundDateTime.HasValue);
+                                                                var prelimAcked = categoryRounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundAcknowledged);
+                                                                var prelimNotAcked = prelimAssigned - prelimAcked;
+                                                                
+                                                                @if (prelimAssigned > 0)
+                                                                {
+                                                                    var ackedPercent = (int)((prelimAcked / (double)prelimAssigned) * 100);
+                                                                    var notAckedPercent = 100 - ackedPercent;
+                                                                    
+                                                                    <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
+                                                                        <div class="text-xs text-slate-600">→ Preliminary Schedule</div>
+                                                                        <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
+                                                                            @if (prelimAcked > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(ackedPercent)%"
+                                                                                     @onclick='() => ShowPrelimAckedModal(category, "video")'>
+                                                                                    <span class="text-xs font-bold">@prelimAcked</span>
+                                                                                </div>
+                                                                            }
+                                                                            @if (prelimNotAcked > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                                                                                     style="width: @(notAckedPercent)%"
+                                                                                     @onclick='() => ShowPrelimNotAckedModal(category, "video")'>
+                                                                                    <span class="text-xs font-bold">@prelimNotAcked</span>
+                                                                                    <span class="absolute -top-1 -right-1 flex h-2 w-2">
+                                                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                                                                    </span>
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                        <div class="flex justify-between text-xs text-slate-500">
+                                                                            <span>@ackedPercent% confirmed</span>
+                                                                            <span>@notAckedPercent% awaiting</span>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <!-- Screening Round -->
+                                                    @if (category.ScreeningRoundEnabled)
+                                                    {
+                                                        var screeningStats = GetScreeningStats(categoryRounds);
+                                                        
+                                                        <div class="space-y-2">
+                                                            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Screening Round</div>
+                                                            
+                                                            <!-- Bypassed -->
+                                                            @if (screeningStats.Bypassed > 0)
+                                                            {
+                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 text-white cursor-pointer hover:shadow-md transition-shadow"
+                                                                     @onclick="() => ShowScreeningBypassedModal(category)">
+                                                                    <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                                                    </svg>
+                                                                    <span class="text-sm font-medium">Exempt (Previous Finalists)</span>
+                                                                    <span class="ml-auto text-lg font-bold">@screeningStats.Bypassed</span>
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Pending -->
+                                                            @if (screeningStats.Pending > 0)
+                                                            {
+                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
+                                                                     @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Pending)">
+                                                                    <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    <span class="text-sm font-medium">Awaiting Results</span>
+                                                                    <span class="ml-auto text-lg font-bold">@screeningStats.Pending</span>
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Pass/Fail/NoShow Progress -->
+                                                            @if (screeningStats.Pass > 0 || screeningStats.Fail > 0 || screeningStats.NoShow > 0)
+                                                            {
+                                                                var total = screeningStats.Pass + screeningStats.Fail + screeningStats.NoShow;
+                                                                var passPercent = (int)((screeningStats.Pass / (double)total) * 100);
+                                                                var failPercent = (int)((screeningStats.Fail / (double)total) * 100);
+                                                                var noShowPercent = 100 - passPercent - failPercent;
+                                                                
+                                                                <div class="space-y-1.5">
+                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                        @if (screeningStats.Pass > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(passPercent)%"
+                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Pass)">
+                                                                                <span class="text-sm font-bold">✓ @screeningStats.Pass</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (screeningStats.Fail > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(failPercent)%"
+                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Fail)">
+                                                                                <span class="text-sm font-bold">✗ @screeningStats.Fail</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (screeningStats.NoShow > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(noShowPercent)%"
+                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.NoShow)">
+                                                                                <span class="text-sm font-bold">— @screeningStats.NoShow</span>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                    <div class="flex justify-between text-xs text-slate-500">
+                                                                        <span>@passPercent% passed</span>
+                                                                        <span>@failPercent% failed · @noShowPercent% no show</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Schedule Acknowledgment -->
+                                                            @if (screeningStats.Pass > 0 || screeningStats.Bypassed > 0)
+                                                            {
+                                                                var prelimAssigned = categoryRounds.Count(r => 
+                                                                    (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && 
+                                                                    r.PreliminaryRoundDateTime.HasValue);
+                                                                var prelimAcked = categoryRounds.Count(r => 
+                                                                    (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && 
+                                                                    r.PreliminaryRoundAcknowledged);
+                                                                var prelimNotAcked = prelimAssigned - prelimAcked;
+                                                                
+                                                                @if (prelimAssigned > 0)
+                                                                {
+                                                                    var ackedPercent = (int)((prelimAcked / (double)prelimAssigned) * 100);
+                                                                    var notAckedPercent = 100 - ackedPercent;
+                                                                    
+                                                                    <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
+                                                                        <div class="text-xs text-slate-600">→ Preliminary Schedule</div>
+                                                                        <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
+                                                                            @if (prelimAcked > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(ackedPercent)%"
+                                                                                     @onclick='() => ShowPrelimAckedModal(category, "screening")'>
+                                                                                    <span class="text-xs font-bold">@prelimAcked</span>
+                                                                                </div>
+                                                                            }
+                                                                            @if (prelimNotAcked > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                                                                                     style="width: @(notAckedPercent)%"
+                                                                                     @onclick='() => ShowPrelimNotAckedModal(category, "screening")'>
+                                                                                    <span class="text-xs font-bold">@prelimNotAcked</span>
+                                                                                    <span class="absolute -top-1 -right-1 flex h-2 w-2">
+                                                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                                                                    </span>
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                        <div class="flex justify-between text-xs text-slate-500">
+                                                                            <span>@ackedPercent% confirmed</span>
+                                                                            <span>@notAckedPercent% awaiting</span>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <!-- Preliminary Round -->
+                                                    <div class="space-y-2">
+                                                        <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Preliminary Round</div>
+                                                        @{
+                                                            var prelimStats = GetPreliminaryStats(categoryRounds);
+                                                        }
+                                                        
+                                                        @if (prelimStats.Pending > 0)
+                                                        {
+                                                            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
+                                                                 @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.Pending)">
+                                                                <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                                <span class="text-sm font-medium">Awaiting Results</span>
+                                                                <span class="ml-auto text-lg font-bold">@prelimStats.Pending</span>
+                                                            </div>
+                                                        }
+                                                        
+                                                        @if (prelimStats.Qualified > 0 || prelimStats.NotQualified > 0 || prelimStats.NoShow > 0)
+                                                        {
+                                                            var total = prelimStats.Qualified + prelimStats.NotQualified + prelimStats.NoShow;
+                                                            var qualifiedPercent = (int)((prelimStats.Qualified / (double)total) * 100);
+                                                            var notQualifiedPercent = (int)((prelimStats.NotQualified / (double)total) * 100);
+                                                            var noShowPercent = 100 - qualifiedPercent - notQualifiedPercent;
+                                                            
+                                                            <div class="space-y-1.5">
+                                                                <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                    @if (prelimStats.Qualified > 0)
+                                                                    {
+                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                             style="width: @(qualifiedPercent)%"
+                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.Qualified)">
+                                                                            <span class="text-sm font-bold">✓ @prelimStats.Qualified</span>
+                                                                        </div>
+                                                                    }
+                                                                    @if (prelimStats.NotQualified > 0)
+                                                                    {
+                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                             style="width: @(notQualifiedPercent)%"
+                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.NotQualified)">
+                                                                            <span class="text-sm font-bold">✗ @prelimStats.NotQualified</span>
+                                                                        </div>
+                                                                    }
+                                                                    @if (prelimStats.NoShow > 0)
+                                                                    {
+                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                             style="width: @(noShowPercent)%"
+                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.NoShow)">
+                                                                            <span class="text-sm font-bold">— @prelimStats.NoShow</span>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                                <div class="flex justify-between text-xs text-slate-500">
+                                                                    <span>@qualifiedPercent% qualified</span>
+                                                                    <span>@notQualifiedPercent% not qualified · @noShowPercent% no show</span>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        
+                                                        @if (prelimStats.Qualified > 0)
+                                                        {
+                                                            var finalAssigned = categoryRounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundDateTime.HasValue);
+                                                            var finalAcked = categoryRounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundAcknowledged);
+                                                            var finalNotAcked = finalAssigned - finalAcked;
+                                                            
+                                                            @if (finalAssigned > 0)
+                                                            {
+                                                                var ackedPercent = (int)((finalAcked / (double)finalAssigned) * 100);
+                                                                var notAckedPercent = 100 - ackedPercent;
+                                                                
+                                                                <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
+                                                                    <div class="text-xs text-slate-600">→ Final Schedule</div>
+                                                                    <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
+                                                                        @if (finalAcked > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(ackedPercent)%"
+                                                                                 @onclick="() => ShowFinalAckedModal(category)">
+                                                                                <span class="text-xs font-bold">@finalAcked</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (finalNotAcked > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                                                                                 style="width: @(notAckedPercent)%"
+                                                                                 @onclick="() => ShowFinalNotAckedModal(category)">
+                                                                                <span class="text-xs font-bold">@finalNotAcked</span>
+                                                                                <span class="absolute -top-1 -right-1 flex h-2 w-2">
+                                                                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                                                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                                                                </span>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                    <div class="flex justify-between text-xs text-slate-500">
+                                                                        <span>@ackedPercent% confirmed</span>
+                                                                        <span>@notAckedPercent% awaiting</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        }
+                                                    </div>
+
+                                                    <!-- Final Round (Expandable) -->
+                                                    @if (expandedFinals.Contains(category.Id))
+                                                    {
+                                                        <div class="space-y-2 pt-2 border-t border-slate-200">
+                                                            <div class="flex items-center justify-between">
+                                                                <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Final Round</div>
+                                                                <button @onclick="() => ToggleFinalExpanded(category.Id)" class="text-xs text-slate-500 hover:text-slate-700">
+                                                                    Hide
+                                                                </button>
+                                                            </div>
+                                                            @{
+                                                                var finalStats = GetFinalStats(categoryRounds);
+                                                            }
+                                                            
+                                                            @if (finalStats.Pending > 0)
+                                                            {
+                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
+                                                                     @onclick="() => ShowFinalModal(category, FinalRoundStatus.Pending)">
+                                                                    <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    <span class="text-sm font-medium">Awaiting Results</span>
+                                                                    <span class="ml-auto text-lg font-bold">@finalStats.Pending</span>
+                                                                </div>
+                                                            }
+                                                            
+                                                            @if (finalStats.Placed > 0 || finalStats.Participated > 0 || finalStats.NoShow > 0)
+                                                            {
+                                                                var total = finalStats.Placed + finalStats.Participated + finalStats.NoShow;
+                                                                var placedPercent = (int)((finalStats.Placed / (double)total) * 100);
+                                                                var participatedPercent = (int)((finalStats.Participated / (double)total) * 100);
+                                                                var noShowPercent = 100 - placedPercent - participatedPercent;
+                                                                
+                                                                <div class="space-y-1.5">
+                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                        @if (finalStats.Placed > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(placedPercent)%"
+                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.Placed)">
+                                                                                <span class="text-sm font-bold">🏆 @finalStats.Placed</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (finalStats.Participated > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(participatedPercent)%"
+                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.Participated)">
+                                                                                <span class="text-sm font-bold">@finalStats.Participated</span>
+                                                                            </div>
+                                                                        }
+                                                                        @if (finalStats.NoShow > 0)
+                                                                        {
+                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                 style="width: @(noShowPercent)%"
+                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.NoShow)">
+                                                                                <span class="text-sm font-bold">— @finalStats.NoShow</span>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                    <div class="flex justify-between text-xs text-slate-500">
+                                                                        <span>Podium: 🥇@finalStats.First 🥈@finalStats.Second 🥉@finalStats.Third</span>
+                                                                        <span>@participatedPercent% participated · @noShowPercent% no show</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button @onclick="() => ToggleFinalExpanded(category.Id)" 
+                                                                class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition-colors">
+                                                            Show Final Round Details
+                                                        </button>
+                                                    }
+
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Modal (same as before) -->
+@if (showModal)
+{
+    <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" @onclick="CloseModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" @onclick:stopPropagation="true">
+            
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900">@modalTitle</h3>
+                <button @onclick="CloseModal" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                @if (modalCompetitors.Count == 0)
+                {
+                    <p class="text-slate-500 text-center py-8 text-sm">No competitors found.</p>
+                }
+                else
+                {
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="border-b border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">CID</th>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                                    @if (modalShowAcknowledgment)
+                                    {
+                                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acknowledged</th>
+                                    }
+                                    @if (modalShowTimeSince)
+                                    {
+                                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var competitor in modalCompetitors)
+                                {
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-mono text-slate-600">@competitor.Cid</td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">@competitor.CompetitorName</td>
+                                        @if (modalShowAcknowledgment)
+                                        {
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                                                @GetAcknowledgmentTime(competitor)
+                                            </td>
+                                        }
+                                        @if (modalShowTimeSince)
+                                        {
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium">
+                                                @GetTimeSinceAssignment(competitor)
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                <span class="text-sm text-slate-600">@modalCompetitors.Count competitor(s)</span>
+                <button @onclick="CloseModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors">
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private CompetitionSettings settings = new();
+    private List<Registration> allRegistrations = new();
+    private List<CompetitionRound> allRounds = new();
+    private HashSet<string> expandedDivisions = new();
+    private HashSet<string> expandedFinals = new();
+
+    // Modal state
+    private bool showModal;
+    private string modalTitle = "";
+    private List<CompetitionRound> modalCompetitors = new();
+    private bool modalShowAcknowledgment;
+    private bool modalShowTimeSince;
+    private string modalRoundType = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+        
+        var regsTask = RegistrationService.GetAllByYearAsync(currentYear);
+        var roundsTask = CompetitionRoundService.GetAllByYearAsync(currentYear);
+
+        await Task.WhenAll(regsTask, roundsTask);
+
+        allRegistrations = (await regsTask).ToList();
+        allRounds = (await roundsTask).ToList();
+
+        isLoading = false;
+    }
+
+    private void ToggleDivisionExpanded(string divisionId)
+    {
+        if (expandedDivisions.Contains(divisionId))
+            expandedDivisions.Remove(divisionId);
+        else
+            expandedDivisions.Add(divisionId);
+    }
+
+    private void ToggleFinalExpanded(string categoryId)
+    {
+        if (expandedFinals.Contains(categoryId))
+            expandedFinals.Remove(categoryId);
+        else
+            expandedFinals.Add(categoryId);
+    }
+
+    // Stats Calculators (same as before)
+    private (int Pending, int Pass, int Fail) GetVideoStats(List<CompetitionRound> rounds)
+    {
+        return (
+            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pending),
+            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass),
+            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Fail)
+        );
+    }
+
+    private (int Bypassed, int Pending, int Pass, int Fail, int NoShow) GetScreeningStats(List<CompetitionRound> rounds)
+    {
+        return (
+            rounds.Count(r => r.ScreeningRoundBypass),
+            // Only count Pending if they didn't fail video (if video was required)
+            rounds.Count(r => !r.ScreeningRoundBypass && 
+                             r.ScreeningRoundResult == ScreeningRoundStatus.Pending &&
+                             r.VideoQualification != VideoQualificationStatus.Fail),
+            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.Pass),
+            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.Fail),
+            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.NoShow)
+        );
+    }
+
+    private (int Pending, int Qualified, int NotQualified, int NoShow) GetPreliminaryStats(List<CompetitionRound> rounds)
+    {
+        return (
+            // Only count Pending if they passed previous rounds (video OR screening)
+            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Pending &&
+                             (r.VideoQualification == VideoQualificationStatus.Pass ||
+                              r.ScreeningRoundResult == ScreeningRoundStatus.Pass ||
+                              r.ScreeningRoundBypass ||
+                              // Or if neither video nor screening was required
+                              (r.VideoQualification == VideoQualificationStatus.Pending && 
+                               r.ScreeningRoundResult == ScreeningRoundStatus.Pending &&
+                               !r.ScreeningRoundBypass))),
+            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified),
+            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.NotQualified),
+            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.NoShow)
+        );
+    }
+
+    private (int Pending, int Placed, int Participated, int NoShow, int First, int Second, int Third) GetFinalStats(List<CompetitionRound> rounds)
+    {
+        return (
+            // Only count Pending if they qualified from preliminary
+            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Pending &&
+                             r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified),
+            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Placed),
+            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Participated),
+            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.NoShow),
+            rounds.Count(r => r.FinalRoundPlacement == 1),
+            rounds.Count(r => r.FinalRoundPlacement == 2),
+            rounds.Count(r => r.FinalRoundPlacement == 3)
+        );
+    }
+
+    // Modal Openers (same as before - keeping all of them)
+    private void ShowVideoModal(Category category, VideoQualificationStatus status)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == status).ToList();
+        modalTitle = $"{category.Name} - Video: {status}";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = false;
+        showModal = true;
+    }
+
+    private void ShowScreeningBypassedModal(Category category)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.ScreeningRoundBypass).ToList();
+        modalTitle = $"{category.Name} - Screening: Bypassed";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = false;
+        showModal = true;
+    }
+
+    private void ShowScreeningModal(Category category, ScreeningRoundStatus status)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.ScreeningRoundResult == status).ToList();
+        modalTitle = $"{category.Name} - Screening: {status}";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = false;
+        showModal = true;
+    }
+
+    private void ShowPrelimAckedModal(Category category, string source)
+    {
+        List<CompetitionRound> rounds;
+        if (source == "video")
+            rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundAcknowledged).ToList();
+        else
+            rounds = allRounds.Where(r => r.CategoryId == category.Id && (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && r.PreliminaryRoundAcknowledged).ToList();
+        
+        modalTitle = $"{category.Name} - Preliminary: Acknowledged";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = true;
+        modalShowTimeSince = false;
+        modalRoundType = "preliminary";
+        showModal = true;
+    }
+
+    private void ShowPrelimNotAckedModal(Category category, string source)
+    {
+        List<CompetitionRound> rounds;
+        if (source == "video")
+            rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundDateTime.HasValue && !r.PreliminaryRoundAcknowledged).ToList();
+        else
+            rounds = allRounds.Where(r => r.CategoryId == category.Id && (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && r.PreliminaryRoundDateTime.HasValue && !r.PreliminaryRoundAcknowledged).ToList();
+        
+        modalTitle = $"{category.Name} - Preliminary: Awaiting Confirmation";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = true;
+        modalRoundType = "preliminary";
+        showModal = true;
+    }
+
+    private void ShowPreliminaryModal(Category category, PreliminaryRoundStatus status)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == status).ToList();
+        modalTitle = $"{category.Name} - Preliminary: {status}";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = false;
+        showModal = true;
+    }
+
+    private void ShowFinalAckedModal(Category category)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundAcknowledged).ToList();
+        modalTitle = $"{category.Name} - Final: Acknowledged";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = true;
+        modalShowTimeSince = false;
+        modalRoundType = "final";
+        showModal = true;
+    }
+
+    private void ShowFinalNotAckedModal(Category category)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundDateTime.HasValue && !r.FinalRoundAcknowledged).ToList();
+        modalTitle = $"{category.Name} - Final: Awaiting Confirmation";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = true;
+        modalRoundType = "final";
+        showModal = true;
+    }
+
+    private void ShowFinalModal(Category category, FinalRoundStatus status)
+    {
+        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.FinalRoundResult == status).ToList();
+        modalTitle = $"{category.Name} - Final: {status}";
+        modalCompetitors = rounds;
+        modalShowAcknowledgment = false;
+        modalShowTimeSince = false;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        modalCompetitors.Clear();
+        modalRoundType = "";
+    }
+
+    private string GetAcknowledgmentTime(CompetitionRound round)
+    {
+        DateTimeOffset? ackTime = modalRoundType switch
+        {
+            "preliminary" => round.PreliminaryRoundAcknowledgedAt,
+            "final" => round.FinalRoundAcknowledgedAt,
+            _ => null
+        };
+
+        if (!ackTime.HasValue)
+            return "—";
+
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var ct = TimeZoneInfo.ConvertTimeFromUtc(ackTime.Value.UtcDateTime, centralZone);
+        return ct.ToString("MMM d, h:mm tt");
+    }
+
+    private string GetTimeSinceAssignment(CompetitionRound round)
+    {
+        DateTimeOffset? assignTime = modalRoundType switch
+        {
+            "preliminary" => round.PreliminaryRoundDateTime,
+            "final" => round.FinalRoundDateTime,
+            _ => null
+        };
+
+        if (!assignTime.HasValue)
+            return "—";
+
+        var timeSince = DateTimeOffset.UtcNow - assignTime.Value;
+        
+        if (timeSince.TotalDays >= 1)
+            return $"{(int)timeSince.TotalDays}d ago";
+        else if (timeSince.TotalHours >= 1)
+            return $"{(int)timeSince.TotalHours}h ago";
+        else
+            return $"{(int)timeSince.TotalMinutes}m ago";
+    }
+}

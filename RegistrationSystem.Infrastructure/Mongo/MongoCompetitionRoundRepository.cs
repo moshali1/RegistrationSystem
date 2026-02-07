@@ -60,12 +60,17 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
     }
 
     public async Task<IReadOnlyList<CompetitionRound>> GetWithPendingAcknowledgmentsAsync(
-        int competitionYear,
-        CancellationToken cancellationToken = default)
+    int competitionYear,
+    CancellationToken cancellationToken = default)
     {
         var filter = Builders<CompetitionRound>.Filter.And(
             Builders<CompetitionRound>.Filter.Eq(r => r.CompetitionYear, competitionYear),
             Builders<CompetitionRound>.Filter.Or(
+                Builders<CompetitionRound>.Filter.And(
+                    Builders<CompetitionRound>.Filter.Ne(r => r.ScreeningRoundDateTime, null),
+                    Builders<CompetitionRound>.Filter.Eq(r => r.ScreeningRoundBypass, false),
+                    Builders<CompetitionRound>.Filter.Eq(r => r.ScreeningRoundAcknowledged, false)
+                ),
                 Builders<CompetitionRound>.Filter.And(
                     Builders<CompetitionRound>.Filter.Ne(r => r.PreliminaryRoundDateTime, null),
                     Builders<CompetitionRound>.Filter.Eq(r => r.PreliminaryRoundAcknowledged, false)
@@ -187,4 +192,17 @@ public class MongoCompetitionRoundRepository : ICompetitionRoundRepository
                      r.VideoQualification == status,
                 cancellationToken: cancellationToken);
     }
+
+    public async Task<IReadOnlyList<CompetitionRound>> GetByCategoryAsync(
+    string categoryId,
+    int competitionYear,
+    CancellationToken cancellationToken = default)
+    {
+        return await _collection
+            .Find(r => r.CategoryId == categoryId && r.CompetitionYear == competitionYear)
+            .SortBy(r => r.CompetitorName)
+            .ToListAsync(cancellationToken);
+    }
+
+
 }

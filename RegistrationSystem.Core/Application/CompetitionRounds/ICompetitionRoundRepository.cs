@@ -18,4 +18,10 @@ public interface ICompetitionRoundRepository
     Task DeleteAsync(string id, CancellationToken cancellationToken = default);
     Task DeleteByRegistrationIdAsync(string registrationId, CancellationToken cancellationToken = default);
     Task<int> CountByVideoQualificationStatusAsync(VideoQualificationStatus status, int competitionYear, CancellationToken cancellationToken = default);
+
+
+    Task<IReadOnlyList<CompetitionRound>> GetByCategoryAsync(
+        string categoryId,
+        int competitionYear,
+        CancellationToken cancellationToken = default);
 }

@@ -1,0 +1,193 @@
+﻿@* ExpandableMessage.razor - Shows message with "Read more" expansion for long content *@
+
+<div class="relative">
+    <div class="@GetContentClasses()">
+        <div class="prose prose-sm max-w-none prose-slate">
+            @((MarkupString)Message)
+        </div>
+    </div>
+
+    @if (IsLongMessage && !isExpanded)
+    {
+        <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+    }
+
+    @if (IsLongMessage)
+    {
+        <button type="button"
+                @onclick="ToggleExpanded"
+                class="cursor-pointer mt-2 text-sm text-cyan-700 hover:text-cyan-800 font-medium flex items-center gap-1">
+            @if (isExpanded)
+            {
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                </svg>
+                <span>Show less</span>
+            }
+            else
+            {
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Read more</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public int MaxHeight { get; set; } = 150; // pixels
+
+    private bool isExpanded;
+
+    private bool IsLongMessage => Message.Length > 300; // characters
+
+    private string GetContentClasses()
+    {
+        if (!IsLongMessage || isExpanded)
+            return "";
+
+        return $"max-h-[{MaxHeight}px] overflow-hidden";
+    }
+
+    private void ToggleExpanded()
+    {
+        isExpanded = !isExpanded;
+    }
+
+    private string GetDefaultFailMessage(string roundName, string nextRoundName)
+    {
+        return $@"
+<p>Thank you for participating in the <strong>{roundName}</strong> of the competition. While you did not advance to the <strong>{nextRoundName}</strong>, we sincerely appreciate your dedication to the Qur'an and commend your efforts.</p>
+<p>We encourage you to continue your memorization journey and look forward to your participation in future competitions, in shā' Allāh.</p>
+<p><em>JazakAllahu Khayran.</em></p>
+";
+    }
+
+    /// <summary>
+    /// Gets the appropriate message for a round based on status
+    /// </summary>
+    private string? GetRoundMessage(CompetitionRound round, string roundType)
+    {
+        switch (roundType)
+        {
+            case "video":
+                if (round.VideoQualification == VideoQualificationStatus.Pass)
+                {
+                    // Show custom admin message if available
+                    return round.VideoQualificationComment ?? GetDefaultPassMessage("Video Qualification", "Screening Round");
+                }
+                else if (round.VideoQualification == VideoQualificationStatus.Fail)
+                {
+                    return GetDefaultFailMessage("Video Qualification", "Screening Round");
+                }
+                break;
+
+            case "screening":
+                if (round.ScreeningRoundResult == ScreeningRoundStatus.Pass || round.ScreeningRoundBypass)
+                {
+                    return round.ScreeningRoundComment ?? GetDefaultPassMessage("Screening Round", "Preliminary Round");
+                }
+                else if (round.ScreeningRoundResult == ScreeningRoundStatus.Fail)
+                {
+                    return GetDefaultFailMessage("Screening Round", "Preliminary Round");
+                }
+                // NoShow - no message needed
+                break;
+
+            case "preliminary":
+                if (round.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified)
+                {
+                    return round.PreliminaryRoundComment ?? GetDefaultPassMessage("Preliminary Round", "Final Round");
+                }
+                else if (round.PreliminaryRoundResult == PreliminaryRoundStatus.NotQualified)
+                {
+                    return GetDefaultFailMessage("Preliminary Round", "Final Round");
+                }
+                // NoShow - no message needed
+                break;
+
+            case "final":
+                if (round.FinalRoundResult == FinalRoundStatus.Placed || round.FinalRoundResult == FinalRoundStatus.Participated)
+                {
+                    return round.FinalRoundComment ?? GetDefaultFinalMessage(round.FinalRoundPlacement);
+                }
+                // NoShow - no message needed
+                break;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Default message for passing a round (when admin hasn't set a custom message)
+    /// </summary>
+    private string GetDefaultPassMessage(string roundName, string nextRoundName)
+    {
+        return $@"
+<p>Congratulations! You have successfully passed the <strong>{roundName}</strong>.</p>
+<p>You will receive details about the <strong>{nextRoundName}</strong> schedule shortly, in shā' Allāh.</p>
+";
+    }
+
+    /// <summary>
+    /// Default message for final round completion
+    /// </summary>
+    private string GetDefaultFinalMessage(int? placement)
+    {
+        if (placement.HasValue && placement.Value <= 3)
+        {
+            string medal = placement.Value switch
+            {
+                1 => "🥇 First Place",
+                2 => "🥈 Second Place",
+                3 => "🥉 Third Place",
+                _ => ""
+            };
+
+            return $@"
+<p><strong>Masha'Allah! {medal}</strong></p>
+<p>Congratulations on your outstanding performance in the Final Round. May Allah bless you, your teachers, and your family.</p>
+<p>Details about the award ceremony will be shared with you soon, in shā' Allāh.</p>
+<p><em>JazakAllahu Khayran.</em></p>
+";
+        }
+
+        return @"
+<p>Thank you for participating in the Final Round of the competition. May Allah accept your efforts and make the Qur'an a light in your life.</p>
+<p>Details about the award ceremony will be shared with you soon, in shā' Allāh.</p>
+<p><em>JazakAllahu Khayran.</em></p>
+";
+    }
+
+    /// <summary>
+    /// Determines if a round should show a message (passes and fails, but not pending or no-shows)
+    /// </summary>
+    private bool ShouldShowRoundMessage(CompetitionRound round, string roundType)
+    {
+        switch (roundType)
+        {
+            case "video":
+                return round.VideoQualification == VideoQualificationStatus.Pass ||
+                       round.VideoQualification == VideoQualificationStatus.Fail;
+
+            case "screening":
+                return round.ScreeningRoundResult == ScreeningRoundStatus.Pass ||
+                       round.ScreeningRoundResult == ScreeningRoundStatus.Fail ||
+                       round.ScreeningRoundBypass;
+
+            case "preliminary":
+                return round.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified ||
+                       round.PreliminaryRoundResult == PreliminaryRoundStatus.NotQualified;
+
+            case "final":
+                return round.FinalRoundResult == FinalRoundStatus.Placed ||
+                       round.FinalRoundResult == FinalRoundStatus.Participated;
+
+            default:
+                return false;
+        }
+    }
+
+}

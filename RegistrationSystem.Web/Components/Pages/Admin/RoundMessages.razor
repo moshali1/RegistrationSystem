@@ -1,0 +1,453 @@
+﻿@page "/admin/round-messages"
+@attribute [Authorize(Roles = "Admin")]
+
+@inject SettingsService SettingsService
+@inject CompetitionRoundService CompetitionRoundService
+
+<PageTitle>Round Messages</PageTitle>
+
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-semibold text-slate-800">Round Messages</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Manage custom messages for competitors who advance to each round</p>
+        </div>
+        @if (hasUnsavedChanges)
+        {
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-amber-600 flex items-center gap-1.5">
+                    <span class="flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    Unsaved changes
+                </span>
+                <button type="button"
+                        @onclick="SaveAllAsync"
+                        disabled="@isSaving"
+                        class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2">
+                    @if (isSaving)
+                    {
+                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                    }
+                    Save All Changes
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-16">
+            <div class="flex flex-col items-center gap-3">
+                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+                <span class="text-sm text-slate-500">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Success/Error Messages -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <span>@successMessage</span>
+                </div>
+                <button @onclick="() => successMessage = null" class="text-cyan-600 hover:text-cyan-800">
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                    <span>@errorMessage</span>
+                </div>
+                <button @onclick="() => errorMessage = null" class="text-red-600 hover:text-red-800">
+                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        }
+
+        <!-- Info Box -->
+        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <div class="flex gap-2">
+                <svg class="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <p class="font-medium mb-1">How Round Instructions Work</p>
+                    <ul class="text-xs space-y-0.5 list-disc list-inside">
+                        <li>Instructions appear <strong>under round schedules</strong> (with date/time and acknowledge button)</li>
+                        <li>Include venue details, parking, what to bring, timing reminders, etc.</li>
+                        <li>HTML supported: &lt;strong&gt;, &lt;em&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;br&gt;, &lt;h4&gt;</li>
+                        <li>Round results always show simple default messages</li>
+                        <li>Final result message is optional - default placement messages shown if blank</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Divisions -->
+        @foreach (var division in settings.Divisions.Where(d => d.IsEnabled))
+        {
+            <div class="space-y-3">
+                <!-- Division Header -->
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
+                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <h2 class="font-semibold text-slate-900">@division.Name</h2>
+                </div>
+
+                <!-- Categories -->
+                @foreach (var category in division.Categories.Where(c => c.IsEnabled))
+                {
+                    var catId = category.Id;
+
+                    <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+                        <!-- Category Header -->
+                        <button @onclick="() => ToggleCategory(catId)"
+                                type="button"
+                                class="cursor-pointer w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <svg class="h-4 w-4 text-slate-400 transition-transform @(expandedCategories.Contains(catId) ? "rotate-90" : "")"
+                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                                <div class="text-left">
+                                    <span class="font-semibold text-slate-900 text-sm">@category.Name</span>
+                                    @if (!string.IsNullOrEmpty(category.AlternateName))
+                                    {
+                                        <span class="text-xs text-slate-500 ml-2">@category.AlternateName</span>
+                                    }
+                                </div>
+                            </div>
+                        </button>
+
+                        <!-- Category Content -->
+                        @if (expandedCategories.Contains(catId))
+                        {
+                            <div class="border-t border-slate-200 p-4 space-y-4 bg-slate-50">
+
+                                <!-- Instructions for next round after Video -->
+                                @if (category.RequiresVideo)
+                                {
+                                    var nextRoundAfterVideo = category.ScreeningRoundEnabled ? "Screening" : "Preliminary";
+                                    @RenderEditor(catId, "video", $"{nextRoundAfterVideo} Round Instructions", $"Shown under {nextRoundAfterVideo.ToLower()} schedule to competitors who passed video qualification")
+                                }
+
+                                <!-- Instructions for next round after Screening -->
+                                @if (category.ScreeningRoundEnabled)
+                                {
+                                    @RenderEditor(catId, "screening", "Preliminary Round Instructions", "Shown under preliminary schedule to competitors who passed screening")
+                                }
+
+                                <!-- Final Round Instructions -->
+                                @RenderEditor(catId, "preliminary", "Final Round Instructions", "Shown under final schedule to competitors who qualified from preliminary")
+
+                                <!-- Final Round Result Message (Optional) -->
+                                @RenderEditor(catId, "final", "Final Round Result Message (Optional)", "Optional custom message for final results. Leave blank for default placement messages.")
+
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool hasUnsavedChanges;
+    private string? successMessage;
+    private string? errorMessage;
+    private CompetitionSettings settings = new();
+    private HashSet<string> expandedCategories = new();
+
+    private Dictionary<string, Dictionary<string, string?>> messages = new();
+    private Dictionary<string, Dictionary<string, int>> counts = new(); // categoryId -> roundType -> count
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+
+        foreach (var division in settings.Divisions.Where(d => d.IsEnabled))
+        {
+            foreach (var category in division.Categories.Where(c => c.IsEnabled))
+            {
+                // Initialize messages dictionary
+                messages[category.Id] = new Dictionary<string, string?>
+                {
+                    ["video"] = null,
+                    ["screening"] = null,
+                    ["preliminary"] = null,
+                    ["final"] = null
+                };
+
+                // Initialize counts dictionary
+                counts[category.Id] = new Dictionary<string, int>
+                {
+                    ["video"] = 0,
+                    ["screening"] = 0,
+                    ["preliminary"] = 0,
+                    ["final"] = 0
+                };
+
+                // Load existing messages and calculate counts from CompetitionRounds for this category
+                var rounds = await CompetitionRoundService.GetByCategoryAsync(category.Id, currentYear);
+
+                if (rounds.Any())
+                {
+                    // Load message from first round (all rounds in same category have same messages)
+                    var sampleRound = rounds.First();
+                    messages[category.Id]["video"] = sampleRound.VideoQualificationComment;
+                    messages[category.Id]["screening"] = sampleRound.ScreeningRoundComment;
+                    messages[category.Id]["preliminary"] = sampleRound.PreliminaryRoundComment;
+                    messages[category.Id]["final"] = sampleRound.FinalRoundComment;
+
+                    // Calculate how many competitors would see each instruction/message
+                    foreach (var round in rounds)
+                    {
+                        // Video → Screening instructions: Shown to those who passed video
+                        if (category.RequiresVideo && round.VideoQualification == VideoQualificationStatus.Pass)
+                        {
+                            counts[category.Id]["video"]++;
+                        }
+
+                        // Screening → Preliminary instructions: Shown under preliminary schedule
+                        var passedVideo = !category.RequiresVideo || round.VideoQualification == VideoQualificationStatus.Pass;
+                        if (passedVideo && category.ScreeningRoundEnabled &&
+                            round.ScreeningRoundResult != ScreeningRoundStatus.Fail &&
+                            round.ScreeningRoundResult != ScreeningRoundStatus.NoShow)
+                        {
+                            counts[category.Id]["screening"]++;
+                        }
+
+                        // Preliminary → Final instructions: Shown under final schedule
+                        var passedPreviousRounds = passedVideo &&
+                            (!category.ScreeningRoundEnabled ||
+                             round.ScreeningRoundResult == ScreeningRoundStatus.Pass ||
+                             round.ScreeningRoundBypass);
+
+                        if (passedPreviousRounds &&
+                            round.PreliminaryRoundResult != PreliminaryRoundStatus.NotQualified &&
+                            round.PreliminaryRoundResult != PreliminaryRoundStatus.NoShow)
+                        {
+                            counts[category.Id]["preliminary"]++;
+                        }
+
+                        // Final → Final result message: Shown in final result
+                        if (round.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified &&
+                            round.FinalRoundResult != FinalRoundStatus.NoShow)
+                        {
+                            counts[category.Id]["final"]++;
+                        }
+                    }
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private void ToggleCategory(string categoryId)
+    {
+        if (expandedCategories.Contains(categoryId))
+            expandedCategories.Remove(categoryId);
+        else
+            expandedCategories.Add(categoryId);
+    }
+
+    private RenderFragment RenderEditor(string categoryId, string roundType, string label, string description) => __builder =>
+    {
+        var currentValue = messages[categoryId][roundType];
+        var applicableCount = counts[categoryId][roundType];
+
+        <div class="space-y-2">
+            <div>
+                <div class="flex items-center justify-between">
+                    <label class="text-sm font-semibold text-slate-700">@label</label>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-50 border border-cyan-200 text-xs font-medium text-cyan-700">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        @applicableCount competitor@(applicableCount == 1 ? "" : "s")
+                    </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">@description</p>
+            </div>
+
+            <textarea value="@currentValue"
+                      @oninput="@((ChangeEventArgs e) => UpdateMessage(categoryId, roundType, e.Value?.ToString()))"
+                      rows="10"
+                      placeholder="Enter message here... HTML tags are supported"
+                      class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 font-mono text-slate-700"></textarea>
+
+            @if (!string.IsNullOrEmpty(currentValue))
+            {
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-500">@currentValue.Length characters</span>
+                    <button type="button"
+                            @onclick="() => ClearMessage(categoryId, roundType)"
+                            class="cursor-pointer text-xs text-red-600 hover:text-red-700">
+                        Clear
+                    </button>
+                </div>
+            }
+        </div>
+    };
+
+    private void UpdateMessage(string categoryId, string roundType, string? value)
+    {
+        messages[categoryId][roundType] = value;
+        hasUnsavedChanges = true;
+    }
+
+    private void ClearMessage(string categoryId, string roundType)
+    {
+        messages[categoryId][roundType] = null;
+        hasUnsavedChanges = true;
+    }
+
+    private async Task SaveAllAsync()
+    {
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var currentYear = settings.CompetitionInfo.CompetitionYear;
+            var updateCount = 0;
+
+            // For each category that has messages
+            foreach (var (categoryId, categoryMessages) in messages)
+            {
+                // Get the category to check requirements
+                Division? division = null;
+                Category? category = null;
+                foreach (var div in settings.Divisions.Where(d => d.IsEnabled))
+                {
+                    category = div.Categories.FirstOrDefault(c => c.Id == categoryId);
+                    if (category != null)
+                    {
+                        division = div;
+                        break;
+                    }
+                }
+
+                if (category == null) continue;
+
+                // Get all CompetitionRound records for this category
+                var rounds = await CompetitionRoundService.GetByCategoryAsync(categoryId, currentYear);
+
+                if (!rounds.Any())
+                    continue;
+
+                // Update rounds with appropriate messages/instructions based on their status
+                foreach (var round in rounds)
+                {
+                    var hasChanges = false;
+
+                    // VideoQualificationComment → Screening Round Instructions
+                    // Update if they passed video (will see screening schedule)
+                    if (category.RequiresVideo &&
+                        round.VideoQualification == VideoQualificationStatus.Pass)
+                    {
+                        if (round.VideoQualificationComment != categoryMessages["video"])
+                        {
+                            round.VideoQualificationComment = categoryMessages["video"];
+                            hasChanges = true;
+                        }
+                    }
+
+                    // ScreeningRoundComment → Preliminary Round Instructions
+                    // Update if passed video AND will see preliminary schedule
+                    var passedVideo = !category.RequiresVideo || round.VideoQualification == VideoQualificationStatus.Pass;
+                    if (passedVideo && category.ScreeningRoundEnabled &&
+                        round.ScreeningRoundResult != ScreeningRoundStatus.Fail &&
+                        round.ScreeningRoundResult != ScreeningRoundStatus.NoShow)
+                    {
+                        if (round.ScreeningRoundComment != categoryMessages["screening"])
+                        {
+                            round.ScreeningRoundComment = categoryMessages["screening"];
+                            hasChanges = true;
+                        }
+                    }
+
+                    // PreliminaryRoundComment → Final Round Instructions
+                    // Update if passed previous rounds AND will see final schedule
+                    var passedPreviousRounds = passedVideo &&
+                        (!category.ScreeningRoundEnabled ||
+                         round.ScreeningRoundResult == ScreeningRoundStatus.Pass ||
+                         round.ScreeningRoundBypass);
+
+                    if (passedPreviousRounds &&
+                        round.PreliminaryRoundResult != PreliminaryRoundStatus.NotQualified &&
+                        round.PreliminaryRoundResult != PreliminaryRoundStatus.NoShow)
+                    {
+                        if (round.PreliminaryRoundComment != categoryMessages["preliminary"])
+                        {
+                            round.PreliminaryRoundComment = categoryMessages["preliminary"];
+                            hasChanges = true;
+                        }
+                    }
+
+                    // FinalRoundComment → Final Result Message (Optional)
+                    // Update if completed final round (will see final result)
+                    if (round.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified &&
+                        round.FinalRoundResult != FinalRoundStatus.NoShow)
+                    {
+                        if (round.FinalRoundComment != categoryMessages["final"])
+                        {
+                            round.FinalRoundComment = categoryMessages["final"];
+                            hasChanges = true;
+                        }
+                    }
+
+                    // Only update if there were actual changes
+                    if (hasChanges)
+                    {
+                        await CompetitionRoundService.UpdateAsync(round);
+                        updateCount++;
+                    }
+                }
+            }
+
+            hasUnsavedChanges = false;
+            successMessage = $"Successfully updated messages for {updateCount} competitor(s)!";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

@@ -1208,6 +1208,25 @@
                 }
             </div>
 
+            <!-- Screening Round -->
+            <div class="border-t border-slate-200 pt-5">
+                <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Enable Screening Round</label>
+                            <p class="text-xs text-slate-500">Pass/fail qualification round (some competitors may bypass)</p>
+                        </div>
+                    </div>
+                    <label class="group relative inline-flex w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 outline-offset-2 outline-cyan-600 ring-1 ring-inset ring-slate-900/5 transition-colors duration-200 ease-in-out has-[:checked]:bg-cyan-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
+                        <span class="size-5 rounded-full bg-white shadow-sm ring-1 ring-slate-900/5 transition-transform duration-200 ease-in-out group-has-[:checked]:translate-x-5"></span>
+                        <input type="checkbox" @bind="editingCategory.ScreeningRoundEnabled" class="absolute inset-0 appearance-none cursor-pointer focus:outline-none" />
+                    </label>
+                </div>
+            </div>
+
             <!-- Multiple Registrations -->
             <div class="border-t border-slate-200 pt-5">
                 <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
