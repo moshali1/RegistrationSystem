@@ -51,6 +51,29 @@ public static class SettingsCloner
         };
     }
 
+    public static void ApplyDivisionChanges(Division source, Division target)
+    {
+        target.Name = source.Name;
+        target.IsEnabled = source.IsEnabled;
+    }
+
+    public static void ApplyCategoryChanges(Category source, Category target)
+    {
+        target.Name = source.Name;
+        target.AlternateName = source.AlternateName;
+        target.IsEnabled = source.IsEnabled;
+        target.PortionOption = source.PortionOption;
+        target.MaxAgeYears = source.MaxAgeYears;
+        target.RegistrationStart = source.RegistrationStart;
+        target.RegistrationEnd = source.RegistrationEnd;
+        target.RequiresVideo = source.RequiresVideo;
+        target.VideoInstructions = source.VideoInstructions;
+        target.ScreeningRoundEnabled = source.ScreeningRoundEnabled;
+        target.AllowMultipleInDivision = source.AllowMultipleInDivision;
+        target.AllowEdit = source.AllowEdit;
+        target.AllowWithdraw = source.AllowWithdraw;
+    }
+
     private static CompetitionInfo CloneCompetitionInfo(CompetitionInfo? source)
     {
         if (source is null)
