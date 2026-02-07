@@ -69,12 +69,12 @@ public class CompetitionSettingsValidator
 
 public class ValidationResult
 {
-    public bool IsValid => !Errors.Any();
+    public bool IsValid => Errors.Count == 0;
     public List<string> Errors { get; }
 
     public ValidationResult(List<string> errors)
     {
-        Errors = errors ?? new List<string>();
+        Errors = errors ?? [];
     }
 
     public void ThrowIfInvalid()

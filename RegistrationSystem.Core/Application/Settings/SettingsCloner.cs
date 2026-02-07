@@ -1,6 +1,6 @@
 ﻿using RegistrationSystem.Core.Domain.Settings;
 
-namespace RegistrationSystem.Web.Components.Pages.Admin;
+namespace RegistrationSystem.Core.Application.Settings;
 
 public static class SettingsCloner
 {
@@ -15,7 +15,7 @@ public static class SettingsCloner
             AgeCutoffDate = source.AgeCutoffDate,
             Divisions = source.Divisions.Select(CloneDivision).ToList(),
             CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo),
-            CidConfiguration = source.CidConfiguration
+            CidConfiguration = CloneCidConfiguration(source.CidConfiguration)
         };
     }
 
@@ -54,7 +54,7 @@ public static class SettingsCloner
     private static CompetitionInfo CloneCompetitionInfo(CompetitionInfo? source)
     {
         if (source is null)
-            return new CompetitionInfo { CompetitionYear = DateTime.UtcNow.Year };
+            return new CompetitionInfo();
 
         return new CompetitionInfo
         {
@@ -64,5 +64,40 @@ public static class SettingsCloner
             TermsOfServiceUrl = source.TermsOfServiceUrl,
             RulesUrl = source.RulesUrl
         };
+    }
+
+    private static CidConfiguration CloneCidConfiguration(CidConfiguration? source)
+    {
+        if (source is null)
+            return new CidConfiguration();
+
+        return new CidConfiguration
+        {
+            DefaultStateCode = source.DefaultStateCode,
+            StateCodeMapping = new Dictionary<string, string>(source.StateCodeMapping)
+        };
+    }
+
+    public static void ApplyDivisionChanges(Division source, Division target)
+    {
+        target.Name = source.Name;
+        target.IsEnabled = source.IsEnabled;
+    }
+
+    public static void ApplyCategoryChanges(Category source, Category target)
+    {
+        target.Name = source.Name;
+        target.AlternateName = source.AlternateName;
+        target.IsEnabled = source.IsEnabled;
+        target.PortionOption = source.PortionOption;
+        target.MaxAgeYears = source.MaxAgeYears;
+        target.RegistrationStart = source.RegistrationStart;
+        target.RegistrationEnd = source.RegistrationEnd;
+        target.RequiresVideo = source.RequiresVideo;
+        target.VideoInstructions = source.VideoInstructions;
+        target.ScreeningRoundEnabled = source.ScreeningRoundEnabled;
+        target.AllowMultipleInDivision = source.AllowMultipleInDivision;
+        target.AllowEdit = source.AllowEdit;
+        target.AllowWithdraw = source.AllowWithdraw;
     }
 }

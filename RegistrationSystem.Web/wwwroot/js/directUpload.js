@@ -78,7 +78,8 @@ window.directUpload = {
         // Check if upload is stale (started more than 30 minutes ago)
         if (state.status === 'uploading' && state.startedAt) {
             const thirtyMinutes = 30 * 60 * 1000;
-            if (Date.now() - state.startedAt > thirtyMinutes) {
+            if (Date
+            () - state.startedAt > thirtyMinutes) {
                 console.log('[DirectUpload] Found stale upload, clearing');
                 this.clearState();
                 return null;

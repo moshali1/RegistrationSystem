@@ -321,15 +321,15 @@ public class SettingsService
     }
 
     private static (string Message, string Label) BuildStatusMessageAndLabel(
-        RegistrationClosedReason reason,
-        DateTimeOffset? effectiveStart,
-        DateTimeOffset? effectiveEnd,
-        DateTimeOffset now)
+    RegistrationClosedReason reason,
+    DateTimeOffset? effectiveStart,
+    DateTimeOffset? effectiveEnd,
+    DateTimeOffset now)
     {
         return reason switch
         {
             RegistrationClosedReason.Open =>
-                (BuildOpenMessage(effectiveEnd), "Open"),
+                (BuildOpenMessage(effectiveEnd, now), "Open"),
 
             RegistrationClosedReason.GloballyDisabled =>
                 ("Registration is disabled globally.", "Closed"),
@@ -341,7 +341,7 @@ public class SettingsService
                 ("Category is disabled.", "Disabled"),
 
             RegistrationClosedReason.NotStarted =>
-                (BuildNotStartedMessage(effectiveStart), "Not Started"),
+                (BuildNotStartedMessage(effectiveStart, now), "Not Started"),
 
             RegistrationClosedReason.Ended =>
                 (BuildEndedMessage(effectiveEnd), "Ended"),
@@ -350,12 +350,12 @@ public class SettingsService
         };
     }
 
-    private static string BuildOpenMessage(DateTimeOffset? effectiveEnd)
+    private static string BuildOpenMessage(DateTimeOffset? effectiveEnd, DateTimeOffset now)
     {
         if (!effectiveEnd.HasValue)
             return "Registration is open.";
 
-        var daysRemaining = (effectiveEnd.Value - DateTimeOffset.UtcNow).Days;
+        var daysRemaining = (effectiveEnd.Value - now).Days;
         if (daysRemaining <= 0)
             return "Registration closes today.";
         if (daysRemaining == 1)
@@ -366,12 +366,12 @@ public class SettingsService
         return $"Closes {effectiveEnd.Value:MMM d, yyyy}.";
     }
 
-    private static string BuildNotStartedMessage(DateTimeOffset? effectiveStart)
+    private static string BuildNotStartedMessage(DateTimeOffset? effectiveStart, DateTimeOffset now)
     {
         if (!effectiveStart.HasValue)
             return "Registration has not started.";
 
-        var daysUntil = (effectiveStart.Value - DateTimeOffset.UtcNow).Days;
+        var daysUntil = (effectiveStart.Value - now).Days;
         if (daysUntil <= 0)
             return "Opens today.";
         if (daysUntil == 1)

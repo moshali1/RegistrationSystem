@@ -1,6 +1,6 @@
 ﻿using RegistrationSystem.Core.Domain.Settings;
 
-namespace RegistrationSystem.Web.Components.Pages.Admin;
+namespace RegistrationSystem.Core.Application.Settings;
 
 public static class SettingsComparer
 {
@@ -11,14 +11,13 @@ public static class SettingsComparer
         if (a.RegistrationStart != b.RegistrationStart) return false;
         if (a.RegistrationEnd != b.RegistrationEnd) return false;
         if (a.AgeCutoffDate != b.AgeCutoffDate) return false;
-
         if (a.Divisions.Count != b.Divisions.Count) return false;
         for (int i = 0; i < a.Divisions.Count; i++)
         {
             if (!AreDivisionsEqual(a.Divisions[i], b.Divisions[i])) return false;
         }
-
         if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
+        if (!AreCidConfigurationEqual(a.CidConfiguration, b.CidConfiguration)) return false;
         return true;
     }
 
@@ -62,5 +61,18 @@ public static class SettingsComparer
             && a.PrivacyPolicyUrl == b.PrivacyPolicyUrl
             && a.TermsOfServiceUrl == b.TermsOfServiceUrl
             && a.RulesUrl == b.RulesUrl;
+    }
+
+    private static bool AreCidConfigurationEqual(CidConfiguration? a, CidConfiguration? b)
+    {
+        if (a is null || b is null) return a is null && b is null;
+        if (a.DefaultStateCode != b.DefaultStateCode) return false;
+        if (a.StateCodeMapping.Count != b.StateCodeMapping.Count) return false;
+        foreach (var kvp in a.StateCodeMapping)
+        {
+            if (!b.StateCodeMapping.TryGetValue(kvp.Key, out var val) || val != kvp.Value)
+                return false;
+        }
+        return true;
     }
 }
