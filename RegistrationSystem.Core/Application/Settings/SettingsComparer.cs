@@ -68,11 +68,13 @@ public static class SettingsComparer
         if (a is null || b is null) return a is null && b is null;
         if (a.DefaultStateCode != b.DefaultStateCode) return false;
         if (a.StateCodeMapping.Count != b.StateCodeMapping.Count) return false;
+
         foreach (var kvp in a.StateCodeMapping)
         {
-            if (!b.StateCodeMapping.TryGetValue(kvp.Key, out var val) || val != kvp.Value)
+            if (!b.StateCodeMapping.TryGetValue(kvp.Key, out var bValue) || kvp.Value != bValue)
                 return false;
         }
+
         return true;
     }
 }

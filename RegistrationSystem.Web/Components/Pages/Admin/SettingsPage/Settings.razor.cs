@@ -2,7 +2,7 @@
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Domain.Settings;
 
-namespace RegistrationSystem.Web.Components.Pages.Admin;
+namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage;
 
 public partial class Settings : ComponentBase, IDisposable
 {
@@ -43,6 +43,10 @@ public partial class Settings : ComponentBase, IDisposable
     private string newDivisionName = string.Empty;
     private string? addingCategoryToDivisionId;
     private string newCategoryName = string.Empty;
+
+    // CID Config tab
+    private string newStateAbbreviation = string.Empty;
+    private string newStateCode = string.Empty;
 
     // Modals
     private bool showDeleteModal;
@@ -742,14 +746,33 @@ public partial class Settings : ComponentBase, IDisposable
             _ => "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 border border-slate-200"
         };
 
-    private string GetStatusBadgeClassesCompact(CategoryRegistrationStatus status) =>
-        status.StatusLabel switch
-        {
-            "Open" => "text-[0.65rem] font-semibold text-cyan-700",
-            "Not Started" => "text-[0.65rem] font-semibold text-amber-600",
-            "Ended" => "text-[0.65rem] font-semibold text-slate-500",
-            _ => "text-[0.65rem] font-semibold text-slate-400"
-        };
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CID CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void UpdateStateCode(string stateAbbreviation, string? newCode)
+    {
+        if (settings is null || string.IsNullOrWhiteSpace(newCode)) return;
+        settings.CidConfiguration.StateCodeMapping[stateAbbreviation] = newCode.Trim();
+    }
+
+    private void RemoveStateMapping(string stateAbbreviation)
+    {
+        if (settings is null) return;
+        settings.CidConfiguration.StateCodeMapping.Remove(stateAbbreviation);
+    }
+
+    private void AddStateMapping()
+    {
+        if (settings is null
+            || string.IsNullOrWhiteSpace(newStateAbbreviation)
+            || string.IsNullOrWhiteSpace(newStateCode)) return;
+
+        var key = newStateAbbreviation.Trim().ToUpperInvariant();
+        settings.CidConfiguration.StateCodeMapping[key] = newStateCode.Trim();
+        newStateAbbreviation = string.Empty;
+        newStateCode = string.Empty;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INFO CONTENT

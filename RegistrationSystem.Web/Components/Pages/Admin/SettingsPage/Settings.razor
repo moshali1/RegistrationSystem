@@ -1,6 +1,6 @@
 ﻿@page "/admin/competition-settings"
 @attribute [Authorize(Roles = "Admin")]
-@namespace RegistrationSystem.Web.Components.Pages.Admin
+@namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage
 
 <div class="space-y-4">
     <!-- Page header -->
@@ -26,15 +26,12 @@
                 </button>
             }
             <button type="button"
-                    class="cursor-pointer rounded-md bg-cyan-700 text-white px-4 py-1.5 text-sm font-medium hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all flex items-center gap-1.5 shadow-sm"
+                    class="cursor-pointer rounded-md bg-cyan-700 text-white px-4 py-1.5 text-sm font-medium hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm"
                     @onclick="SaveAsync"
                     disabled="@(isSaving || !HasUnsavedChanges)">
                 @if (isSaving)
                 {
-                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
+                    @Icons.Spinner("animate-spin h-4 w-4")
                 }
                 Save Changes
             </button>
@@ -57,15 +54,11 @@
         {
             <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between shadow-sm">
                 <div class="flex items-center gap-2">
-                    <svg class="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XCircle("h-4 w-4 flex-shrink-0")
                     <span>@errorMessage</span>
                 </div>
                 <button type="button" class="cursor-pointer text-red-600 hover:text-red-800 transition-colors" @onclick="ClearMessages">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XMark("h-4 w-4")
                 </button>
             </div>
         }
@@ -74,15 +67,11 @@
         {
             <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800 flex items-center justify-between shadow-sm">
                 <div class="flex items-center gap-2">
-                    <svg class="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.CheckCircle("h-4 w-4 flex-shrink-0")
                     <span>@successMessage</span>
                 </div>
                 <button type="button" class="cursor-pointer text-cyan-600 hover:text-cyan-800 transition-colors" @onclick="ClearMessages">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XMark("h-4 w-4")
                 </button>
             </div>
         }
@@ -91,28 +80,24 @@
         <div class="border-b border-slate-200">
             <nav class="flex gap-1" aria-label="Tabs">
                 <button type="button" class="@GetTabClasses(0) cursor-pointer" @onclick="() => TrySwitchTab(0)">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+                    @Icons.ChartBar("h-4 w-4")
                     <span>Status</span>
                 </button>
                 <button type="button" class="@GetTabClasses(1) cursor-pointer" @onclick="() => TrySwitchTab(1)">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                    @Icons.Calendar("h-4 w-4")
                     <span>Schedule</span>
                 </button>
                 <button type="button" class="@GetTabClasses(2) cursor-pointer" @onclick="() => TrySwitchTab(2)">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
+                    @Icons.Boxes("h-4 w-4")
                     <span>Divisions</span>
                 </button>
                 <button type="button" class="@GetTabClasses(3) cursor-pointer" @onclick="() => TrySwitchTab(3)">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    @Icons.InfoCircleOutline("h-4 w-4")
                     <span>Competition Info</span>
+                </button>
+                <button type="button" class="@GetTabClasses(4) cursor-pointer" @onclick="() => TrySwitchTab(4)">
+                    @Icons.Cog("h-4 w-4")
+                    <span>CID Config</span>
                 </button>
             </nav>
         </div>
@@ -137,6 +122,10 @@
                 {
                     @RenderCompetitionInfoTab()
                 }
+                else if (activeTab == 4)
+                {
+                    @RenderCidConfigTab()
+                }
             </div>
 
             <!-- Edit Panel (right side - desktop) - Always visible on Divisions tab -->
@@ -146,15 +135,35 @@
                     <div class="sticky top-4 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                         @if (editingCategory is not null)
                         {
-                            @RenderCategoryEditPanel()
+                            <CategoryEditPanel Category="editingCategory"
+                                               DivisionName="@selectedDivision!.Name"
+                                               IsSaving="isSaving"
+                                               GlobalStart="settings!.RegistrationStart"
+                                               GlobalEnd="settings.RegistrationEnd"
+                                               OnClose="TryCloseEditPanel"
+                                               OnSave="SaveCategoryEdits"
+                                               OnDelete="() => RequestDeleteCategory(selectedDivision!, selectedCategory!)"
+                                               OnToggleEnabled="TryToggleEditingCategory"
+                                               OnInfoRequested='() => ShowInfo("Category Enable/Disable", GetCategoryEnableExplanation())'
+                                               OnScheduleInfoRequested='() => ShowInfo("Schedule Override", GetScheduleOverrideExplanation())'
+                                               OnClearOverride="ClearEditingCategoryOverride"
+                                               OnEnableOverride="EnableEditingCategoryOverride"
+                                               OnStartChanged="SetEditingCategoryStart"
+                                               OnEndChanged="SetEditingCategoryEnd" />
                         }
                         else if (editingDivision is not null)
                         {
-                            @RenderDivisionEditPanel()
+                            <DivisionEditPanel Division="editingDivision"
+                                               IsSaving="isSaving"
+                                               OnClose="TryCloseEditPanel"
+                                               OnSave="SaveDivisionEdits"
+                                               OnDelete="() => RequestDeleteDivision(selectedDivision!)"
+                                               OnToggleEnabled="TryToggleEditingDivision"
+                                               OnInfoRequested='() => ShowInfo("Division Enable/Disable", GetDivisionEnableExplanation())' />
                         }
                         else
                         {
-                            @RenderEditPanelPlaceholder()
+                            <EditPanelPlaceholder />
                         }
                     </div>
                 </div>
@@ -169,11 +178,31 @@
                 <div class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl overflow-y-auto">
                     @if (editingCategory is not null)
                     {
-                        @RenderCategoryEditPanel()
+                        <CategoryEditPanel Category="editingCategory"
+                                           DivisionName="@selectedDivision!.Name"
+                                           IsSaving="isSaving"
+                                           GlobalStart="settings!.RegistrationStart"
+                                           GlobalEnd="settings.RegistrationEnd"
+                                           OnClose="TryCloseEditPanel"
+                                           OnSave="SaveCategoryEdits"
+                                           OnDelete="() => RequestDeleteCategory(selectedDivision!, selectedCategory!)"
+                                           OnToggleEnabled="TryToggleEditingCategory"
+                                           OnInfoRequested='() => ShowInfo("Category Enable/Disable", GetCategoryEnableExplanation())'
+                                           OnScheduleInfoRequested='() => ShowInfo("Schedule Override", GetScheduleOverrideExplanation())'
+                                           OnClearOverride="ClearEditingCategoryOverride"
+                                           OnEnableOverride="EnableEditingCategoryOverride"
+                                           OnStartChanged="SetEditingCategoryStart"
+                                           OnEndChanged="SetEditingCategoryEnd" />
                     }
                     else if (editingDivision is not null)
                     {
-                        @RenderDivisionEditPanel()
+                        <DivisionEditPanel Division="editingDivision"
+                                           IsSaving="isSaving"
+                                           OnClose="TryCloseEditPanel"
+                                           OnSave="SaveDivisionEdits"
+                                           OnDelete="() => RequestDeleteDivision(selectedDivision!)"
+                                           OnToggleEnabled="TryToggleEditingDivision"
+                                           OnInfoRequested='() => ShowInfo("Division Enable/Disable", GetDivisionEnableExplanation())' />
                     }
                 </div>
             </div>
@@ -186,11 +215,7 @@
        Title="Confirm Delete"
        IconBgClass="bg-red-600"
        OnBackdropClick="CloseDeleteModal">
-    <Icon>
-        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-    </Icon>
+    <Icon>@Icons.TrashFilled("h-6 w-6 text-white")</Icon>
     <ChildContent>
         <p>@deleteModalMessage</p>
     </ChildContent>
@@ -214,11 +239,7 @@
        Title="Cannot Enable"
        IconBgClass="bg-amber-600"
        OnBackdropClick="CloseHierarchyModal">
-    <Icon>
-        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-    </Icon>
+    <Icon>@Icons.Warning("h-6 w-6 text-white")</Icon>
     <ChildContent>
         <p>@hierarchyModalMessage</p>
     </ChildContent>
@@ -237,11 +258,7 @@
        Title="@infoModalTitle"
        IconBgClass="bg-cyan-600"
        OnBackdropClick="CloseInfoModal">
-    <Icon>
-        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-        </svg>
-    </Icon>
+    <Icon>@Icons.Info("h-6 w-6 text-white")</Icon>
     <ChildContent>
         <div class="prose prose-sm prose-slate">@((MarkupString)infoModalContent)</div>
     </ChildContent>
@@ -260,11 +277,7 @@
        Title="Unsaved Changes"
        IconBgClass="bg-amber-600"
        AllowBackdropClose="false">
-    <Icon>
-        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-    </Icon>
+    <Icon>@Icons.Warning("h-6 w-6 text-white")</Icon>
     <ChildContent>
         <p>You have unsaved changes. What would you like to do?</p>
     </ChildContent>
@@ -291,11 +304,7 @@
        Title="Unsaved Edits"
        IconBgClass="bg-amber-600"
        AllowBackdropClose="false">
-    <Icon>
-        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-    </Icon>
+    <Icon>@Icons.Warning("h-6 w-6 text-white")</Icon>
     <ChildContent>
         <p>You have unsaved edits. Save them before switching?</p>
     </ChildContent>
@@ -326,22 +335,18 @@
     private RenderFragment RenderStatusDashboard() => __builder =>
     {
         <!-- Hero Status Card -->
-        <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm mb-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm mb-4">
             <div class="flex flex-col gap-4">
                 <!-- Status indicator -->
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-xl @(globalStatus!.IsGloballyEnabled ? "bg-gradient-to-br from-cyan-500 to-cyan-700" : "bg-gradient-to-br from-slate-400 to-slate-500") flex items-center justify-center shadow-lg flex-shrink-0">
+                    <div class="w-12 h-12 rounded-xl @(globalStatus!.IsGloballyEnabled ? "bg-cyan-600" : "bg-slate-500") flex items-center justify-center shadow-lg flex-shrink-0">
                         @if (globalStatus.IsGloballyEnabled)
                         {
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
+                            @Icons.CheckCircle("h-6 w-6 text-white")
                         }
                         else
                         {
-                            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                            </svg>
+                            @Icons.XCircle("h-6 w-6 text-white")
                         }
                     </div>
                     <div class="flex-1 min-w-0">
@@ -368,9 +373,7 @@
                     <button type="button"
                             class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors flex-shrink-0"
                             @onclick='() => ShowInfo("Registration Hierarchy", GetRegistrationHierarchyExplanation())'>
-                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.Info("h-5 w-5")
                     </button>
                 </div>
 
@@ -428,20 +431,16 @@
                 {
                     <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                         <!-- Division header -->
-                        <div class="px-3 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between gap-2">
+                        <div class="px-3 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="flex-shrink-0 @(division.IsManuallyEnabled ? "text-cyan-600" : "text-slate-400")">
                                     @if (division.IsManuallyEnabled)
                                     {
-                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
+                                        @Icons.CheckCircle("h-4 w-4")
                                     }
                                     else
                                     {
-                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                        </svg>
+                                        @Icons.XCircle("h-4 w-4")
                                     }
                                 </span>
                                 <span class="font-semibold text-slate-900 text-sm truncate">@division.DivisionName</span>
@@ -462,9 +461,7 @@
                                         <span class="truncate max-w-[120px]">@cat.CategoryName</span>
                                         @if (cat.HasOverride)
                                         {
-                                            <svg class="h-3 w-3 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
+                                            @Icons.Calendar("h-3 w-3 text-violet-500 flex-shrink-0")
                                         }
                                     </div>
                                 }
@@ -481,9 +478,7 @@
         else
         {
             <div class="text-center py-12 text-slate-500">
-                <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
+                @Icons.Boxes("mx-auto h-12 w-12 text-slate-300 mb-3")
                 <p class="text-sm font-medium">No divisions configured</p>
                 <p class="text-xs text-slate-400 mt-1">Go to the Divisions tab to add divisions and categories.</p>
             </div>
@@ -501,10 +496,8 @@
             <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow flex-shrink-0">
-                            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
+                        <div class="w-10 h-10 rounded-lg bg-cyan-600 flex items-center justify-center shadow flex-shrink-0">
+                            @Icons.Lightning("h-5 w-5 text-white")
                         </div>
                         <div class="min-w-0">
                             <h2 class="text-sm font-semibold text-slate-900">Global Registration</h2>
@@ -513,9 +506,7 @@
                         <button type="button"
                                 class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors flex-shrink-0"
                                 @onclick='() => ShowInfo("Global Registration", GetGlobalToggleExplanation())'>
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                            </svg>
+                            @Icons.Info("h-4 w-4")
                         </button>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
@@ -531,9 +522,7 @@
             <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-opacity @(settings!.RegistrationEnabled ? "" : "opacity-50 pointer-events-none")">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+                        @Icons.Calendar("h-5 w-5 text-slate-600")
                     </div>
                     <div class="flex-1 min-w-0">
                         <h2 class="text-sm font-semibold text-slate-900">Default Registration Window</h2>
@@ -542,9 +531,7 @@
                     <button type="button"
                             class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors flex-shrink-0"
                             @onclick='() => ShowInfo("Registration Window", GetRegistrationWindowExplanation())'>
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.Info("h-4 w-4")
                     </button>
                 </div>
                 <div class="grid gap-3 grid-cols-1 sm:grid-cols-2">
@@ -571,9 +558,7 @@
             <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+                        @Icons.User("h-5 w-5 text-slate-600")
                     </div>
                     <div class="flex-1 min-w-0">
                         <h2 class="text-sm font-semibold text-slate-900">Age Cutoff Date</h2>
@@ -582,9 +567,7 @@
                     <button type="button"
                             class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors flex-shrink-0"
                             @onclick='() => ShowInfo("Age Cutoff", GetAgeCutoffExplanation())'>
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.Info("h-4 w-4")
                     </button>
                 </div>
                 <input type="date"
@@ -621,7 +604,7 @@
             else
             {
                 <button type="button" class="cursor-pointer inline-flex items-center gap-2 text-sm text-cyan-700 hover:text-cyan-800 font-medium transition-colors" @onclick="StartAddDivision">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    @Icons.Plus("h-4 w-4")
                     Add new division
                 </button>
             }
@@ -632,20 +615,18 @@
                 var isSelected = selectedDivisionId == division.Id && selectedCategory is null;
 
                 <div class="rounded-xl border @(isSelected ? "border-cyan-400 ring-2 ring-cyan-100" : isExpanded ? "border-slate-300" : "border-slate-200") bg-white shadow-sm overflow-hidden transition-all">
-                    <div class="px-3 sm:px-4 py-3 @(isExpanded ? "bg-gradient-to-r from-slate-100 to-slate-50" : "bg-gradient-to-r from-slate-50 to-white") flex items-center justify-between cursor-pointer hover:from-slate-100 hover:to-slate-50 transition-all"
+                    <div class="px-3 sm:px-4 py-3 bg-slate-50 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-all"
                          @onclick="() => ToggleDivisionExpand(division.Id)">
                         <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-                            <svg class="h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 @(isExpanded ? "rotate-90" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
+                            @Icons.Chevron($"h-4 w-4 text-slate-400 transition-transform duration-200 flex-shrink-0 {(isExpanded ? "rotate-90" : "")}")
                             <span class="flex-shrink-0 @(division.IsEnabled ? "text-cyan-600" : "text-slate-400")">
                                 @if (division.IsEnabled)
                                 {
-                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                    @Icons.CheckCircle("h-5 w-5")
                                 }
                                 else
                                 {
-                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                                    @Icons.XCircle("h-5 w-5")
                                 }
                             </span>
                             <span class="font-semibold text-slate-900 truncate">@division.Name</span>
@@ -659,7 +640,7 @@
                             <span class="text-xs text-slate-500 font-medium sm:hidden">@division.Categories.Count</span>
                             <button type="button" class="cursor-pointer text-slate-400 hover:text-cyan-700 p-1.5 rounded-lg hover:bg-white transition-all"
                                     @onclick:stopPropagation="true" @onclick="() => BeginEditDivision(division)">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                @Icons.Edit("h-4 w-4")
                             </button>
                         </div>
                     </div>
@@ -686,7 +667,7 @@
                             {
                                 <button type="button" class="cursor-pointer mb-4 inline-flex items-center gap-1.5 text-xs text-cyan-700 hover:text-cyan-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         @onclick="() => StartAddCategory(division.Id)" disabled="@(!settings.RegistrationEnabled || !division.IsEnabled)">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                    @Icons.Plus("h-3.5 w-3.5")
                                     Add category
                                 </button>
                             }
@@ -707,11 +688,11 @@
                                                     <span class="flex-shrink-0 @(category.IsEnabled ? "text-cyan-600" : "text-slate-400")">
                                                         @if (category.IsEnabled)
                                                         {
-                                                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                                            @Icons.CheckCircle("h-4 w-4")
                                                         }
                                                         else
                                                         {
-                                                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                                                            @Icons.XCircle("h-4 w-4")
                                                         }
                                                     </span>
                                                     <span class="font-medium text-slate-900 truncate">@category.Name</span>
@@ -733,7 +714,7 @@
                                                 @if (IsCategoryOverrideSaved(category.Id))
                                                 {
                                                     <span class="inline-flex items-center gap-1 text-violet-600">
-                                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                        @Icons.Calendar("h-3 w-3")
                                                         Override
                                                     </span>
                                                 }
@@ -766,11 +747,11 @@
                                                             <span class="@(category.IsEnabled ? "text-cyan-600" : "text-slate-400")">
                                                                 @if (category.IsEnabled)
                                                                 {
-                                                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                                                    @Icons.CheckCircle("h-4 w-4")
                                                                 }
                                                                 else
                                                                 {
-                                                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                                                                    @Icons.XCircle("h-4 w-4")
                                                                 }
                                                             </span>
                                                             <div class="min-w-0">
@@ -794,7 +775,7 @@
                                                         @if (IsCategoryOverrideSaved(category.Id))
                                                         {
                                                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-violet-100 text-violet-700 border border-violet-200" title="Schedule override active">
-                                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                                @Icons.Calendar("h-3.5 w-3.5")
                                                             </span>
                                                         }
                                                         else
@@ -811,7 +792,7 @@
                             else
                             {
                                 <div class="text-center py-6 text-slate-500 border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                                    <svg class="mx-auto h-8 w-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    @Icons.Clipboard("mx-auto h-8 w-8 text-slate-300 mb-2")
                                     <p class="text-sm">No categories in this division yet.</p>
                                 </div>
                             }
@@ -823,7 +804,7 @@
             @if (settings.Divisions.Count == 0)
             {
                 <div class="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                    <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    @Icons.Boxes("mx-auto h-12 w-12 text-slate-300 mb-3")
                     <p class="text-sm font-medium text-slate-700">No divisions yet</p>
                     <p class="text-xs text-slate-400 mt-1">Click "Add new division" to get started.</p>
                 </div>
@@ -840,12 +821,10 @@
         <div class="space-y-6 py-4">
             <!-- Competition Details Card -->
             <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow">
-                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow">
+                            @Icons.Building("h-4 w-4 text-white")
                         </div>
                         <div>
                             <h3 class="text-sm font-semibold text-slate-800">Competition Details</h3>
@@ -878,12 +857,10 @@
 
             <!-- Legal & Policy URLs Card -->
             <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow">
-                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                        <div class="w-9 h-9 rounded-lg bg-violet-600 flex items-center justify-center shadow">
+                            @Icons.Document("h-4 w-4 text-white")
                         </div>
                         <div>
                             <h3 class="text-sm font-semibold text-slate-800">Legal & Policy URLs</h3>
@@ -903,9 +880,7 @@
                             @if (!string.IsNullOrWhiteSpace(settings!.CompetitionInfo.PrivacyPolicyUrl))
                             {
                                 <a href="@settings.CompetitionInfo.PrivacyPolicyUrl" target="_blank" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:text-cyan-700 hover:border-cyan-200 transition-colors">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
+                                    @Icons.ExternalLink("h-4 w-4")
                                 </a>
                             }
                         </div>
@@ -922,9 +897,7 @@
                             @if (!string.IsNullOrWhiteSpace(settings!.CompetitionInfo.TermsOfServiceUrl))
                             {
                                 <a href="@settings.CompetitionInfo.TermsOfServiceUrl" target="_blank" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:text-cyan-700 hover:border-cyan-200 transition-colors">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
+                                    @Icons.ExternalLink("h-4 w-4")
                                 </a>
                             }
                         </div>
@@ -941,9 +914,7 @@
                             @if (!string.IsNullOrWhiteSpace(settings!.CompetitionInfo.RulesUrl))
                             {
                                 <a href="@settings.CompetitionInfo.RulesUrl" target="_blank" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:text-cyan-700 hover:border-cyan-200 transition-colors">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
+                                    @Icons.ExternalLink("h-4 w-4")
                                 </a>
                             }
                         </div>
@@ -951,345 +922,97 @@
                 </div>
             </div>
 
-            <!-- Preview Card -->
+        </div>
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CID CONFIGURATION TAB
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private RenderFragment RenderCidConfigTab() => __builder =>
+    {
+        <div class="space-y-6 py-4">
+            <!-- State Code Mapping Card -->
             <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow">
-                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow">
+                            @Icons.Cog("h-4 w-4 text-white")
                         </div>
                         <div>
-                            <h3 class="text-sm font-semibold text-slate-800">Preview</h3>
-                            <p class="text-xs text-slate-500">How the competition info will appear</p>
+                            <h3 class="text-sm font-semibold text-slate-800">State Code Mapping</h3>
+                            <p class="text-xs text-slate-500">Map US state abbreviations to CID region codes</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-4">
+                    @foreach (var kvp in settings!.CidConfiguration.StateCodeMapping.OrderBy(x => x.Key))
+                    {
+                        var stateKey = kvp.Key;
+                        <div class="flex items-center gap-3">
+                            <span class="w-12 text-sm font-mono font-semibold text-slate-700 text-center">@stateKey</span>
+                            <span class="text-slate-400">→</span>
+                            <input type="text"
+                                   value="@kvp.Value"
+                                   @onchange="(e) => UpdateStateCode(stateKey, e.Value?.ToString())"
+                                   class="w-20 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                            <button type="button"
+                                    class="cursor-pointer text-slate-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+                                    @onclick="() => RemoveStateMapping(stateKey)">
+                                @Icons.XMark("h-4 w-4")
+                            </button>
+                        </div>
+                    }
+
+                    <!-- Add new mapping row -->
+                    <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+                        <input type="text"
+                               @bind="newStateAbbreviation"
+                               @bind:event="oninput"
+                               placeholder="ST"
+                               maxlength="2"
+                               class="w-12 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-center font-mono uppercase focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                        <span class="text-slate-400">→</span>
+                        <input type="text"
+                               @bind="newStateCode"
+                               @bind:event="oninput"
+                               placeholder="Code"
+                               class="w-20 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                        <button type="button"
+                                class="cursor-pointer text-sm text-cyan-700 hover:text-cyan-900 font-medium flex items-center gap-1 px-2 py-2 rounded-lg hover:bg-cyan-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled="@(string.IsNullOrWhiteSpace(newStateAbbreviation) || string.IsNullOrWhiteSpace(newStateCode))"
+                                @onclick="AddStateMapping">
+                            @Icons.Plus("h-4 w-4")
+                            Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Default State Code Card -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-slate-500 flex items-center justify-center shadow">
+                            @Icons.Shield("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Default State Code</h3>
+                            <p class="text-xs text-slate-500">Used when a registrant's state has no mapping</p>
                         </div>
                     </div>
                 </div>
                 <div class="p-5">
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <h4 class="text-lg font-semibold text-slate-800">@(string.IsNullOrWhiteSpace(settings!.CompetitionInfo.CompetitionName) ? "Competition Name" : settings.CompetitionInfo.CompetitionName)</h4>
-                        <p class="text-sm text-slate-600 mt-1">@settings.CompetitionInfo.CompetitionYear Competition</p>
-                        <div class="flex flex-wrap gap-4 mt-4 text-xs">
-                            @if (!string.IsNullOrWhiteSpace(settings.CompetitionInfo.PrivacyPolicyUrl))
-                            {
-                                <span class="text-cyan-700">✓ Privacy Policy</span>
-                            }
-                            else
-                            {
-                                <span class="text-slate-400">○ Privacy Policy (not set)</span>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(settings.CompetitionInfo.TermsOfServiceUrl))
-                            {
-                                <span class="text-cyan-700">✓ Terms of Service</span>
-                            }
-                            else
-                            {
-                                <span class="text-slate-400">○ Terms of Service (not set)</span>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(settings.CompetitionInfo.RulesUrl))
-                            {
-                                <span class="text-cyan-700">✓ Competition Rules</span>
-                            }
-                            else
-                            {
-                                <span class="text-slate-400">○ Competition Rules (not set)</span>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    };
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EDIT PANEL PLACEHOLDER
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    private RenderFragment RenderEditPanelPlaceholder() => __builder =>
-    {
-        <div class="p-8 text-center">
-            <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-            </div>
-            <h3 class="text-sm font-semibold text-slate-700 mb-1">Edit Panel</h3>
-            <p class="text-xs text-slate-500">Select a division or category to edit its settings.</p>
-        </div>
-    };
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DIVISION EDIT PANEL
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    private RenderFragment RenderDivisionEditPanel() => __builder =>
-    {
-        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50">
-            <h2 class="text-sm font-semibold text-slate-900">Edit Division</h2>
-            <button type="button" class="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-all" @onclick="TryCloseEditPanel">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-            </button>
-        </div>
-
-        <div class="p-5 space-y-5">
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-700">Division Name</label>
-                <input type="text" @bind="editingDivision!.Name" @bind:event="oninput"
-                       class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-            </div>
-
-            <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm font-medium text-slate-700">Enabled</label>
-                    <button type="button" class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors" @onclick='() => ShowInfo("Division Enable/Disable", GetDivisionEnableExplanation())'>
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
-                    </button>
-                </div>
-                <ToggleSwitch Value="@editingDivision!.IsEnabled" OnToggled="TryToggleEditingDivision" />
-            </div>
-        </div>
-
-        <div class="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <button type="button" class="cursor-pointer text-sm text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1.5" @onclick="() => RequestDeleteDivision(selectedDivision!)">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete
-            </button>
-            <button type="button" class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1.5" @onclick="SaveDivisionEdits" disabled="@isSaving">
-                @if (isSaving)
-                {
-                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                }
-                Save
-            </button>
-        </div>
-    };
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CATEGORY EDIT PANEL
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    private RenderFragment RenderCategoryEditPanel() => __builder =>
-    {
-        var hasOverride = editingCategory!.RegistrationStart.HasValue || editingCategory.RegistrationEnd.HasValue;
-
-        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50">
-            <div>
-                <h2 class="text-sm font-semibold text-slate-900">Edit Category</h2>
-                <p class="text-xs text-slate-500">@selectedDivision!.Name</p>
-            </div>
-            <button type="button" class="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-all" @onclick="TryCloseEditPanel">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-            </button>
-        </div>
-
-        <div class="p-5 space-y-5">
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-700">Category Name</label>
-                <input type="text" @bind="editingCategory.Name" @bind:event="oninput"
-                       class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-            </div>
-
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-700">Alternate Name <span class="text-slate-400 font-normal">(optional)</span></label>
-                <input type="text" @bind="editingCategory.AlternateName" @bind:event="oninput" placeholder="e.g., Whole Qur'an"
-                       class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-            </div>
-
-            <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm font-medium text-slate-700">Enabled</label>
-                    <button type="button" class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors" @onclick='() => ShowInfo("Category Enable/Disable", GetCategoryEnableExplanation())'>
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
-                    </button>
-                </div>
-                <ToggleSwitch Value="@editingCategory.IsEnabled" OnToggled="TryToggleEditingCategory" />
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-700">Portion</label>
-                    <select @bind="editingCategory.PortionOption" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
-                        @foreach (PortionOption opt in Enum.GetValues<PortionOption>())
-                        {
-                            <option value="@opt">@GetPortionDisplayName(opt)</option>
-                        }
-                    </select>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-700">Max Age</label>
-                    <InputNumber @bind-Value="editingCategory.MaxAgeYears" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-                </div>
-            </div>
-
-            <!-- Video Requirements -->
-            <div class="border-t border-slate-200 pt-5">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-xs font-semibold text-slate-700">Video Requirements</label>
-                </div>
-                <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200 mb-3">
-                    <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <label class="text-sm font-medium text-slate-700">Requires Video Upload</label>
-                    </div>
-                    <ToggleSwitch @bind-Value="editingCategory.RequiresVideo" />
-                </div>
-                @if (editingCategory.RequiresVideo)
-                {
                     <div class="space-y-1.5">
-                        <label class="text-xs text-slate-600">Video Instructions</label>
-                        <textarea @bind="editingCategory.VideoInstructions" @bind:event="oninput"
-                                  placeholder="e.g., Record Surah Al-Baqarah verses 1-20 with clear audio"
-                                  rows="3"
-                                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                        <label class="text-xs font-semibold text-slate-700">Fallback Code</label>
+                        <input type="text"
+                               @bind="settings!.CidConfiguration.DefaultStateCode"
+                               @bind:event="oninput"
+                               class="w-20 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                        <p class="text-xs text-slate-500">This code is assigned to registrants whose state is not in the mapping above</p>
                     </div>
-                }
-            </div>
-
-            <!-- Screening Round -->
-            <div class="border-t border-slate-200 pt-5">
-                <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
-                    <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                        <div>
-                            <label class="text-sm font-medium text-slate-700">Enable Screening Round</label>
-                            <p class="text-xs text-slate-500">Pass/fail qualification round (some competitors may bypass)</p>
-                        </div>
-                    </div>
-                    <ToggleSwitch @bind-Value="editingCategory.ScreeningRoundEnabled" />
                 </div>
             </div>
-
-            <!-- Multiple Registrations -->
-            <div class="border-t border-slate-200 pt-5">
-                <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
-                    <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        <div>
-                            <label class="text-sm font-medium text-slate-700">Allow Multiple in Division</label>
-                            <p class="text-xs text-slate-500">Allow competitor to register for other categories in same division</p>
-                        </div>
-                    </div>
-                    <ToggleSwitch @bind-Value="editingCategory.AllowMultipleInDivision" />
-                </div>
-            </div>
-
-            <!-- Registration Rules Section -->
-            <div class="border-t border-slate-200 pt-5">
-                <div class="flex items-center gap-2 mb-4">
-                    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <label class="text-xs font-semibold text-slate-700">Registration Rules</label>
-                </div>
-
-                <!-- Allow Edit -->
-                <div class="flex items-center justify-between py-2">
-                    <div class="flex items-center gap-3">
-                        <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        <div>
-                            <label class="text-sm font-medium text-slate-700">Allow Edits</label>
-                            <p class="text-xs text-slate-500">Allow users to edit registrations sent back for corrections</p>
-                        </div>
-                    </div>
-                    <ToggleSwitch @bind-Value="editingCategory.AllowEdit" />
-                </div>
-
-                <!-- Allow Withdraw -->
-                <div class="flex items-center justify-between py-2">
-                    <div class="flex items-center gap-3">
-                        <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                        </svg>
-                        <div>
-                            <label class="text-sm font-medium text-slate-700">Allow Withdrawals</label>
-                            <p class="text-xs text-slate-500">Allow users to withdraw their registrations</p>
-                        </div>
-                    </div>
-                    <ToggleSwitch @bind-Value="editingCategory.AllowWithdraw" />
-                </div>
-            </div>
-
-            <div class="border-t border-slate-200 pt-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                        <label class="text-xs font-semibold text-slate-700">Schedule Override</label>
-                        <button type="button" class="cursor-pointer text-slate-400 hover:text-cyan-700 transition-colors" @onclick='() => ShowInfo("Schedule Override", GetScheduleOverrideExplanation())'>
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
-                        </button>
-                    </div>
-                </div>
-
-                @if (hasOverride)
-                {
-                    <div class="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800 mb-3 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-                            Override active
-                        </span>
-                        <button type="button" class="cursor-pointer text-violet-700 hover:text-violet-900 font-medium text-sm transition-colors" @onclick="ClearEditingCategoryOverride">Clear</button>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="space-y-1.5">
-                            <label class="text-xs text-slate-600">Start Date & Time</label>
-                            <input type="datetime-local"
-                                   value="@(editingCategory.RegistrationStart?.LocalDateTime.ToString("yyyy-MM-ddTHH:mm"))"
-                                   @onchange="e => SetEditingCategoryStart(e.Value?.ToString())"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-xs text-slate-600">End Date & Time</label>
-                            <input type="datetime-local"
-                                   value="@(editingCategory.RegistrationEnd?.LocalDateTime.ToString("yyyy-MM-ddTHH:mm"))"
-                                   @onchange="e => SetEditingCategoryEnd(e.Value?.ToString())"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                        <p class="font-medium text-slate-700">Using global schedule</p>
-                        @if (settings!.RegistrationStart.HasValue && settings.RegistrationEnd.HasValue)
-                        {
-                            <p class="text-xs text-slate-500 mt-1">@settings.RegistrationStart.Value.ToString("MMM d") — @settings.RegistrationEnd.Value.ToString("MMM d, yyyy")</p>
-                        }
-                        <button type="button" class="cursor-pointer mt-3 inline-flex items-center gap-1.5 text-cyan-700 hover:text-cyan-800 font-medium text-sm transition-colors" @onclick="EnableEditingCategoryOverride">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                            Set custom dates
-                        </button>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <button type="button" class="cursor-pointer text-sm text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1.5" @onclick="() => RequestDeleteCategory(selectedDivision!, selectedCategory!)">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete
-            </button>
-            <button type="button" class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2 text-sm font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm disabled:opacity-50 flex items-center gap-1.5" @onclick="SaveCategoryEdits" disabled="@isSaving">
-                @if (isSaving)
-                {
-                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                }
-                Save
-            </button>
         </div>
     };
 

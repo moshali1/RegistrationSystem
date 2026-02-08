@@ -1,0 +1,1096 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.JSInterop
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject IAuditService AuditService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+@if (isLoading)
+{
+    <!-- Loading Screen -->
+    <div class="flex flex-col items-center justify-center min-h-[60vh]">
+        <div class="w-16 h-16 rounded-2xl bg-cyan-100 flex items-center justify-center mb-4">
+            @Icons.Spinner("h-8 w-8 text-cyan-600")
+        </div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-1">Loading Dashboard</h2>
+        <p class="text-sm text-slate-500">@loadingMessage</p>
+    </div>
+}
+else
+{
+    <div class="max-w-[1600px] mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Competition Dashboard</h1>
+                <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo.CompetitionName — @competitionYear</p>
+            </div>
+            <button type="button" @onclick="RefreshData"
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm text-slate-600 transition-colors cursor-pointer flex items-center gap-1.5">
+                @Icons.Refresh("h-4 w-4")
+                Refresh
+            </button>
+        </div>
+
+        <!-- Top-Level Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
+                        @Icons.Users("h-4 w-4 text-white")
+                    </div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total</span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800">@totalRegistrations</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center shadow-sm">
+                        @Icons.CheckCircle("h-4 w-4 text-white")
+                    </div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Verified</span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800">@statusCounts.GetValueOrDefault(RegistrationStatus.Verified)</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                        @Icons.Clock("h-4 w-4 text-white")
+                    </div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Awaiting</span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800">@statusCounts.GetValueOrDefault(RegistrationStatus.AwaitingReview)</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-9 h-9 rounded-lg bg-red-500 flex items-center justify-center shadow-sm">
+                        @Icons.Warning("h-4 w-4 text-white")
+                    </div>
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Pending</span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800">@statusCounts.GetValueOrDefault(RegistrationStatus.Pending)</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="mb-6">
+            <div class="flex border-b border-slate-200 gap-1">
+                @foreach (var (tab, index) in tabs.Select((t, i) => (t, i)))
+                {
+                    <button type="button" @onclick="() => SetActiveTab(index)"
+                            class="px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 @(activeTab == index ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300")">
+                        @tab
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        @switch (activeTab)
+        {
+            case 0:
+                @RenderOverviewTab()
+                break;
+            case 1:
+                @RenderDemographicsTab()
+                break;
+            case 2:
+                @RenderTimelineTab()
+                break;
+            case 3:
+                @RenderActivityTab()
+                break;
+        }
+    </div>
+}
+
+@code {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private bool isLoading = true;
+    private string loadingMessage = "Fetching registrations...";
+    private int activeTab = 0;
+
+    private static readonly string[] tabs = { "Overview", "Demographics", "Timeline", "Activity" };
+
+    // Settings
+    private CompetitionSettings? settings;
+    private int competitionYear;
+    private GlobalRegistrationStatus? globalStatus;
+
+    // Registration data
+    private List<Registration> registrations = new();
+    private int totalRegistrations;
+    private Dictionary<RegistrationStatus, int> statusCounts = new();
+
+    // Division/Category breakdowns
+    private List<DivisionStats> divisionStats = new();
+    private List<CategoryStats> categoryStats = new();
+
+    // Demographics
+    private int maleCount;
+    private int femaleCount;
+    private List<LocationStats> countryStats = new();
+    private List<LocationStats> stateStats = new();
+    private List<AgeGroupStats> ageGroupStats = new();
+    private List<PortionStats> portionStats = new();
+
+    // Timeline (from audit)
+    private List<AuditDailyStats> dailyStats = new();
+
+    // Activity
+    private Dictionary<AuditAction, int> actionBreakdown = new();
+    private int totalAuditActions;
+    private int uniqueUsers;
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Step 1: Settings
+            loadingMessage = "Loading competition settings...";
+            StateHasChanged();
+
+            settings = await SettingsService.GetSettingsAsync();
+            competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+            globalStatus = settings != null ? SettingsService.GetGlobalStatus(settings, DateTimeOffset.UtcNow) : null;
+
+            // Step 2: Registrations
+            loadingMessage = "Fetching registrations...";
+            StateHasChanged();
+
+            var allRegs = await RegistrationService.GetAllByYearAsync(competitionYear);
+            registrations = allRegs.ToList();
+            totalRegistrations = registrations.Count;
+
+            // Step 3: Compute all statistics
+            loadingMessage = "Computing statistics...";
+            StateHasChanged();
+
+            ComputeStatusCounts();
+            ComputeDivisionCategoryStats();
+            ComputeDemographics();
+
+            // Step 4: Audit data
+            loadingMessage = "Loading activity data...";
+            StateHasChanged();
+
+            await LoadAuditData();
+        }
+        finally
+        {
+            isLoading = false;
+            if (activeTab == 2)
+            {
+                chartsNeedRender = true;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshData() => await LoadData();
+
+    private bool chartsNeedRender = false;
+
+    private void SetActiveTab(int index)
+    {
+        activeTab = index;
+        if (index == 2) // Timeline tab
+        {
+            chartsNeedRender = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (chartsNeedRender && activeTab == 2 && !isLoading)
+        {
+            chartsNeedRender = false;
+            await RenderTimelineCharts();
+        }
+    }
+
+    private async Task RenderTimelineCharts()
+    {
+        try
+        {
+            // Submissions chart
+            var submissionData = dailyStats
+                .Where(d => d.ActionCounts.ContainsKey(AuditAction.Submitted))
+                .Select(d => new { label = d.Date.ToString("MMM d"), value = d.ActionCounts[AuditAction.Submitted] })
+                .OrderBy(d => d.label) // already sorted by date from source
+                .ToList();
+
+            // Re-sort properly by date
+            var submissionDays = dailyStats
+                .Where(d => d.ActionCounts.ContainsKey(AuditAction.Submitted))
+                .OrderBy(d => d.Date)
+                .Select(d => new { label = d.Date.ToString("MMM d"), value = d.ActionCounts[AuditAction.Submitted] })
+                .ToList();
+
+            if (submissionDays.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("dashboardCharts.renderBarChart",
+                    "submissionsChart", submissionDays, "#06b6d4", "#0891b2");
+            }
+
+            // Status changes chart
+            var statusChangeDays = dailyStats
+                .Where(d => d.ActionCounts.ContainsKey(AuditAction.StatusChanged))
+                .OrderBy(d => d.Date)
+                .Select(d => new { label = d.Date.ToString("MMM d"), value = d.ActionCounts[AuditAction.StatusChanged] })
+                .ToList();
+
+            if (statusChangeDays.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("dashboardCharts.renderBarChart",
+                    "statusChangesChart", statusChangeDays, "#8b5cf6", "#7c3aed");
+            }
+        }
+        catch
+        {
+            // Chart rendering is best-effort
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // COMPUTATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private void ComputeStatusCounts()
+    {
+        statusCounts = registrations
+            .GroupBy(r => r.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    private void ComputeDivisionCategoryStats()
+    {
+        var divisions = settings?.Divisions.Where(d => d.IsEnabled).ToList() ?? new();
+
+        divisionStats = divisions.Select(d =>
+        {
+            var regs = registrations.Where(r => r.CompetitionSelection.DivisionId == d.Id).ToList();
+            return new DivisionStats
+            {
+                DivisionId = d.Id,
+                DivisionName = d.Name,
+                Count = regs.Count,
+                MaleCount = regs.Count(r => r.PersonalInfo.Gender == Gender.Male),
+                FemaleCount = regs.Count(r => r.PersonalInfo.Gender == Gender.Female)
+            };
+        }).OrderByDescending(d => d.Count).ToList();
+
+        categoryStats = divisions.SelectMany(d =>
+            d.Categories.Where(c => c.IsEnabled).Select(c =>
+            {
+                var regs = registrations.Where(r =>
+                    r.CompetitionSelection.DivisionId == d.Id &&
+                    r.CompetitionSelection.CategoryId == c.Id).ToList();
+                return new CategoryStats
+                {
+                    DivisionName = d.Name,
+                    CategoryName = c.Name,
+                    Count = regs.Count,
+                    MaleCount = regs.Count(r => r.PersonalInfo.Gender == Gender.Male),
+                    FemaleCount = regs.Count(r => r.PersonalInfo.Gender == Gender.Female),
+                    TopCount = regs.Count(r => r.CompetitionSelection.PortionChoice == PortionChoice.Top),
+                    BottomCount = regs.Count(r => r.CompetitionSelection.PortionChoice == PortionChoice.Bottom)
+                };
+            })
+        ).ToList();
+    }
+
+    private void ComputeDemographics()
+    {
+        // Gender
+        maleCount = registrations.Count(r => r.PersonalInfo.Gender == Gender.Male);
+        femaleCount = registrations.Count(r => r.PersonalInfo.Gender == Gender.Female);
+
+        // Countries
+        countryStats = registrations
+            .GroupBy(r => r.AddressInfo.Country ?? "Unknown")
+            .Select(g => new LocationStats { Name = g.Key, Count = g.Count() })
+            .OrderByDescending(l => l.Count)
+            .ToList();
+
+        // States
+        stateStats = registrations
+            .Where(r => !string.IsNullOrEmpty(r.AddressInfo.StateProvince))
+            .GroupBy(r => r.AddressInfo.StateProvince!)
+            .Select(g => new LocationStats { Name = g.Key, Count = g.Count() })
+            .OrderByDescending(l => l.Count)
+            .ToList();
+
+        // Age groups
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var ageCutoff = settings?.AgeCutoffDate ?? today;
+        var ages = registrations.Select(r => CalculateAge(r.PersonalInfo.DateOfBirth, ageCutoff)).ToList();
+
+        ageGroupStats = new List<AgeGroupStats>
+        {
+            new() { Label = "Under 7", Count = ages.Count(a => a < 7) },
+            new() { Label = "7–9", Count = ages.Count(a => a >= 7 && a <= 9) },
+            new() { Label = "10–12", Count = ages.Count(a => a >= 10 && a <= 12) },
+            new() { Label = "13–15", Count = ages.Count(a => a >= 13 && a <= 15) },
+            new() { Label = "16–18", Count = ages.Count(a => a >= 16 && a <= 18) },
+            new() { Label = "19–25", Count = ages.Count(a => a >= 19 && a <= 25) },
+            new() { Label = "26+", Count = ages.Count(a => a >= 26) }
+        };
+        ageGroupStats = ageGroupStats.Where(a => a.Count > 0).ToList();
+
+        // Portion choices
+        portionStats = registrations
+            .Where(r => r.CompetitionSelection.PortionChoice.HasValue)
+            .GroupBy(r => r.CompetitionSelection.PortionChoice!.Value)
+            .Select(g => new PortionStats { Portion = g.Key.ToString(), Count = g.Count() })
+            .OrderByDescending(p => p.Count)
+            .ToList();
+    }
+
+    private async Task LoadAuditData()
+    {
+        // Get stats for the registration window period (or last 90 days)
+        var endDate = DateOnly.FromDateTime(DateTime.Today);
+        var startDate = settings?.RegistrationStart != null
+            ? DateOnly.FromDateTime(settings.RegistrationStart.Value.DateTime)
+            : endDate.AddDays(-90);
+
+        // Clamp: don't go more than 365 days back
+        if (startDate < endDate.AddDays(-365))
+            startDate = endDate.AddDays(-365);
+
+        dailyStats = (await AuditService.GetStatsRangeAsync(startDate, endDate)).ToList();
+
+        // Compute totals
+        totalAuditActions = dailyStats.Sum(d => d.TotalActions);
+        uniqueUsers = dailyStats.Max(d => d.UniqueUsers);
+
+        // Aggregate action breakdown across all days
+        actionBreakdown = new Dictionary<AuditAction, int>();
+        foreach (var day in dailyStats)
+        {
+            foreach (var (action, count) in day.ActionCounts)
+            {
+                actionBreakdown.TryGetValue(action, out var existing);
+                actionBreakdown[action] = existing + count;
+            }
+        }
+    }
+
+    private int CalculateAge(DateOnly dob, DateOnly cutoff)
+    {
+        var age = cutoff.Year - dob.Year;
+        if (dob > cutoff.AddYears(-age)) age--;
+        return age;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // TAB 1: OVERVIEW
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private RenderFragment RenderOverviewTab() => __builder =>
+    {
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <!-- Status Breakdown -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
+                            @Icons.ChartBar("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Registration Status</h3>
+                            <p class="text-xs text-slate-500">Breakdown by current status</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-3">
+                    @foreach (var status in Enum.GetValues<RegistrationStatus>())
+                    {
+                        var count = statusCounts.GetValueOrDefault(status);
+                        var pct = totalRegistrations > 0 ? (count * 100.0 / totalRegistrations) : 0;
+                        var bgColor = GetStatusBarColor(status);
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-28 text-right">@GetStatusDisplayName(status)</span>
+                            <div class="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-500 @bgColor" style="width: @(pct)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-12 text-right">@count</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Division Breakdown -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-violet-600 flex items-center justify-center shadow-sm">
+                            @Icons.Boxes("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">By Division</h3>
+                            <p class="text-xs text-slate-500">Registrations per division</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-3">
+                    @{
+                        var maxDiv = divisionStats.MaxBy(d => d.Count)?.Count ?? 1;
+                    }
+                    @foreach (var div in divisionStats)
+                    {
+                        var pct = maxDiv > 0 ? (div.Count * 100.0 / maxDiv) : 0;
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-sm font-medium text-slate-700">@div.DivisionName</span>
+                                <span class="text-sm font-semibold text-slate-800">@div.Count</span>
+                            </div>
+                            <div class="h-5 bg-slate-100 rounded-full overflow-hidden flex">
+                                @if (div.MaleCount > 0)
+                                {
+                                    <div class="h-full bg-cyan-500 transition-all duration-500" style="width: @(div.Count > 0 ? div.MaleCount * pct / div.Count : 0)%" title="@div.MaleCount Male"></div>
+                                }
+                                @if (div.FemaleCount > 0)
+                                {
+                                    <div class="h-full bg-pink-400 transition-all duration-500" style="width: @(div.Count > 0 ? div.FemaleCount * pct / div.Count : 0)%" title="@div.FemaleCount Female"></div>
+                                }
+                            </div>
+                            <div class="flex gap-3 mt-0.5 text-xs text-slate-500">
+                                <span>@div.MaleCount M</span>
+                                <span>@div.FemaleCount F</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden xl:col-span-2">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                            @Icons.Award("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">By Category</h3>
+                            <p class="text-xs text-slate-500">Registrations per division / category</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b-2 border-slate-200">
+                                    <th class="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Division</th>
+                                    <th class="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Category</th>
+                                    <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+                                    <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-slate-50">Male</th>
+                                    <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-slate-50">Female</th>
+                                    <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Top</th>
+                                    <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Bottom</th>
+                                    <th class="py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-48">Distribution</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @{
+                                    var maxCat = categoryStats.MaxBy(c => c.Count)?.Count ?? 1;
+                                }
+                                @foreach (var cat in categoryStats)
+                                {
+                                    var pctCat = maxCat > 0 ? (cat.Count * 100.0 / maxCat) : 0;
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="py-2 px-3 text-slate-600">@cat.DivisionName</td>
+                                        <td class="py-2 px-3 font-medium text-slate-800">@cat.CategoryName</td>
+                                        <td class="py-2 px-3 text-right font-semibold text-slate-800">@cat.Count</td>
+                                        <td class="py-2 px-3 text-right font-medium text-slate-800 bg-slate-50">@cat.MaleCount</td>
+                                        <td class="py-2 px-3 text-right font-medium text-slate-800 bg-slate-50">@cat.FemaleCount</td>
+                                        <td class="py-2 px-3 text-right font-medium text-slate-600">@(cat.TopCount > 0 ? cat.TopCount.ToString() : "—")</td>
+                                        <td class="py-2 px-3 text-right font-medium text-slate-600">@(cat.BottomCount > 0 ? cat.BottomCount.ToString() : "—")</td>
+                                        <td class="py-2 px-3">
+                                            <div class="h-4 bg-slate-100 rounded-full overflow-hidden">
+                                                <div class="h-full bg-cyan-500 rounded-full" style="width: @(pctCat)%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registration Dates Info -->
+            @if (settings != null)
+            {
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden xl:col-span-2">
+                    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-500 flex items-center justify-center shadow-sm">
+                                @Icons.Calendar("h-4 w-4 text-white")
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-800">Registration Window</h3>
+                                <p class="text-xs text-slate-500">Global dates and category overrides</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Opens</p>
+                                <p class="text-sm font-semibold text-slate-800">@(settings.RegistrationStart?.ToLocalTime().ToString("MMMM d, yyyy h:mm tt") ?? "Not set")</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Closes</p>
+                                <p class="text-sm font-semibold text-slate-800">@(settings.RegistrationEnd?.ToLocalTime().ToString("MMMM d, yyyy h:mm tt") ?? "Not set")</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4">
+                                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Age Cutoff</p>
+                                <p class="text-sm font-semibold text-slate-800">@settings.AgeCutoffDate.ToString("MMMM d, yyyy")</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // TAB 2: DEMOGRAPHICS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private RenderFragment RenderDemographicsTab() => __builder =>
+    {
+        <div class="columns-1 xl:columns-2 gap-6 space-y-6">
+            <!-- Gender Split -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
+                            @Icons.Users("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Gender Distribution</h3>
+                            <p class="text-xs text-slate-500">Male vs Female competitors</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5">
+                    @if (totalRegistrations > 0)
+                    {
+                        var malePct = maleCount * 100.0 / totalRegistrations;
+                        var femalePct = femaleCount * 100.0 / totalRegistrations;
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="flex-1 text-center">
+                                <p class="text-3xl font-bold text-cyan-600">@maleCount</p>
+                                <p class="text-sm text-slate-500">Male (@malePct.ToString("F1")%)</p>
+                            </div>
+                            <div class="w-px h-12 bg-slate-200"></div>
+                            <div class="flex-1 text-center">
+                                <p class="text-3xl font-bold text-pink-500">@femaleCount</p>
+                                <p class="text-sm text-slate-500">Female (@femalePct.ToString("F1")%)</p>
+                            </div>
+                        </div>
+                        <div class="h-6 bg-slate-100 rounded-full overflow-hidden flex">
+                            <div class="h-full bg-cyan-500" style="width: @(malePct)%"></div>
+                            <div class="h-full bg-pink-400" style="width: @(femalePct)%"></div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Age Distribution -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-violet-600 flex items-center justify-center shadow-sm">
+                            @Icons.Calendar("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Age Distribution</h3>
+                            <p class="text-xs text-slate-500">Competitor age groups</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-2">
+                    @{
+                        var maxAge = ageGroupStats.MaxBy(a => a.Count)?.Count ?? 1;
+                    }
+                    @foreach (var ag in ageGroupStats)
+                    {
+                        var pctAge = maxAge > 0 ? (ag.Count * 100.0 / maxAge) : 0;
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-16 text-right">@ag.Label</span>
+                            <div class="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-violet-500 rounded-full transition-all duration-500" style="width: @(pctAge)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-10 text-right">@ag.Count</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Countries -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center shadow-sm">
+                            @Icons.Building("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">By Country</h3>
+                            <p class="text-xs text-slate-500">@countryStats.Count countries represented</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-2 max-h-80 overflow-y-auto">
+                    @{
+                        var maxCountry = countryStats.FirstOrDefault()?.Count ?? 1;
+                    }
+                    @foreach (var cs in countryStats)
+                    {
+                        var pctC = maxCountry > 0 ? (cs.Count * 100.0 / maxCountry) : 0;
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-32 truncate text-right" title="@cs.Name">@cs.Name</span>
+                            <div class="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: @(pctC)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-10 text-right">@cs.Count</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- States -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                            @Icons.Building("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">By State / Province</h3>
+                            <p class="text-xs text-slate-500">@stateStats.Count regions represented</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-2 max-h-80 overflow-y-auto">
+                    @{
+                        var maxState = stateStats.FirstOrDefault()?.Count ?? 1;
+                    }
+                    @foreach (var ss in stateStats)
+                    {
+                        var pctS = maxState > 0 ? (ss.Count * 100.0 / maxState) : 0;
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-32 truncate text-right" title="@ss.Name">@ss.Name</span>
+                            <div class="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-amber-500 rounded-full" style="width: @(pctS)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-10 text-right">@ss.Count</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Portion Choices -->
+            @if (portionStats.Any())
+            {
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-500 flex items-center justify-center shadow-sm">
+                                @Icons.Document("h-4 w-4 text-white")
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-800">Portion Choices</h3>
+                                <p class="text-xs text-slate-500">Top vs Bottom half selections</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex items-center gap-6">
+                            @foreach (var ps in portionStats)
+                            {
+                                <div class="flex items-center gap-3">
+                                    <div class="w-4 h-4 rounded @(ps.Portion == "Top" ? "bg-cyan-500" : "bg-amber-500")"></div>
+                                    <span class="text-sm font-medium text-slate-700">@ps.Portion</span>
+                                    <span class="text-lg font-bold text-slate-800">@ps.Count</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // TAB 3: TIMELINE
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private RenderFragment RenderTimelineTab() => __builder =>
+    {
+        <div class="space-y-6">
+            <!-- Daily Registration Chart -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
+                            @Icons.ChartBar("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Daily Submissions</h3>
+                            <p class="text-xs text-slate-500">New registration submissions per day (from audit trail)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5">
+                    @{
+                        var submissionDays = dailyStats
+                            .Where(d => d.ActionCounts.ContainsKey(AuditAction.Submitted))
+                            .Select(d => new { d.Date, Count = d.ActionCounts[AuditAction.Submitted] })
+                            .OrderBy(d => d.Date)
+                            .ToList();
+                        var totalSubmissions = submissionDays.Sum(d => d.Count);
+                    }
+
+                    @if (submissionDays.Any())
+                    {
+                        <div class="flex items-end gap-3 mb-4">
+                            <span class="text-2xl font-bold text-slate-800">@totalSubmissions</span>
+                            <span class="text-sm text-slate-500 mb-0.5">total submissions across @submissionDays.Count days</span>
+                        </div>
+                        <div class="w-full">
+                            <canvas id="submissionsChart" class="w-full"></canvas>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-slate-500 text-center py-8">No submission data available for this period.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Status Changes Over Time -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-violet-600 flex items-center justify-center shadow-sm">
+                            @Icons.Refresh("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Status Changes Over Time</h3>
+                            <p class="text-xs text-slate-500">Daily status change activity</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5">
+                    @{
+                        var statusChangeDays = dailyStats
+                            .Where(d => d.ActionCounts.ContainsKey(AuditAction.StatusChanged))
+                            .Select(d => new { d.Date, Count = d.ActionCounts[AuditAction.StatusChanged] })
+                            .OrderBy(d => d.Date)
+                            .ToList();
+                    }
+
+                    @if (statusChangeDays.Any())
+                    {
+                        <div class="w-full">
+                            <canvas id="statusChangesChart" class="w-full"></canvas>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-slate-500 text-center py-8">No status change data available.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Daily Activity Heatmap-style table -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                            @Icons.Lightning("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Daily Activity Summary</h3>
+                            <p class="text-xs text-slate-500">Total actions, submissions, and user activity per day</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 max-h-[480px] overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-white">
+                            <tr class="border-b border-slate-200">
+                                <th class="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Date</th>
+                                <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Total</th>
+                                <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Submissions</th>
+                                <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Status Δ</th>
+                                <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Withdrawals</th>
+                                <th class="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Users</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach (var day in dailyStats.OrderByDescending(d => d.Date).Take(60))
+                            {
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-3 text-slate-700">@day.Date.ToString("MMM d, yyyy")</td>
+                                    <td class="py-2 px-3 text-right font-semibold text-slate-800">@day.TotalActions</td>
+                                    <td class="py-2 px-3 text-right text-cyan-700">@day.ActionCounts.GetValueOrDefault(AuditAction.Submitted)</td>
+                                    <td class="py-2 px-3 text-right text-violet-700">@day.ActionCounts.GetValueOrDefault(AuditAction.StatusChanged)</td>
+                                    <td class="py-2 px-3 text-right text-amber-700">@day.ActionCounts.GetValueOrDefault(AuditAction.Withdrawn)</td>
+                                    <td class="py-2 px-3 text-right text-slate-600">@day.UniqueUsers</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // TAB 4: ACTIVITY
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private RenderFragment RenderActivityTab() => __builder =>
+    {
+        <div class="columns-1 xl:columns-2 gap-6 space-y-6">
+            <!-- Action Breakdown -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
+                            @Icons.Lightning("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Action Breakdown</h3>
+                            <p class="text-xs text-slate-500">@totalAuditActions total actions recorded</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-2 max-h-96 overflow-y-auto">
+                    @{
+                        var sortedActions = actionBreakdown.OrderByDescending(a => a.Value).ToList();
+                        var maxAction = sortedActions.FirstOrDefault().Value;
+                        if (maxAction == 0) maxAction = 1;
+                    }
+                    @foreach (var (action, count) in sortedActions)
+                    {
+                        var pctA = maxAction > 0 ? (count * 100.0 / maxAction) : 0;
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-36 truncate text-right" title="@GetActionDisplayName(action)">@GetActionDisplayName(action)</span>
+                            <div class="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-cyan-500 rounded-full" style="width: @(pctA)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-12 text-right">@count</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-violet-600 flex items-center justify-center shadow-sm">
+                                @Icons.ChartBar("h-4 w-4 text-white")
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-800">Key Metrics</h3>
+                                <p class="text-xs text-slate-500">Summary of audit activity</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-slate-800">@totalAuditActions</p>
+                                <p class="text-xs text-slate-500 mt-1">Total Actions</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-slate-800">@uniqueUsers</p>
+                                <p class="text-xs text-slate-500 mt-1">Peak Daily Users</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-cyan-600">@actionBreakdown.GetValueOrDefault(AuditAction.Submitted)</p>
+                                <p class="text-xs text-slate-500 mt-1">Submissions</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-violet-600">@actionBreakdown.GetValueOrDefault(AuditAction.StatusChanged)</p>
+                                <p class="text-xs text-slate-500 mt-1">Status Changes</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-amber-600">@actionBreakdown.GetValueOrDefault(AuditAction.Withdrawn)</p>
+                                <p class="text-xs text-slate-500 mt-1">Withdrawals</p>
+                            </div>
+                            <div class="bg-slate-50 rounded-lg p-4 text-center">
+                                <p class="text-2xl font-bold text-emerald-600">@actionBreakdown.GetValueOrDefault(AuditAction.Verified)</p>
+                                <p class="text-xs text-slate-500 mt-1">Verifications</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- File Upload Stats -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden break-inside-avoid">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
+                            @Icons.Photo("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Document Completeness</h3>
+                            <p class="text-xs text-slate-500">File upload status across registrations</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-3">
+                    @{
+                        var withId = registrations.Count(r => r.FileUploadInfo.IdDocument != null);
+                        var withPhoto = registrations.Count(r => r.FileUploadInfo.Photo != null);
+                        var withVideo = registrations.Count(r => r.FileUploadInfo.Video != null);
+                        var niqabBypasses = registrations.Count(r => r.FileUploadInfo.NiqabBypassApproved);
+                    }
+                    @foreach (var (label, count, color) in new[] {
+                        ("ID Document", withId, "bg-cyan-500"),
+                        ("Photo", withPhoto, "bg-violet-500"),
+                        ("Video", withVideo, "bg-amber-500"),
+                        ("Niqab Bypass", niqabBypasses, "bg-slate-500")
+                    })
+                    {
+                        var pctFile = totalRegistrations > 0 ? (count * 100.0 / totalRegistrations) : 0;
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-slate-600 w-24 text-right">@label</span>
+                            <div class="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full @color" style="width: @(pctFile)%"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-800 w-16 text-right">@count / @totalRegistrations</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private static string GetStatusDisplayName(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "Awaiting Review",
+        RegistrationStatus.Pending => "Pending",
+        RegistrationStatus.Reviewed => "Reviewed",
+        RegistrationStatus.Verified => "Verified",
+        RegistrationStatus.Withdrawn => "Withdrawn",
+        RegistrationStatus.Disqualified => "Disqualified",
+        _ => status.ToString()
+    };
+
+    private static string GetStatusBarColor(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "bg-emerald-500",
+        RegistrationStatus.Pending => "bg-red-500",
+        RegistrationStatus.Reviewed => "bg-cyan-500",
+        RegistrationStatus.Verified => "bg-violet-500",
+        RegistrationStatus.Withdrawn => "bg-amber-500",
+        RegistrationStatus.Disqualified => "bg-gray-500",
+        _ => "bg-slate-500"
+    };
+
+    private static string GetActionDisplayName(AuditAction action) => action switch
+    {
+        AuditAction.Created => "Created",
+        AuditAction.Updated => "Updated",
+        AuditAction.Deleted => "Deleted",
+        AuditAction.Submitted => "Submitted",
+        AuditAction.StatusChanged => "Status Changed",
+        AuditAction.Approved => "Approved",
+        AuditAction.Rejected => "Rejected",
+        AuditAction.Withdrawn => "Withdrawn",
+        AuditAction.WithdrawalRequested => "Withdrawal Requested",
+        AuditAction.Verified => "Verified",
+        AuditAction.Disqualified => "Disqualified",
+        AuditAction.FileUploaded => "File Uploaded",
+        AuditAction.FileDeleted => "File Deleted",
+        AuditAction.EmailSent => "Email Sent",
+        AuditAction.SmsSent => "SMS Sent",
+        AuditAction.NiqabBypassCreated => "Niqab Bypass Created",
+        AuditAction.NiqabBypassClaimed => "Niqab Bypass Claimed",
+        AuditAction.NiqabBypassDeleted => "Niqab Bypass Deleted",
+        AuditAction.SettingsUpdated => "Settings Updated",
+        AuditAction.DivisionUpdated => "Division Updated",
+        AuditAction.CategoryUpdated => "Category Updated",
+        AuditAction.AdminOverride => "Admin Override",
+        AuditAction.ManualCorrection => "Manual Correction",
+        AuditAction.SystemMigration => "System Migration",
+        AuditAction.DataImport => "Data Import",
+        AuditAction.DataExport => "Data Export",
+        _ => action.ToString()
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // VIEW MODELS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private class DivisionStats
+    {
+        public string DivisionId { get; set; } = "";
+        public string DivisionName { get; set; } = "";
+        public int Count { get; set; }
+        public int MaleCount { get; set; }
+        public int FemaleCount { get; set; }
+    }
+
+    private class CategoryStats
+    {
+        public string DivisionName { get; set; } = "";
+        public string CategoryName { get; set; } = "";
+        public int Count { get; set; }
+        public int MaleCount { get; set; }
+        public int FemaleCount { get; set; }
+        public int TopCount { get; set; }
+        public int BottomCount { get; set; }
+    }
+
+    private class LocationStats
+    {
+        public string Name { get; set; } = "";
+        public int Count { get; set; }
+    }
+
+    private class AgeGroupStats
+    {
+        public string Label { get; set; } = "";
+        public int Count { get; set; }
+    }
+
+    private class PortionStats
+    {
+        public string Portion { get; set; } = "";
+        public int Count { get; set; }
+    }
+}

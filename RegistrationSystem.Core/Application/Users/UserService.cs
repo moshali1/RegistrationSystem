@@ -85,6 +85,12 @@ public class UserService
         => _repository.GetByObjectIdentifierAsync(objectIdentifier, cancellationToken);
 
     /// <summary>
+    /// Gets user by email address.
+    /// </summary>
+    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        => _repository.GetByEmailAsync(email, cancellationToken);
+
+    /// <summary>
     /// Updates user profile (editable fields only).
     /// Updates both local database AND Azure AD.
     /// Only allowed for admin users.
