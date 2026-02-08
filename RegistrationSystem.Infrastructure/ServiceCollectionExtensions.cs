@@ -14,7 +14,9 @@ using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Core.Domain.Users;
+using RegistrationSystem.Core.Application.Messaging;
 using RegistrationSystem.Infrastructure.Graph;
+using RegistrationSystem.Infrastructure.Messaging;
 using RegistrationSystem.Infrastructure.Mongo;
 using RegistrationSystem.Infrastructure.Persistence;
 
@@ -61,6 +63,12 @@ public static class ServiceCollectionExtensions
 
         // File Validation (orchestrates Azure services)
         services.AddScoped<FileValidationService>();
+
+        // Email (SendGrid)
+        var emailOptions = new EmailOptions();
+        configuration.GetSection(EmailOptions.SectionName).Bind(emailOptions);
+        services.AddSingleton(emailOptions);
+        services.AddScoped<IEmailService, SendGridEmailService>();
 
         // Repositories
         services.AddScoped<ICompetitionSettingsRepository, MongoCompetitionSettingsRepository>();

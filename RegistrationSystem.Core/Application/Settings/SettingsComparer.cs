@@ -19,6 +19,7 @@ public static class SettingsComparer
         }
 
         if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
+        if (!AreCidConfigurationEqual(a.CidConfiguration, b.CidConfiguration)) return false;
         return true;
     }
 
@@ -62,5 +63,20 @@ public static class SettingsComparer
             && a.PrivacyPolicyUrl == b.PrivacyPolicyUrl
             && a.TermsOfServiceUrl == b.TermsOfServiceUrl
             && a.RulesUrl == b.RulesUrl;
+    }
+
+    private static bool AreCidConfigurationEqual(CidConfiguration? a, CidConfiguration? b)
+    {
+        if (a is null || b is null) return a is null && b is null;
+        if (a.DefaultStateCode != b.DefaultStateCode) return false;
+        if (a.StateCodeMapping.Count != b.StateCodeMapping.Count) return false;
+
+        foreach (var kvp in a.StateCodeMapping)
+        {
+            if (!b.StateCodeMapping.TryGetValue(kvp.Key, out var bValue) || kvp.Value != bValue)
+                return false;
+        }
+
+        return true;
     }
 }

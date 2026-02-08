@@ -15,7 +15,7 @@ public static class SettingsCloner
             AgeCutoffDate = source.AgeCutoffDate,
             Divisions = source.Divisions.Select(CloneDivision).ToList(),
             CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo),
-            CidConfiguration = source.CidConfiguration
+            CidConfiguration = CloneCidConfiguration(source.CidConfiguration)
         };
     }
 
@@ -86,6 +86,18 @@ public static class SettingsCloner
             PrivacyPolicyUrl = source.PrivacyPolicyUrl,
             TermsOfServiceUrl = source.TermsOfServiceUrl,
             RulesUrl = source.RulesUrl
+        };
+    }
+
+    private static CidConfiguration CloneCidConfiguration(CidConfiguration? source)
+    {
+        if (source is null)
+            return new CidConfiguration();
+
+        return new CidConfiguration
+        {
+            StateCodeMapping = new Dictionary<string, string>(source.StateCodeMapping),
+            DefaultStateCode = source.DefaultStateCode
         };
     }
 }
