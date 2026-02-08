@@ -742,15 +742,6 @@ public partial class Settings : ComponentBase, IDisposable
             _ => "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 border border-slate-200"
         };
 
-    private string GetStatusBadgeClassesCompact(CategoryRegistrationStatus status) =>
-        status.StatusLabel switch
-        {
-            "Open" => "text-[0.65rem] font-semibold text-cyan-700",
-            "Not Started" => "text-[0.65rem] font-semibold text-amber-600",
-            "Ended" => "text-[0.65rem] font-semibold text-slate-500",
-            _ => "text-[0.65rem] font-semibold text-slate-400"
-        };
-
     // ═══════════════════════════════════════════════════════════════════════════
     // INFO CONTENT
     // ═══════════════════════════════════════════════════════════════════════════
