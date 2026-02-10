@@ -12,6 +12,7 @@
 @using Microsoft.JSInterop
 @using RegistrationSystem.Core.Application.Messaging
 @using RegistrationSystem.Core.Application.Users
+@using RegistrationSystem.Core.Domain.Messaging
 @using RegistrationSystem.Web.Services
 
 @inject RegistrationService RegistrationService
@@ -24,6 +25,7 @@
 @inject UserService UserService
 @inject IEmailService EmailService
 @inject EmailOptions EmailOptions
+@inject EmailTemplateService EmailTemplateService
 
 <PageTitle>Registration Review</PageTitle>
 
@@ -675,6 +677,10 @@
                                         class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-[11px] text-slate-700 transition-colors cursor-pointer">
                                     Admin Withdrawal
                                 </button>
+                                <button type="button" @onclick='() => ApplyPreset("Withdrawn", "Withdrawn at competitor request")'
+                                        class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-[11px] text-slate-700 transition-colors cursor-pointer">
+                                    Competitor Requested
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -803,7 +809,8 @@
     {
         "Duplicate Registration",
         "Ineligible: Does not meet competition requirements",
-        "Fraudulent Information"
+        "DOB Mismatch: Does not meet category age requirement",
+        "Invalid ID: Does not meet residency requirement"
     };
 
     // Computed
@@ -1059,28 +1066,42 @@
         }
     }
 
-    private async Task SendPendingEmailAsync(Registration registration)
+    /// <summary>
+    /// Sends an email using a template whose name contains the given keyword.
+    /// Returns (sent, templateFound, error) so callers can show appropriate warnings.
+    /// </summary>
+    private async Task<(bool Sent, bool TemplateFound, string? Error)> SendStatusEmailAsync(Registration registration, string templateKeyword)
     {
         try
         {
             var user = await UserService.GetByObjectIdentifierAsync(registration.CreatorUserId);
             if (user == null || string.IsNullOrWhiteSpace(user.Email))
-                return;
+                return (false, true, "No email address found for the account holder.");
+
+            var templates = await EmailTemplateService.GetAllAsync();
+            var template = templates.FirstOrDefault(t =>
+                t.IsActive && t.Name.Contains(templateKeyword, StringComparison.OrdinalIgnoreCase));
+
+            if (template == null)
+                return (false, false, null);
 
             var divisionName = GetDivisionName(registration);
             var categoryName = GetCategoryName(registration);
             var editUrl = $"{EmailOptions.SiteUrl.TrimEnd('/')}/registration/{registration.Id}/edit";
+            var deadlineText = settings?.RegistrationEnd?.ToString("MMMM d, yyyy");
 
-            var (subject, plainText, html) = PendingStatusEmailBuilder.Build(
-                parentName: user.DisplayName,
-                competitorFullName: registration.PersonalInfo.FullName,
-                cid: registration.Cid ?? "N/A",
+            var placeholders = EmailTemplateService.BuildPlaceholders(
+                competitorName: registration.PersonalInfo.FullName,
+                cid: registration.Cid,
                 divisionName: divisionName,
                 categoryName: categoryName,
-                statusComment: registration.StatusComment ?? "",
-                registrationEditUrl: editUrl,
-                registrationDeadline: settings?.RegistrationEnd,
-                siteUrl: EmailOptions.SiteUrl);
+                parentName: user.DisplayName,
+                statusComment: registration.StatusComment,
+                siteUrl: EmailOptions.SiteUrl,
+                editUrl: editUrl,
+                deadline: deadlineText);
+
+            var (subject, plainText, html) = EmailTemplateService.RenderTemplate(template, placeholders);
 
             var sent = await EmailService.SendEmailAsync(user.Email, user.DisplayName, subject, plainText, html);
 
@@ -1090,13 +1111,15 @@
                     "Registration",
                     registration.Id,
                     user.Email,
-                    "PendingStatus",
+                    template.Name,
                     $"{registration.PersonalInfo.FullName} ({registration.Cid})");
             }
+
+            return (sent, true, sent ? null : "Email service returned failure.");
         }
-        catch
+        catch (Exception ex)
         {
-            // Email is fire-and-forget; don't break the UI flow
+            return (false, true, $"Email send failed: {ex.Message}");
         }
     }
 
@@ -1152,8 +1175,10 @@
                 entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
 
             // Send updated email notification
-            await SendPendingEmailAsync(selectedRegistration);
-            pendingEmailsSentCount++;
+            var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, "Pending");
+            if (sent) pendingEmailsSentCount++;
+            if (!templateFound) statusUpdateError = "No active \"Pending\" email template found. Configure one in Admin Tools \u2192 Email Templates.";
+            else if (emailError != null) statusUpdateError = emailError;
 
             newComment = string.Empty;
         }
@@ -1170,12 +1195,15 @@
             return;
 
         isResendingEmail = true;
+        statusUpdateError = null;
         StateHasChanged();
 
         try
         {
-            await SendPendingEmailAsync(selectedRegistration);
-            pendingEmailsSentCount++;
+            var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, "Pending");
+            if (sent) pendingEmailsSentCount++;
+            if (!templateFound) statusUpdateError = "No active \"Pending\" email template found. Configure one in Admin Tools \u2192 Email Templates.";
+            else if (emailError != null) statusUpdateError = emailError;
         }
         finally
         {
@@ -1264,11 +1292,21 @@
                 summary: $"Status changed from {StatusBadge.GetDisplayName(oldStatus)} to {StatusBadge.GetDisplayName(newStatusEnum)}",
                 entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
 
-            // Send pending status email notification
-            if (newStatusEnum == RegistrationStatus.Pending
-                && !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment))
+            // Send status email notification
+            string? emailTemplateKeyword = newStatusEnum switch
             {
-                await SendPendingEmailAsync(selectedRegistration);
+                RegistrationStatus.Pending when !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment) => "Pending",
+                RegistrationStatus.Disqualified => "Disqualif",
+                RegistrationStatus.Withdrawn => "Withdraw",
+                _ => null
+            };
+
+            if (emailTemplateKeyword != null)
+            {
+                var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, emailTemplateKeyword);
+                if (sent && newStatusEnum == RegistrationStatus.Pending) pendingEmailsSentCount++;
+                if (!templateFound) statusUpdateError = $"Status updated, but no active \"{emailTemplateKeyword}\" email template found. No email was sent.";
+                else if (emailError != null) statusUpdateError = $"Status updated, but email failed: {emailError}";
             }
 
             // Update stats

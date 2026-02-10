@@ -2,10 +2,14 @@
 @attribute [Authorize(Roles = "Admin")]
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Messaging
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Application.Users
 @using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.Messaging
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.Settings
 @using RegistrationSystem.Web.Services
@@ -15,6 +19,11 @@
 @inject SettingsService SettingsService
 @inject IAuditService AuditService
 @inject BlazorAuditContextProvider AuditContextProvider
+@inject EmailTemplateService EmailTemplateService
+@inject IEmailService EmailService
+@inject UserService UserService
+@inject EmailOptions EmailOptions
+@inject IJSRuntime JS
 
 <PageTitle>Registration List</PageTitle>
 
@@ -131,23 +140,32 @@
             </div>
         </div>
 
-        <!-- Results Count Bar (like My Registrations) -->
+        <!-- Results Count Bar -->
         <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
             <span class="text-slate-600">
                 Showing <span class="font-semibold text-slate-800">@filteredRegistrations.Count</span> of <span class="font-semibold text-slate-800">@registrations.Count</span> registrations
             </span>
-            <!-- Status counts: dark bg, light text badges -->
-            <div class="flex items-center gap-2">
-                @foreach (var status in allStatuses)
-                {
-                    var count = filteredRegistrations.Count(r => r.Status == status);
-                    if (count > 0)
+            <div class="flex items-center gap-3">
+                <!-- Status counts -->
+                <div class="flex items-center gap-2">
+                    @foreach (var status in allStatuses)
                     {
-                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium @StatusBadge.GetBgColor(status) text-white">
-                            @count @StatusBadge.GetDisplayName(status)
-                        </span>
+                        var count = filteredRegistrations.Count(r => r.Status == status);
+                        if (count > 0)
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium @StatusBadge.GetBgColor(status) text-white">
+                                @count @StatusBadge.GetDisplayName(status)
+                            </span>
+                        }
                     }
-                }
+                </div>
+                <!-- Export All Filtered Button -->
+                <button type="button" @onclick="ExportAllFiltered" disabled="@(filteredRegistrations.Count == 0)"
+                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-600
+                               hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                    @Icons.Download("h-3.5 w-3.5")
+                    Export All
+                </button>
             </div>
         </div>
     </div>
@@ -184,12 +202,83 @@
     }
     else
     {
+        <!-- Bulk Action Bar (appears when items selected) -->
+        @if (selectedIds.Count > 0)
+        {
+            <div class="mb-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg px-5 py-3 sticky top-2 z-30">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-slate-800">@selectedIds.Count selected</span>
+                        <button type="button" @onclick="ClearSelection"
+                                class="text-xs text-slate-500 hover:text-slate-700 underline decoration-slate-300 cursor-pointer">
+                            Clear selection
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- Bulk Verify -->
+                        <button type="button" @onclick="OpenBulkVerifyModal"
+                                disabled="@(!AllSelectedAreReviewed)"
+                                title="@(AllSelectedAreReviewed ? "Verify selected registrations" : "All selected must be in Reviewed status")"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700
+                                       text-white text-xs font-semibold shadow-sm hover:from-cyan-700 hover:to-cyan-800
+                                       disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                            @Icons.CheckCircle("h-4 w-4")
+                            Verify
+                        </button>
+
+                        <!-- Bulk Send Email -->
+                        <button type="button" @onclick="OpenBulkEmailModal"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700
+                                       text-white text-xs font-semibold shadow-sm hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer">
+                            @Icons.Envelope("h-4 w-4")
+                            Send Email
+                        </button>
+
+                        <!-- Export Selected -->
+                        <button type="button" @onclick="ExportSelected"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white
+                                       text-slate-700 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer">
+                            @Icons.Download("h-4 w-4")
+                            Export
+                        </button>
+
+                        <!-- Bulk Delete -->
+                        <button type="button" @onclick="OpenBulkDeleteModal"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-600
+                                       text-white text-xs font-semibold shadow-sm hover:bg-red-700 transition-colors cursor-pointer">
+                            @Icons.Trash("h-4 w-4")
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- Table -->
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
                         <tr class="bg-gradient-to-r from-slate-700 to-slate-800">
+                            <!-- Select All Checkbox -->
+                            <th class="px-3 py-3.5 w-10">
+                                <button type="button" @onclick="ToggleSelectAllPage"
+                                        class="flex items-center justify-center w-5 h-5 rounded transition-all duration-150 cursor-pointer
+                                               @(IsAllPageSelected
+                                                   ? "bg-cyan-500 border-cyan-500 shadow-sm shadow-cyan-500/30"
+                                                   : selectedIds.Count > 0
+                                                       ? "bg-transparent border-2 border-slate-400"
+                                                       : "bg-transparent border-2 border-slate-400 hover:border-slate-300")">
+                                    @if (IsAllPageSelected)
+                                    {
+                                        <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                    }
+                                    else if (selectedIds.Count > 0)
+                                    {
+                                        <span class="w-2.5 h-0.5 bg-slate-400 rounded-full"></span>
+                                    }
+                                </button>
+                            </th>
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Competitor</th>
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">CID</th>
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Division</th>
@@ -203,7 +292,21 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach (var reg in pagedRegistrations)
                         {
-                            <tr class="hover:bg-slate-50 transition-colors">
+                            <tr class="hover:bg-slate-50 transition-colors @(selectedIds.Contains(reg.Id) ? "bg-cyan-50/40" : "")">
+                                <!-- Checkbox -->
+                                <td class="px-3 py-4">
+                                    <button type="button" @onclick="() => ToggleSelection(reg.Id)"
+                                            class="flex items-center justify-center w-5 h-5 rounded transition-all duration-150 cursor-pointer
+                                                   @(selectedIds.Contains(reg.Id)
+                                                       ? "bg-cyan-500 border-cyan-500 shadow-sm shadow-cyan-500/25"
+                                                       : "bg-white border-2 border-slate-300 hover:border-cyan-400")">
+                                        @if (selectedIds.Contains(reg.Id))
+                                        {
+                                            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                        }
+                                    </button>
+                                </td>
+
                                 <!-- Competitor: gender bar + name + gender/DOB/age -->
                                 <td class="px-4 py-4">
                                     <div class="flex items-center gap-3">
@@ -277,7 +380,7 @@
                                     </div>
                                 </td>
 
-                                <!-- Status (same badge as My Registrations) -->
+                                <!-- Status -->
                                 <td class="px-4 py-4">
                                     <StatusBadge Status="reg.Status" />
                                 </td>
@@ -300,7 +403,7 @@
                                     </div>
                                 </td>
 
-                                <!-- Actions (round icon buttons like My Registrations) -->
+                                <!-- Actions -->
                                 <td class="px-4 py-4 whitespace-nowrap text-right">
                                     <div class="inline-flex items-center gap-1 justify-end">
                                         <a href="/admin/registration/@reg.Id" target="_blank"
@@ -372,7 +475,9 @@
     }
 </div>
 
-<!-- Delete Confirmation Modal -->
+<!-- ══════════════════════════════════════════════════════════════════════
+     SINGLE DELETE MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
 @if (deleteTarget != null)
 {
     <div class="fixed inset-0 z-50 overflow-y-auto">
@@ -380,7 +485,6 @@
             <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseDeleteModal"></div>
 
             <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
-                <!-- Modal Header -->
                 <div class="px-6 py-5 border-b border-slate-200">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
@@ -393,9 +497,7 @@
                     </div>
                 </div>
 
-                <!-- Modal Content -->
                 <div class="px-6 py-5 space-y-4">
-                    <!-- Registration Details -->
                     <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-2">
                         <div class="flex justify-between">
                             <span class="text-sm text-slate-500">Competitor</span>
@@ -425,7 +527,6 @@
                         }
                     </div>
 
-                    <!-- Audit Trail Section -->
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
                         <div class="flex items-start gap-3">
                             @Icons.Warning("h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5")
@@ -453,7 +554,6 @@
                         </div>
                     </div>
 
-                    <!-- Delete Audit Checkbox -->
                     <label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
                         <input type="checkbox" @bind="deleteAuditTrail"
                                class="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" />
@@ -466,7 +566,6 @@
                         </div>
                     </label>
 
-                    <!-- Confirmation Input -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">
                             Type <span class="font-bold text-red-600">DELETE</span> to confirm
@@ -477,7 +576,6 @@
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
                 <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
                     <button type="button" @onclick="CloseDeleteModal"
                             class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
@@ -496,6 +594,278 @@
                             @Icons.Trash("h-4 w-4")
                             <span>Delete Registration</span>
                         }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     BULK VERIFY MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (showBulkVerifyModal)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseBulkModals"></div>
+            <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow">
+                            @Icons.CheckCircle("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Bulk Verify</h3>
+                            <p class="text-sm text-slate-500">Change @selectedIds.Count registrations from Reviewed → Verified</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-5 space-y-4">
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 max-h-40 overflow-y-auto">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Selected Registrations</p>
+                        @foreach (var reg in GetSelectedRegistrations().Take(10))
+                        {
+                            <div class="text-sm text-slate-700 py-0.5">@reg.PersonalInfo.FullName <span class="text-slate-400">(@(reg.Cid ?? "No CID"))</span></div>
+                        }
+                        @if (selectedIds.Count > 10)
+                        {
+                            <div class="text-xs text-slate-500 mt-1">...and @(selectedIds.Count - 10) more</div>
+                        }
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold text-slate-700">Send Notification Email</label>
+                        <select @bind="bulkVerifyTemplateId"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                            <option value="">Don't send email</option>
+                            @foreach (var t in GetFilteredEmailTemplates())
+                            {
+                                <option value="@t.Id">@t.Name @(!string.IsNullOrEmpty(t.DivisionId) ? $"({GetTemplateScopeLabel(t)})" : "")</option>
+                            }
+                        </select>
+                        <p class="text-[11px] text-slate-500">Registrations from the same account will be consolidated into one email with a participants table.</p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <button type="button" @onclick="CloseBulkModals"
+                            class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteBulkVerify" disabled="@isBulkProcessing"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 transition-all flex items-center gap-2">
+                        @if (isBulkProcessing)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>@bulkPhaseMessage</span>
+                        }
+                        else
+                        {
+                            @Icons.CheckCircle("h-4 w-4")
+                            <span>Verify @selectedIds.Count Registrations</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     BULK SEND EMAIL MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (showBulkEmailModal)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseBulkModals"></div>
+            <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center shadow">
+                            @Icons.Envelope("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Send Bulk Email</h3>
+                            <p class="text-sm text-slate-500">Send email for @selectedIds.Count registrations across @GetSelectedAccountCount() accounts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-5 space-y-4">
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 max-h-40 overflow-y-auto">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Recipients</p>
+                        @foreach (var reg in GetSelectedRegistrations().Take(10))
+                        {
+                            <div class="text-sm text-slate-700 py-0.5">@reg.PersonalInfo.FullName <span class="text-slate-400">(@(reg.Cid ?? "No CID"))</span></div>
+                        }
+                        @if (selectedIds.Count > 10)
+                        {
+                            <div class="text-xs text-slate-500 mt-1">...and @(selectedIds.Count - 10) more</div>
+                        }
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold text-slate-700">Email Template <span class="text-red-500">*</span></label>
+                        <select @bind="bulkEmailTemplateId"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                            <option value="">Select a template...</option>
+                            @foreach (var t in GetFilteredEmailTemplates())
+                            {
+                                <option value="@t.Id">@t.Name @(!string.IsNullOrEmpty(t.DivisionId) ? $"({GetTemplateScopeLabel(t)})" : "")</option>
+                            }
+                        </select>
+                        @if (emailTemplates.Count == 0)
+                        {
+                            <p class="text-[11px] text-amber-600">No templates found. <a href="/admin/email-templates" class="underline">Create one first</a>.</p>
+                        }
+                        <p class="text-[11px] text-slate-500">Registrations from the same account will be consolidated into one email.</p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <button type="button" @onclick="CloseBulkModals"
+                            class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteBulkEmail"
+                            disabled="@(isBulkProcessing || string.IsNullOrEmpty(bulkEmailTemplateId))"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-slate-700 hover:to-slate-800 disabled:opacity-50 transition-all flex items-center gap-2">
+                        @if (isBulkProcessing)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>@bulkPhaseMessage</span>
+                        }
+                        else
+                        {
+                            @Icons.Envelope("h-4 w-4")
+                            <span>Send to @GetSelectedAccountCount() Accounts</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     BULK DELETE MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (showBulkDeleteModal)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseBulkModals"></div>
+            <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
+                            @Icons.Trash("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Bulk Delete</h3>
+                            <p class="text-sm text-slate-500">Delete @selectedIds.Count registrations permanently</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-5 space-y-4">
+                    <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+                        <div class="flex items-start gap-3">
+                            @Icons.Warning("h-5 w-5 text-red-600 flex-shrink-0 mt-0.5")
+                            <div class="flex-1">
+                                <h4 class="text-sm font-semibold text-red-800 mb-1">Warning</h4>
+                                <p class="text-sm text-red-700">
+                                    You are about to permanently delete <strong>@selectedIds.Count registrations</strong>. This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 max-h-40 overflow-y-auto">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Registrations to delete</p>
+                        @foreach (var reg in GetSelectedRegistrations().Take(10))
+                        {
+                            <div class="text-sm text-slate-700 py-0.5">@reg.PersonalInfo.FullName <span class="text-slate-400">(@(reg.Cid ?? "No CID"))</span></div>
+                        }
+                        @if (selectedIds.Count > 10)
+                        {
+                            <div class="text-xs text-slate-500 mt-1">...and @(selectedIds.Count - 10) more</div>
+                        }
+                    </div>
+
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" @bind="bulkDeleteAuditTrail"
+                               class="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" />
+                        <div>
+                            <span class="text-sm font-medium text-slate-800">Also delete all audit trail entries</span>
+                            <p class="text-xs text-slate-500 mt-0.5">Permanently removes all audit logs for these registrations.</p>
+                        </div>
+                    </label>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Type <span class="font-bold text-red-600">DELETE</span> to confirm
+                        </label>
+                        <input type="text" @bind="bulkDeleteConfirmation" @bind:event="oninput"
+                               placeholder="Type DELETE here"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm" />
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <button type="button" @onclick="CloseBulkModals"
+                            class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteBulkDelete"
+                            disabled="@(bulkDeleteConfirmation != "DELETE" || isBulkProcessing)"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all flex items-center gap-2">
+                        @if (isBulkProcessing)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>Deleting @bulkProgress of @bulkTotal...</span>
+                        }
+                        else
+                        {
+                            @Icons.Trash("h-4 w-4")
+                            <span>Delete @selectedIds.Count Registrations</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     BULK RESULTS MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (showBulkResultsModal)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="() => showBulkResultsModal = false"></div>
+            <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow">
+                            @Icons.CheckCircle("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Operation Complete</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-5">
+                    <p class="text-sm text-slate-700 whitespace-pre-line">@bulkResultMessage</p>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end rounded-b-2xl">
+                    <button type="button" @onclick="() => showBulkResultsModal = false"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all">
+                        Done
                     </button>
                 </div>
             </div>
@@ -537,7 +907,9 @@
 }
 
 @code {
-    // State
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
     private bool isLoading = false;
     private bool isInitialLoading = true;
     private string loadingMessage = "Loading...";
@@ -572,13 +944,40 @@
     private int currentPage = 1;
     private int pageSize = 50;
 
-    // Delete modal
+    // Single delete modal
     private Registration? deleteTarget;
     private bool deleteAuditTrail = false;
     private string deleteConfirmation = string.Empty;
     private bool isDeleting = false;
     private bool isLoadingAuditCount = false;
     private int auditEntryCount = 0;
+
+    // Selection state
+    private HashSet<string> selectedIds = new();
+
+    // Bulk modals
+    private bool showBulkVerifyModal;
+    private bool showBulkEmailModal;
+    private bool showBulkDeleteModal;
+    private bool showBulkResultsModal;
+    private bool isBulkProcessing;
+    private int bulkProgress;
+    private int bulkTotal;
+    private string bulkResultMessage = string.Empty;
+    private string bulkPhaseMessage = string.Empty;
+
+    // Bulk verify
+    private string bulkVerifyTemplateId = string.Empty;
+
+    // Bulk email
+    private string bulkEmailTemplateId = string.Empty;
+
+    // Bulk delete
+    private bool bulkDeleteAuditTrail;
+    private string bulkDeleteConfirmation = string.Empty;
+
+    // Email templates
+    private List<EmailTemplate> emailTemplates = new();
 
     // Messages
     private string successMessage = string.Empty;
@@ -603,6 +1002,15 @@
         .Take(pageSize)
         .ToList();
 
+    private bool IsAllPageSelected => pagedRegistrations.Count > 0 && pagedRegistrations.All(r => selectedIds.Contains(r.Id));
+
+    private bool AllSelectedAreReviewed => selectedIds.Count > 0 &&
+        GetSelectedRegistrations().All(r => r.Status == RegistrationStatus.Reviewed);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
     protected override async Task OnInitializedAsync()
     {
         isInitialLoading = true;
@@ -623,6 +1031,9 @@
 
         await FetchRegistrations();
 
+        // Load email templates for bulk operations
+        try { emailTemplates = await EmailTemplateService.GetAllAsync(); } catch { }
+
         isInitialLoading = false;
         StateHasChanged();
     }
@@ -637,6 +1048,7 @@
             var allRegistrations = await RegistrationService.GetAllByYearAsync(competitionYear);
             registrations = allRegistrations.ToList();
             currentPage = 1;
+            selectedIds.Clear();
         }
         finally
         {
@@ -644,6 +1056,35 @@
             StateHasChanged();
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SELECTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void ToggleSelection(string id)
+    {
+        if (!selectedIds.Remove(id))
+            selectedIds.Add(id);
+    }
+
+    private void ToggleSelectAllPage()
+    {
+        if (IsAllPageSelected)
+        {
+            foreach (var reg in pagedRegistrations)
+                selectedIds.Remove(reg.Id);
+        }
+        else
+        {
+            foreach (var reg in pagedRegistrations)
+                selectedIds.Add(reg.Id);
+        }
+    }
+
+    private void ClearSelection() => selectedIds.Clear();
+
+    private List<Registration> GetSelectedRegistrations() =>
+        registrations.Where(r => selectedIds.Contains(r.Id)).ToList();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FILTERS
@@ -710,7 +1151,6 @@
 
         var query = searchQuery.Trim();
 
-        // CID match
         if (r.Cid?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
             return true;
 
@@ -718,12 +1158,9 @@
         var firstName = r.PersonalInfo.FirstName;
         var lastName = r.PersonalInfo.LastName;
 
-        // Direct full name match
         if (fullName.Contains(query, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Multi-word search: each query part must match first, middle, or last name
-        // This allows "John Smith" to match "John Michael Smith"
         var queryParts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (queryParts.Length > 1)
         {
@@ -770,7 +1207,7 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DELETE
+    // SINGLE DELETE
     // ═══════════════════════════════════════════════════════════════════════════
 
     private async Task OpenDeleteModal(Registration reg)
@@ -818,7 +1255,6 @@
             var cid = deleteTarget.Cid ?? "N/A";
             var regId = deleteTarget.Id;
 
-            // Log the deletion audit BEFORE deleting
             await AuditContextProvider.SetCurrentUserContextAsync();
             await AuditService.LogAsync(
                 AuditAction.Deleted,
@@ -836,19 +1272,16 @@
                     ["AuditTrailDeleted"] = deleteAuditTrail.ToString()
                 });
 
-            // Delete the registration
             await RegistrationRepository.DeleteAsync(regId);
 
-            // Optionally delete audit trail
             if (deleteAuditTrail)
             {
                 await AuditService.DeleteEntityAuditTrailAsync("Registration", regId);
             }
 
-            // Remove from local list
             registrations.Remove(deleteTarget);
+            selectedIds.Remove(regId);
 
-            // Fix current page if needed
             if (currentPage > totalPages && totalPages > 0)
             {
                 currentPage = totalPages;
@@ -869,6 +1302,396 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BULK VERIFY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenBulkVerifyModal()
+    {
+        var filtered = GetFilteredEmailTemplates();
+        bulkVerifyTemplateId = filtered.FirstOrDefault(t => t.Name.Contains("Verified", StringComparison.OrdinalIgnoreCase))?.Id ?? "";
+        showBulkVerifyModal = true;
+    }
+
+    private async Task ExecuteBulkVerify()
+    {
+        isBulkProcessing = true;
+        var selected = GetSelectedRegistrations().Where(r => r.Status == RegistrationStatus.Reviewed).ToList();
+        bulkTotal = selected.Count;
+        bulkProgress = 0;
+        bulkPhaseMessage = $"Verifying 0 of {bulkTotal}...";
+        StateHasChanged();
+
+        EmailTemplate? template = null;
+        if (!string.IsNullOrEmpty(bulkVerifyTemplateId))
+        {
+            template = await EmailTemplateService.GetByIdAsync(bulkVerifyTemplateId);
+        }
+
+        int verified = 0, emailsSent = 0, failures = 0, accountCount = 0;
+        var verifiedRegs = new List<Registration>();
+
+        await AuditContextProvider.SetCurrentUserContextAsync();
+
+        // Phase 1: Update status for each registration
+        foreach (var reg in selected)
+        {
+            try
+            {
+                bulkProgress++;
+                bulkPhaseMessage = $"Verifying {bulkProgress} of {bulkTotal}...";
+                StateHasChanged();
+
+                var oldStatus = reg.Status.ToString();
+                reg.Status = RegistrationStatus.Verified;
+                await RegistrationService.AdminUpdateStatusAsync(reg);
+
+                await AuditService.LogAsync(
+                    AuditAction.StatusChanged,
+                    "Registration",
+                    reg.Id,
+                    summary: $"Bulk status change: {oldStatus} → Verified",
+                    entityDescription: $"{reg.PersonalInfo.FullName} ({reg.Cid})",
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["OldStatus"] = oldStatus,
+                        ["NewStatus"] = "Verified"
+                    });
+
+                verified++;
+                verifiedRegs.Add(reg);
+            }
+            catch
+            {
+                failures++;
+            }
+        }
+
+        // Phase 2: Send grouped emails (one per account)
+        if (template != null && verifiedRegs.Count > 0)
+        {
+            var accountGroups = verifiedRegs.GroupBy(r => r.CreatorUserId).ToList();
+            bulkTotal = accountGroups.Count;
+            bulkProgress = 0;
+            bulkPhaseMessage = $"Sending email 0 of {bulkTotal} accounts...";
+            StateHasChanged();
+
+            foreach (var group in accountGroups)
+            {
+                bulkProgress++;
+                bulkPhaseMessage = $"Sending email {bulkProgress} of {bulkTotal} accounts...";
+                StateHasChanged();
+
+                try
+                {
+                    var user = await UserService.GetByObjectIdentifierAsync(group.Key);
+                    if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                        continue;
+
+                    var participants = group.Select(r => new ParticipantRow(
+                        r.Cid ?? "N/A",
+                        r.PersonalInfo.FullName,
+                        GetDivisionName(r),
+                        GetCategoryName(r),
+                        r.CompetitionSelection.PortionChoice?.ToString()
+                    )).ToList();
+
+                    var (htmlPlaceholders, plainTextPlaceholders) = EmailTemplateService.BuildAccountPlaceholders(
+                        user.DisplayName,
+                        EmailOptions.SiteUrl,
+                        participants);
+
+                    var (subject, plainText, html) = EmailTemplateService.RenderTemplate(template, htmlPlaceholders, plainTextPlaceholders);
+                    var sent = await EmailService.SendEmailAsync(user.Email, user.DisplayName, subject, plainText, html);
+
+                    if (sent)
+                    {
+                        emailsSent++;
+                        accountCount++;
+                        // Log audit for each registration in this account group
+                        foreach (var reg in group)
+                        {
+                            await AuditService.LogEmailSentAsync(
+                                "Registration", reg.Id, user.Email,
+                                template.Name,
+                                $"{reg.PersonalInfo.FullName} ({reg.Cid})");
+                        }
+                    }
+                }
+                catch { /* email is fire-and-forget */ }
+            }
+        }
+
+        isBulkProcessing = false;
+        showBulkVerifyModal = false;
+
+        bulkResultMessage = $"✓ {verified} verified";
+        if (template != null) bulkResultMessage += $"\n✉ {emailsSent} emails sent to {accountCount} accounts";
+        if (failures > 0) bulkResultMessage += $"\n✗ {failures} failed";
+
+        showBulkResultsModal = true;
+        selectedIds.Clear();
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BULK SEND EMAIL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenBulkEmailModal()
+    {
+        bulkEmailTemplateId = string.Empty;
+        showBulkEmailModal = true;
+    }
+
+    private async Task ExecuteBulkEmail()
+    {
+        if (string.IsNullOrEmpty(bulkEmailTemplateId)) return;
+
+        isBulkProcessing = true;
+        var selected = GetSelectedRegistrations();
+
+        var template = await EmailTemplateService.GetByIdAsync(bulkEmailTemplateId);
+        if (template == null)
+        {
+            errorMessage = "Template not found.";
+            isBulkProcessing = false;
+            showBulkEmailModal = false;
+            return;
+        }
+
+        // Group by account
+        var accountGroups = selected.GroupBy(r => r.CreatorUserId).ToList();
+        bulkTotal = accountGroups.Count;
+        bulkProgress = 0;
+        bulkPhaseMessage = $"Sending email 0 of {bulkTotal} accounts...";
+        StateHasChanged();
+
+        int emailsSent = 0, failures = 0;
+
+        await AuditContextProvider.SetCurrentUserContextAsync();
+
+        foreach (var group in accountGroups)
+        {
+            bulkProgress++;
+            bulkPhaseMessage = $"Sending email {bulkProgress} of {bulkTotal} accounts...";
+            StateHasChanged();
+
+            try
+            {
+                var user = await UserService.GetByObjectIdentifierAsync(group.Key);
+                if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                {
+                    failures++;
+                    continue;
+                }
+
+                var participants = group.Select(r => new ParticipantRow(
+                    r.Cid ?? "N/A",
+                    r.PersonalInfo.FullName,
+                    GetDivisionName(r),
+                    GetCategoryName(r),
+                    r.CompetitionSelection.PortionChoice?.ToString()
+                )).ToList();
+
+                var (htmlPlaceholders, plainTextPlaceholders) = EmailTemplateService.BuildAccountPlaceholders(
+                    user.DisplayName,
+                    EmailOptions.SiteUrl,
+                    participants);
+
+                var (subject, plainText, html) = EmailTemplateService.RenderTemplate(template, htmlPlaceholders, plainTextPlaceholders);
+                var sent = await EmailService.SendEmailAsync(user.Email, user.DisplayName, subject, plainText, html);
+
+                if (sent)
+                {
+                    emailsSent++;
+                    foreach (var reg in group)
+                    {
+                        await AuditService.LogEmailSentAsync(
+                            "Registration", reg.Id, user.Email,
+                            template.Name,
+                            $"{reg.PersonalInfo.FullName} ({reg.Cid})");
+                    }
+                }
+                else
+                {
+                    failures++;
+                }
+            }
+            catch
+            {
+                failures++;
+            }
+        }
+
+        isBulkProcessing = false;
+        showBulkEmailModal = false;
+
+        bulkResultMessage = $"✉ {emailsSent} emails sent to {emailsSent} accounts ({selected.Count} registrations)";
+        if (failures > 0) bulkResultMessage += $"\n✗ {failures} failed (no email on account or send error)";
+
+        showBulkResultsModal = true;
+        selectedIds.Clear();
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BULK DELETE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenBulkDeleteModal()
+    {
+        bulkDeleteAuditTrail = false;
+        bulkDeleteConfirmation = string.Empty;
+        showBulkDeleteModal = true;
+    }
+
+    private async Task ExecuteBulkDelete()
+    {
+        if (bulkDeleteConfirmation != "DELETE") return;
+
+        isBulkProcessing = true;
+        var selected = GetSelectedRegistrations();
+        bulkTotal = selected.Count;
+        bulkProgress = 0;
+        StateHasChanged();
+
+        int deleted = 0, failures = 0;
+
+        await AuditContextProvider.SetCurrentUserContextAsync();
+
+        foreach (var reg in selected)
+        {
+            try
+            {
+                bulkProgress++;
+                StateHasChanged();
+
+                var name = reg.PersonalInfo.FullName;
+                var cid = reg.Cid ?? "N/A";
+
+                await AuditService.LogAsync(
+                    AuditAction.Deleted,
+                    "Registration",
+                    reg.Id,
+                    summary: $"Bulk deleted registration for {name} ({cid})",
+                    entityDescription: $"{name} ({cid})",
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["CompetitorName"] = name,
+                        ["CID"] = cid,
+                        ["Division"] = GetDivisionName(reg),
+                        ["Category"] = GetCategoryName(reg),
+                        ["Status"] = reg.Status.ToString(),
+                        ["BulkOperation"] = "true"
+                    });
+
+                await RegistrationRepository.DeleteAsync(reg.Id);
+
+                if (bulkDeleteAuditTrail)
+                {
+                    await AuditService.DeleteEntityAuditTrailAsync("Registration", reg.Id);
+                }
+
+                registrations.Remove(reg);
+                deleted++;
+            }
+            catch
+            {
+                failures++;
+            }
+        }
+
+        isBulkProcessing = false;
+        showBulkDeleteModal = false;
+
+        if (currentPage > totalPages && totalPages > 0)
+            currentPage = totalPages;
+
+        bulkResultMessage = $"🗑 {deleted} registrations deleted";
+        if (bulkDeleteAuditTrail) bulkResultMessage += " (with audit trails)";
+        if (failures > 0) bulkResultMessage += $"\n✗ {failures} failed";
+
+        showBulkResultsModal = true;
+        selectedIds.Clear();
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CSV EXPORT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ExportSelected()
+    {
+        var selected = GetSelectedRegistrations();
+        await ExportToCsv(selected, $"registrations_selected_{DateTime.Now:yyyyMMdd_HHmm}.csv");
+    }
+
+    private async Task ExportAllFiltered()
+    {
+        await ExportToCsv(filteredRegistrations, $"registrations_export_{DateTime.Now:yyyyMMdd_HHmm}.csv");
+    }
+
+    private async Task ExportToCsv(List<Registration> regs, string filename)
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // Header
+        sb.AppendLine("CID,Full Name,Gender,DOB,Age,Division,Category,Portion,City,State,Country,Parent Name,Parent Phone,Teacher Name,Status,Niqab Bypass,Has Video,Has Photo,Has ID");
+
+        foreach (var r in regs)
+        {
+            var age = settings != null ? r.CalculateAgeAsOf(settings.AgeCutoffDate).ToString() : "";
+            var portion = r.CompetitionSelection.PortionChoice?.ToString() ?? "";
+            var hasVideo = r.FileUploadInfo.Video != null ? "Yes" : "No";
+            var hasPhoto = r.FileUploadInfo.Photo != null ? "Yes" : "No";
+            var hasId = r.FileUploadInfo.IdDocument != null ? "Yes" : "No";
+            var niqab = r.FileUploadInfo.NiqabBypassApproved ? "Yes" : "No";
+            var teacherName = r.TeacherInfo?.FullName ?? "";
+
+            sb.AppendLine(string.Join(",",
+                Csv(r.Cid ?? ""),
+                Csv(r.PersonalInfo.FullName),
+                Csv(r.PersonalInfo.Gender.ToString()),
+                Csv(r.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd")),
+                Csv(age),
+                Csv(GetDivisionName(r)),
+                Csv(GetCategoryName(r)),
+                Csv(portion),
+                Csv(r.AddressInfo.City ?? ""),
+                Csv(r.AddressInfo.StateProvince ?? ""),
+                Csv(r.AddressInfo.Country ?? ""),
+                Csv(r.ParentInfo?.FullName ?? ""),
+                Csv(r.ParentInfo?.PhoneNumber ?? ""),
+                Csv(teacherName),
+                Csv(r.Status.ToString()),
+                Csv(niqab),
+                Csv(hasVideo),
+                Csv(hasPhoto),
+                Csv(hasId)
+            ));
+        }
+
+        await JS.InvokeVoidAsync("downloadFile", filename, "text/csv", sb.ToString());
+    }
+
+    private static string Csv(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "\"\"";
+        return $"\"{value.Replace("\"", "\"\"")}\"";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BULK MODAL HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void CloseBulkModals()
+    {
+        showBulkVerifyModal = false;
+        showBulkEmailModal = false;
+        showBulkDeleteModal = false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -881,6 +1704,37 @@
     {
         var division = divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId);
         return division?.Categories.FirstOrDefault(c => c.Id == reg.CompetitionSelection.CategoryId)?.Name ?? "Unknown";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TEMPLATE SCOPE FILTERING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private List<EmailTemplate> GetFilteredEmailTemplates()
+    {
+        var selectedRegs = GetSelectedRegistrations();
+        if (selectedRegs.Count == 0)
+            return emailTemplates.Where(t => t.IsActive).ToList();
+
+        var scopes = selectedRegs
+            .Select(r => (r.CompetitionSelection.DivisionId, r.CompetitionSelection.CategoryId))
+            .Distinct()
+            .ToList();
+
+        return EmailTemplateService.FilterTemplatesForRegistrations(emailTemplates, scopes);
+    }
+
+    private int GetSelectedAccountCount() =>
+        GetSelectedRegistrations().Select(r => r.CreatorUserId).Distinct().Count();
+
+    private string GetTemplateScopeLabel(EmailTemplate template)
+    {
+        if (string.IsNullOrEmpty(template.DivisionId)) return "Global";
+        var divName = divisions.FirstOrDefault(d => d.Id == template.DivisionId)?.Name ?? "?";
+        if (string.IsNullOrEmpty(template.CategoryId)) return divName;
+        var division = divisions.FirstOrDefault(d => d.Id == template.DivisionId);
+        var catName = division?.Categories.FirstOrDefault(c => c.Id == template.CategoryId)?.Name ?? "?";
+        return $"{divName} / {catName}";
     }
 
 }

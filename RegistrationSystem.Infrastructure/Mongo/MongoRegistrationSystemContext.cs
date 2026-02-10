@@ -4,6 +4,7 @@ using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.NiqabBypasses;
 using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Core.Domain.Settings;
+using RegistrationSystem.Core.Domain.Messaging;
 using RegistrationSystem.Core.Domain.Users;
 
 namespace RegistrationSystem.Infrastructure.Mongo;
@@ -17,6 +18,7 @@ public class MongoRegistrationSystemContext
     public IMongoCollection<Registration> Registrations { get; }
     public IMongoCollection<NiqabBypass> NiqabBypasses { get; }
     public IMongoCollection<CompetitionRound> CompetitionRounds { get; }
+    public IMongoCollection<EmailTemplate> EmailTemplates { get; }
 
     public MongoRegistrationSystemContext(MongoClient client, MongoOptions options)
     {
@@ -39,5 +41,8 @@ public class MongoRegistrationSystemContext
 
         CompetitionRounds = Database.GetCollection<CompetitionRound>(
             options.CompetitionRoundsCollectionName);
+
+        EmailTemplates = Database.GetCollection<EmailTemplate>(
+            options.EmailTemplatesCollectionName);
     }
 }

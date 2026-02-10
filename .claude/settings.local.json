@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRefactor Settings page: extract components, move helpers to Core\n\n- Remove Now property; use DateTimeOffset.Now directly at call sites\n- Move SettingsCloner & SettingsComparer to Core.Application.Settings\n- Add ApplyDivisionChanges/ApplyCategoryChanges to SettingsCloner\n- Extract reusable ToggleSwitch component \\(replaces 8 inline toggles\\)\n- Extract reusable Modal component \\(replaces 5 inline modals\\)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git merge:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRefactor Settings page: extract Icons, edit panels; flatten styles\n\n- Extract 27 inline SVGs into shared Icons.razor static component\n- Extract CategoryEditPanel, DivisionEditPanel, EditPanelPlaceholder components\n- Flatten all gradient CSS classes to flat equivalents\n- Remove active:scale transform and unused GetStatusBadgeClassesCompact\n\nCo-Authored-By: Claude \\(claude-opus-4-6\\) <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(findstr:*)",
+      "Bash(tree:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(dir:*)",
+      "Bash(git -C \"C:\\\\Users\\\\msals\\\\.claude-worktrees\\\\Admin\\\\sweet-rhodes\" log --oneline -10)",
+      "Bash(dotnet add package:*)",
+      "Bash(git status:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git restore:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process:*)",
+      "WebFetch(domain:register.imamshatibi.org)"
+    ]
+  }
+}
