@@ -1,4 +1,4 @@
-﻿@page "/registration/{Id}"
+@page "/registration/{Id}"
 @page "/admin/registration/{Id}"
 
 @inject RegistrationService RegistrationService
@@ -13,381 +13,389 @@
 
 <PageTitle>Registration Details</PageTitle>
 
-<div class="max-w-7xl mx-auto">
-    @if (isLoading)
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-16">
+        <div class="flex flex-col items-center gap-3">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            <span class="text-sm text-slate-500">Loading registration...</span>
+        </div>
+    </div>
+}
+else if (registration == null)
+{
+    <div class="max-w-lg mx-auto mt-12">
+        <div class="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            @Icons.Warning("h-10 w-10 text-slate-300 mx-auto mb-4")
+            <h3 class="text-lg font-semibold text-slate-800 mb-2">Registration Not Found</h3>
+            <p class="text-sm text-slate-500 mb-6">This registration doesn't exist or you don't have permission to view it.</p>
+            <a href="@(isAdmin ? "/admin/registrations" : "/registrations")"
+               class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-sm">
+                Back to Registrations
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- HEADER BAR -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">@registration.PersonalInfo.FullName</h1>
+                <p class="text-sm text-slate-500 mt-0.5">
+                    @(division?.Name ?? "Unknown") · @(category?.Name ?? "Unknown")
+                    @if (registration.CompetitionSelection.PortionChoice.HasValue)
+                    {
+                        <span> · @registration.CompetitionSelection.PortionChoice.Value</span>
+                    }
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <StatusBadge Status="registration.Status" Size="StatusBadge.StatusBadgeSize.Large" />
+            @if (!string.IsNullOrEmpty(registration.Cid))
+            {
+                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-slate-700 text-white shadow-sm">
+                    @registration.Cid
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- STATUS COMMENTS (conditional banners) -->
+    @if (!string.IsNullOrEmpty(registration.StatusComment))
     {
-        <div class="flex items-center justify-center py-16">
-            <div class="flex flex-col items-center gap-3">
-                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
-                <span class="text-sm text-slate-500">Loading registration...</span>
+        <div class="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 flex items-start gap-2">
+            @Icons.Info("h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0")
+            <div>
+                <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">Admin Comment</span>
+                <p class="text-sm text-amber-800">@registration.StatusComment</p>
             </div>
         </div>
     }
-    else if (registration == null)
+    @if (registration.Status == RegistrationStatus.Withdrawn && !string.IsNullOrEmpty(registration.WithdrawComment))
     {
-        <div class="max-w-2xl mx-auto">
-            <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-12 text-center shadow-sm">
-                <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-5">
-                    <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-                <h3 class="text-xl font-semibold text-slate-800 mb-2">Registration Not Found</h3>
-                <p class="text-slate-600 mb-6">This registration doesn't exist or you don't have permission to view it.</p>
-                <a href="@(isAdmin ? "/admin/registrations" : "/registrations")"
-                   class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-6 py-3 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Back to Registrations
-                </a>
+        <div class="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 flex items-start gap-2">
+            @Icons.Warning("h-4 w-4 text-red-500 mt-0.5 flex-shrink-0")
+            <div>
+                <span class="text-xs font-semibold text-red-700 uppercase tracking-wide">Withdrawal Reason</span>
+                <p class="text-sm text-red-800">@registration.WithdrawComment</p>
             </div>
         </div>
     }
-    else
-    {
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- LEFT COLUMN (2/3 width) - ALL INFORMATION -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <!-- Header -->
-                    <div class="px-6 pt-6 pb-2">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                            <div>
-                                <h1 class="text-2xl font-bold text-slate-800">@registration.PersonalInfo.FullName</h1>
-                                <p class="text-sm text-slate-500 mt-1">@(division?.Name ?? "Unknown") · @(category?.Name ?? "Unknown")</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <StatusBadge Status="registration.Status" Size="StatusBadge.StatusBadgeSize.Large" />
-                                @if (!string.IsNullOrEmpty(registration.Cid))
-                                {
-                                    <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-slate-700 text-white shadow-sm">
-                                        @registration.Cid
-                                    </span>
-                                }
-                            </div>
-                        </div>
+    <!-- MAIN 3-COLUMN LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- LEFT: DATA SECTIONS (5 cols)                            -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="lg:col-span-5 space-y-3">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+                <!-- Competitor -->
+                <div class="px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-cyan-600 to-cyan-700 rounded-t-xl">
+                    <div class="flex items-center gap-2">
+                        @Icons.User("h-3.5 w-3.5 text-cyan-200")
+                        <span class="text-xs font-semibold text-white uppercase tracking-wide">Competitor</span>
                     </div>
-
-                    <div class="p-6">
-                        <!-- Status Comments -->
-                        @if (!string.IsNullOrEmpty(registration.StatusComment))
-                        {
-                            <div class="mb-5 rounded-lg bg-slate-50 border border-slate-200 p-4">
-                                <div class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Admin Comment</div>
-                                <p class="text-sm text-slate-700">@registration.StatusComment</p>
-                            </div>
-                        }
-                        @if (registration.Status == RegistrationStatus.Withdrawn && !string.IsNullOrEmpty(registration.WithdrawComment))
-                        {
-                            <div class="mb-5 rounded-lg bg-amber-50 border border-amber-200 p-4">
-                                <div class="text-xs font-medium text-amber-700 uppercase tracking-wide mb-1">Withdrawal Reason</div>
-                                <p class="text-sm text-amber-900">@registration.WithdrawComment</p>
-                            </div>
-                        }
-
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <!-- COMPETITOR SECTION                                       -->
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-6 h-6 rounded-md bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                            </div>
-                            <h3 class="text-sm font-semibold text-slate-800">Competitor Information</h3>
-                        </div>
-
-                        <dl class="divide-y divide-slate-100">
-                            <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                <dt class="text-sm font-medium text-slate-900">Full Name</dt>
-                                <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">@registration.PersonalInfo.FullName</dd>
-                            </div>
-                            <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                <dt class="text-sm font-medium text-slate-900">Gender</dt>
-                                <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">@registration.PersonalInfo.Gender</dd>
-                            </div>
-                            <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                <dt class="text-sm font-medium text-slate-900">Date of Birth</dt>
-                                <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">
-                                    @registration.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")
-                                    @if (settings != null)
-                                    {
-                                        <span class="text-cyan-600 ml-2">(@registration.CalculateAgeAsOf(settings.AgeCutoffDate) yrs)</span>
-                                    }
-                                </dd>
-                            </div>
-                            <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                <dt class="text-sm font-medium text-slate-900">Location</dt>
-                                <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">@registration.AddressInfo.FormattedLocation</dd>
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(registration.PersonalInfo.PhoneNumber))
-                            {
-                                <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                    <dt class="text-sm font-medium text-slate-900">Phone</dt>
-                                    <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">@FormatPhone(registration.PersonalInfo.PhoneNumber)</dd>
-                                </div>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(registration.PersonalInfo.PreferredName))
-                            {
-                                <div class="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4">
-                                    <dt class="text-sm font-medium text-slate-900">Preferred Name</dt>
-                                    <dd class="mt-1 text-sm text-slate-600 sm:col-span-2 sm:mt-0">@registration.PersonalInfo.PreferredName</dd>
-                                </div>
-                            }
-                        </dl>
-
-                        <div class="border-t border-slate-100 my-4"></div>
-
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <!-- COMPETITION SECTION                                      -->
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="w-6 h-6 rounded-md bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <h3 class="text-sm font-semibold text-slate-800">Competition Information</h3>
-                            <span class="text-xs text-slate-400">| @registration.CompetitionYear</span>
-                        </div>
-
-                        <p class="text-sm pl-8">
-                            <span class="font-medium text-slate-900">@(division?.Name ?? "—")</span>
-                            <span class="text-slate-300 mx-1.5">|</span>
-                            <span class="text-slate-600">@(category?.Name ?? "—")</span>
-                            @if (registration.CompetitionSelection.PortionChoice.HasValue)
-                            {
-                                <span class="text-slate-300 mx-1.5">|</span>
-                                <span class="text-slate-600">@registration.CompetitionSelection.PortionChoice.Value</span>
-                            }
-                        </p>
-
-                        <div class="border-t border-slate-100 my-3"></div>
-
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <!-- PARENT / GUARDIAN SECTION                                -->
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <div class="flex items-center gap-2 mb-1.5">
-                            <div class="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </div>
-                            <h3 class="text-sm font-semibold text-slate-800">Parent / Guardian Information</h3>
-                        </div>
-                        <p class="text-sm pl-8">
-                            <span class="font-medium text-slate-900">@registration.ParentInfo.FullName</span>
-                            <span class="text-slate-300 mx-2">|</span>
-                            <span class="text-slate-600">@FormatPhone(registration.ParentInfo.PhoneNumber)</span>
-                        </p>
-
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <!-- TEACHER SECTION                                          -->
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        @if (registration.TeacherInfo != null)
-                        {
-                            <div class="border-t border-slate-100 my-3"></div>
-
-                            <div class="flex items-center gap-2 mb-1.5">
-                                <div class="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
-                                    <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                </div>
-                                <h3 class="text-sm font-semibold text-slate-800">Teacher Information</h3>
-                            </div>
-                            <p class="text-sm pl-8">
-                                <span class="font-medium text-slate-900">@registration.TeacherInfo.FullName</span>
-                                <span class="text-slate-300 mx-2">|</span>
-                                <span class="text-slate-600">@FormatPhone(registration.TeacherInfo.PhoneNumber)</span>
-                                @if (!string.IsNullOrWhiteSpace(registration.TeacherInfo.Institution))
-                                {
-                                    <span class="text-slate-300 mx-2">|</span>
-                                    <span class="text-slate-600">@registration.TeacherInfo.Institution</span>
-                                }
-                            </p>
-                        }
-
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        <!-- FILE INFORMATION                                         -->
-                        <!-- ═══════════════════════════════════════════════════════ -->
-                        @if (registration.FileUploadInfo.Photo != null || registration.FileUploadInfo.IdDocument != null || registration.FileUploadInfo.Video != null)
-                        {
-                            <div class="border-t border-slate-100 my-3"></div>
-
-                            <div class="flex items-center gap-2 mb-2">
-                                <div class="w-6 h-6 rounded-md bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
-                                    <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                </div>
-                                <h3 class="text-sm font-semibold text-slate-800">File Information</h3>
-                            </div>
-
-                            <ul class="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
-                                @if (registration.FileUploadInfo.Photo != null && !string.IsNullOrEmpty(photoDownloadUrl))
-                                {
-                                    <li class="flex items-center justify-between px-4 py-3">
-                                        <div class="flex flex-1 items-center gap-3 min-w-0">
-                                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 shrink-0 text-slate-400">
-                                                <path d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd" fill-rule="evenodd" />
-                                            </svg>
-                                            <div class="min-w-0 flex-1">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-sm font-medium text-slate-900 truncate">Competitor Photo</span>
-                                                    @if (registration.FileUploadInfo.NiqabBypassApproved)
-                                                    {
-                                                        <span class="shrink-0 text-xs font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Niqab</span>
-                                                    }
-                                                </div>
-                                                <p class="text-xs text-slate-500">Photo · Uploaded</p>
-                                            </div>
-                                        </div>
-                                        <button type="button" @onclick="() => DownloadFile(photoDownloadUrl)"
-                                                class="ml-4 shrink-0 text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors">
-                                            Download
-                                        </button>
-                                    </li>
-                                }
-                                @if (registration.FileUploadInfo.IdDocument != null && !string.IsNullOrEmpty(idDownloadUrl))
-                                {
-                                    <li class="flex items-center justify-between px-4 py-3">
-                                        <div class="flex flex-1 items-center gap-3 min-w-0">
-                                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 shrink-0 text-slate-400">
-                                                <path d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd" fill-rule="evenodd" />
-                                            </svg>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-sm font-medium text-slate-900 truncate">ID Document</p>
-                                                <p class="text-xs text-slate-500">@registration.FileUploadInfo.IdDocument.Extension.ToUpperInvariant().TrimStart('.') · Uploaded</p>
-                                            </div>
-                                        </div>
-                                        <button type="button" @onclick="() => DownloadFile(idDownloadUrl)"
-                                                class="ml-4 shrink-0 text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors">
-                                            Download
-                                        </button>
-                                    </li>
-                                }
-                                @if (registration.FileUploadInfo.Video != null)
-                                {
-                                    <li class="flex items-center justify-between px-4 py-3">
-                                        <div class="flex flex-1 items-center gap-3 min-w-0">
-                                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 shrink-0 text-slate-400">
-                                                <path d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd" fill-rule="evenodd" />
-                                            </svg>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-sm font-medium text-slate-900 truncate">Recitation Video</p>
-                                                <p class="text-xs text-slate-500">Video · @FormatFileSize(registration.FileUploadInfo.Video.FileSizeBytes)</p>
-                                            </div>
-                                        </div>
-                                        @if (isAdmin && !string.IsNullOrEmpty(videoDownloadUrl))
-                                        {
-                                            <button type="button" @onclick="() => DownloadFile(videoDownloadUrl)"
-                                                    class="ml-4 shrink-0 text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors">
-                                                Download
-                                            </button>
-                                        }
-                                        else if (!isAdmin)
-                                        {
-                                            <span class="ml-4 shrink-0 text-xs text-slate-400">Admin only</span>
-                                        }
-                                    </li>
-                                }
-                                else if (category?.RequiresVideo == true)
-                                {
-                                    <li class="flex items-center px-4 py-3 bg-amber-50">
-                                        <div class="flex flex-1 items-center gap-3 min-w-0">
-                                            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 shrink-0 text-amber-500">
-                                                <path d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd" fill-rule="evenodd" />
-                                            </svg>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-sm font-medium text-amber-800">Recitation Video</p>
-                                                <p class="text-xs text-amber-600">Required · Not uploaded</p>
-                                            </div>
-                                        </div>
-                                    </li>
-                                }
-                            </ul>
-                        }
+                </div>
+                <div class="px-4 py-2.5 space-y-1.5 text-xs">
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Name</span>
+                        <span class="text-slate-800 font-medium">@registration.PersonalInfo.FullName</span>
                     </div>
-
-                    <!-- Footer with timestamps and actions -->
-                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-5 text-xs text-slate-500">
-                                @if (submittedAt.HasValue)
-                                {
-                                    <div class="flex items-center gap-1.5">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        <span>Submitted <span class="font-medium text-slate-600">@submittedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
-                                    </div>
-                                }
-                                @if (lastUpdatedAt.HasValue)
-                                {
-                                    <div class="flex items-center gap-1.5">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        <span>Updated <span class="font-medium text-slate-600">@lastUpdatedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
-                                    </div>
-                                }
-                            </div>
-                            <div class="flex items-center gap-2">
-                                @if (canWithdraw && !isAdmin)
-                                {
-                                    <button type="button"
-                                            @onclick="ShowWithdrawModal"
-                                            class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-all">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                        </svg>
-                                        Withdraw
-                                    </button>
-                                }
-                                @if (canEdit)
-                                {
-                                    <a href="@(isAdmin ? $"/admin/registration/{registration.Id}/edit" : $"/registration/{registration.Id}/edit")"
-                                       class="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-3 py-1.5 text-xs font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        Edit Registration
-                                    </a>
-                                }
-                            </div>
+                    @if (!string.IsNullOrWhiteSpace(registration.PersonalInfo.PreferredName))
+                    {
+                        <div class="flex justify-between">
+                            <span class="font-medium text-slate-500">Preferred</span>
+                            <span class="text-slate-800">@registration.PersonalInfo.PreferredName</span>
                         </div>
+                    }
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Gender</span>
+                        <span class="text-slate-800">@registration.PersonalInfo.Gender</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">DOB / Age</span>
+                        <span class="text-slate-800">
+                            @registration.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")
+                            @if (settings != null)
+                            {
+                                <span class="text-cyan-600 font-medium ml-1">(@registration.CalculateAgeAsOf(settings.AgeCutoffDate) yrs)</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Location</span>
+                        <span class="text-slate-800">@registration.AddressInfo.FormattedLocation</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(registration.PersonalInfo.PhoneNumber))
+                    {
+                        <div class="flex justify-between">
+                            <span class="font-medium text-slate-500">Phone</span>
+                            <span class="text-slate-800">@FormatPhone(registration.PersonalInfo.PhoneNumber)</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Competition -->
+                <div class="px-4 py-2.5 border-t border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700">
+                    <div class="flex items-center gap-2">
+                        @Icons.Trophy("h-3.5 w-3.5 text-amber-300")
+                        <span class="text-xs font-semibold text-white uppercase tracking-wide">Competition</span>
+                        <span class="text-xs text-slate-300 ml-auto">@registration.CompetitionYear</span>
+                    </div>
+                </div>
+                <div class="px-4 py-2.5 space-y-1.5 text-xs">
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Division</span>
+                        <span class="text-slate-800 font-medium">@(division?.Name ?? "—")</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Category</span>
+                        <span class="text-slate-800">@(category?.Name ?? "—")</span>
+                    </div>
+                    @if (registration.CompetitionSelection.PortionChoice.HasValue)
+                    {
+                        <div class="flex justify-between">
+                            <span class="font-medium text-slate-500">Portion</span>
+                            <span class="text-slate-800">@registration.CompetitionSelection.PortionChoice.Value</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Parent / Guardian -->
+                <div class="px-4 py-2.5 border-t border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700">
+                    <div class="flex items-center gap-2">
+                        @Icons.Users("h-3.5 w-3.5 text-emerald-300")
+                        <span class="text-xs font-semibold text-white uppercase tracking-wide">Parent / Guardian</span>
+                    </div>
+                </div>
+                <div class="px-4 py-2.5 space-y-1.5 text-xs">
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Name</span>
+                        <span class="text-slate-800 font-medium">@registration.ParentInfo.FullName</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-slate-500">Phone</span>
+                        <span class="text-slate-800">@FormatPhone(registration.ParentInfo.PhoneNumber)</span>
                     </div>
                 </div>
 
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- ACTIVITY (ADMIN ONLY)                                            -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                @if (isAdmin && auditEntries.Count > 0)
+                <!-- Teacher (if present) -->
+                @if (registration.TeacherInfo != null)
                 {
-                    <div class="mt-5 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <h3 class="text-sm font-semibold text-slate-800">Recent Activity</h3>
-                            </div>
-                            <a href="/admin/audit/Registration/@registration.Id" class="text-xs text-cyan-600 hover:text-cyan-700 font-medium">
-                                View all →
-                            </a>
+                    <div class="px-4 py-2.5 border-t border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700">
+                        <div class="flex items-center gap-2">
+                            @Icons.Building("h-3.5 w-3.5 text-violet-300")
+                            <span class="text-xs font-semibold text-white uppercase tracking-wide">Teacher</span>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            @foreach (var entry in auditEntries.Take(5))
-                            {
-                                <div class="px-6 py-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors">
-                                    <div class="w-7 h-7 rounded-lg @GetAuditActionStyle(entry.Action) flex items-center justify-center flex-shrink-0">
+                    </div>
+                    <div class="px-4 py-2.5 space-y-1.5 text-xs">
+                        <div class="flex justify-between">
+                            <span class="font-medium text-slate-500">Name</span>
+                            <span class="text-slate-800 font-medium">@registration.TeacherInfo.FullName</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium text-slate-500">Phone</span>
+                            <span class="text-slate-800">@FormatPhone(registration.TeacherInfo.PhoneNumber)</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(registration.TeacherInfo.Institution))
+                        {
+                            <div class="flex justify-between">
+                                <span class="font-medium text-slate-500">Institution</span>
+                                <span class="text-slate-800">@registration.TeacherInfo.Institution</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- FOOTER: Timestamps + Actions -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4 text-xs text-slate-400">
+                        @if (submittedAt.HasValue)
+                        {
+                            <span>Submitted <span class="text-slate-600 font-medium">@submittedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
+                        }
+                        @if (lastUpdatedAt.HasValue)
+                        {
+                            <span>Updated <span class="text-slate-600 font-medium">@lastUpdatedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
+                        }
+                    </div>
+                    <div class="flex items-center gap-2">
+                        @if (canWithdraw && !isAdmin)
+                        {
+                            <button type="button" @onclick="ShowWithdrawModal"
+                                    class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-all">
+                                @Icons.Ban("h-3.5 w-3.5")
+                                Withdraw
+                            </button>
+                        }
+                        @if (canEdit)
+                        {
+                            <a href="@(isAdmin ? $"/admin/registration/{registration.Id}/edit" : $"/registration/{registration.Id}/edit")"
+                               class="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-3 py-1.5 text-xs font-medium hover:from-cyan-700 hover:to-cyan-800 transition-all">
+                                @Icons.Edit("h-3.5 w-3.5")
+                                Edit
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- CENTER: PHOTO & ID (3 cols)                             -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="lg:col-span-3 space-y-3">
+            <!-- Photo Card -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700 rounded-t-xl flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        @Icons.Photo("h-3.5 w-3.5 text-cyan-300")
+                        <span class="text-xs font-semibold text-white uppercase tracking-wide">Photo</span>
+                    </div>
+                    @if (registration.FileUploadInfo.NiqabBypassApproved)
+                    {
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 text-xs font-medium">
+                            @Icons.Shield("h-3 w-3")
+                            Niqab
+                        </span>
+                    }
+                </div>
+                <div class="p-3">
+                    @if (!string.IsNullOrEmpty(photoDownloadUrl))
+                    {
+                        <button type="button" @onclick="() => OpenImageDialog(photoDownloadUrl)"
+                                class="relative block w-full cursor-pointer group rounded-lg overflow-hidden">
+                            <img src="@photoDownloadUrl" alt="Photo"
+                                 class="w-full h-52 object-cover blur-md scale-105" />
+                            <div class="absolute inset-0 bg-slate-900/40 flex items-center justify-center group-hover:bg-slate-900/50 transition-colors">
+                                <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                                    @Icons.Eye("h-5 w-5 text-white")
+                                </div>
+                            </div>
+                        </button>
+                        <button type="button" @onclick="() => DownloadFile(photoDownloadUrl)"
+                                class="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 text-xs font-medium text-slate-600 hover:text-cyan-700 transition-all cursor-pointer">
+                            @Icons.Download("h-3.5 w-3.5")
+                            Download Photo
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="w-full h-52 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200">
+                            @Icons.Photo("h-12 w-12 text-slate-300")
+                        </div>
+                        <p class="mt-2 text-center text-xs text-slate-400">No photo uploaded</p>
+                    }
+                </div>
+            </div>
+
+            <!-- ID Document Card -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700 rounded-t-xl">
+                    <div class="flex items-center gap-2">
+                        @Icons.IdCard("h-3.5 w-3.5 text-amber-300")
+                        <span class="text-xs font-semibold text-white uppercase tracking-wide">ID Document</span>
+                    </div>
+                </div>
+                <div class="p-3">
+                    @if (registration.FileUploadInfo.IdDocument != null && !string.IsNullOrEmpty(idDownloadUrl))
+                    {
+                        @if (IsImageExtension(registration.FileUploadInfo.IdDocument.Extension))
+                        {
+                            <button type="button" @onclick="() => OpenImageDialog(idDownloadUrl, viewingId: true)"
+                                    class="relative block w-full cursor-pointer group rounded-lg overflow-hidden">
+                                <img src="@idDownloadUrl" alt="ID Document"
+                                     class="w-full h-36 object-cover blur-md scale-105" />
+                                <div class="absolute inset-0 bg-slate-900/40 flex items-center justify-center group-hover:bg-slate-900/50 transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                                        @Icons.Eye("h-5 w-5 text-white")
+                                    </div>
+                                </div>
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="w-full h-24 rounded-lg bg-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-1">
+                                @Icons.Document("h-8 w-8 text-slate-400")
+                                <span class="text-xs text-slate-500">@registration.FileUploadInfo.IdDocument.Extension.ToUpperInvariant().TrimStart('.') file</span>
+                            </div>
+                        }
+                        <button type="button" @onclick="() => DownloadFile(idDownloadUrl)"
+                                class="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 text-xs font-medium text-slate-600 hover:text-cyan-700 transition-all cursor-pointer">
+                            @Icons.Download("h-3.5 w-3.5")
+                            Download ID
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="w-full h-24 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200">
+                            @Icons.IdCard("h-8 w-8 text-slate-300")
+                        </div>
+                        <p class="mt-2 text-center text-xs text-slate-400">No ID uploaded</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Video (if present) -->
+            @if (registration.FileUploadInfo.Video != null)
+            {
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        @Icons.Video("h-4 w-4 text-violet-600")
+                        <div>
+                            <span class="text-xs font-medium text-slate-800">Recitation Video</span>
+                            <span class="text-xs text-slate-400 ml-1">@FormatFileSize(registration.FileUploadInfo.Video.FileSizeBytes)</span>
+                        </div>
+                    </div>
+                    @if (isAdmin && !string.IsNullOrEmpty(videoDownloadUrl))
+                    {
+                        <button type="button" @onclick="() => DownloadFile(videoDownloadUrl)"
+                                class="text-xs font-medium text-cyan-600 hover:text-cyan-700 transition-colors cursor-pointer">
+                            Download
+                        </button>
+                    }
+                    else if (!isAdmin)
+                    {
+                        <span class="text-xs text-slate-400">Admin only</span>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- RIGHT: ACTIVITY TIMELINE (4 cols, admin only)           -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="lg:col-span-4">
+            @if (isAdmin && auditEntries.Count > 0)
+            {
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col">
+                    <div class="px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700 rounded-t-xl flex items-center justify-between flex-shrink-0">
+                        <div class="flex items-center gap-2.5">
+                            @Icons.Clock("h-3.5 w-3.5 text-slate-300")
+                            <span class="text-xs font-semibold text-white uppercase tracking-wide">Activity</span>
+                            <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-white/20 text-xs font-semibold text-white">@auditEntries.Count</span>
+                        </div>
+                        <a href="/admin/audit/Registration/@registration.Id" class="text-xs text-cyan-300 hover:text-cyan-200 font-medium">
+                            View all →
+                        </a>
+                    </div>
+                    <div class="divide-y divide-slate-50 overflow-y-auto flex-1" style="max-height: calc(100vh - 260px)">
+                        @foreach (var entry in auditEntries.Take(15))
+                        {
+                            <div class="px-4 py-2.5 hover:bg-slate-50/50 transition-colors">
+                                <div class="flex items-start gap-2.5">
+                                    <div class="w-6 h-6 rounded-md @GetAuditActionStyle(entry.Action) flex items-center justify-center flex-shrink-0 mt-0.5">
                                         @GetAuditActionIcon(entry.Action)
                                     </div>
                                     <div class="flex-1 min-w-0">
-                                        <p class="text-sm text-slate-700">
+                                        <p class="text-xs text-slate-700 leading-relaxed">
                                             <span class="font-semibold">@entry.Action.GetDisplayName()</span>
                                             @if (!string.IsNullOrEmpty(entry.Summary))
                                             {
@@ -395,296 +403,198 @@
                                             }
                                         </p>
                                         <p class="text-xs text-slate-400 mt-0.5">
-                                            @entry.GetFormattedTimestamp("MMM d, yyyy 'at' h:mm tt") · @entry.GetActorDescription()
+                                            @entry.GetFormattedTimestamp("MMM d 'at' h:mm tt") · @entry.GetActorDescription()
                                         </p>
                                     </div>
                                 </div>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-
-            <!-- RIGHT COLUMN (1/3 width) - PHOTOS & DOCUMENTS -->
-            <div class="lg:col-span-1">
-                <div class="sticky top-5 space-y-5">
-
-                    <!-- Photo -->
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="px-4 py-3 border-b border-slate-200">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center">
-                                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                    <span class="text-sm font-semibold text-slate-800">Competitor Photo</span>
-                                </div>
-                                @if (registration.FileUploadInfo.NiqabBypassApproved)
-                                {
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium">
-                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                        Niqab
-                                    </span>
-                                }
                             </div>
-                        </div>
-                        <div class="p-4">
-                            @if (!string.IsNullOrEmpty(photoDownloadUrl))
-                            {
-                                <button type="button" @onclick="() => OpenImageDialog(photoDownloadUrl)" class="relative block w-full cursor-pointer group rounded-lg overflow-hidden">
-                                    <img src="@photoDownloadUrl"
-                                         alt="Competitor photo"
-                                         class="w-full h-64 object-cover blur-md scale-105" />
-                                    <div class="absolute inset-0 bg-slate-900/40 flex flex-col items-center justify-center gap-2 group-hover:bg-slate-900/50 transition-colors">
-                                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </div>
-                                        <span class="text-white text-sm font-medium">Click to view</span>
-                                    </div>
-                                </button>
-                                <button type="button" @onclick="() => DownloadFile(photoDownloadUrl)"
-                                        class="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 text-sm font-medium text-slate-600 hover:text-cyan-700 transition-all cursor-pointer">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                    Download Photo
-                                </button>
-                            }
-                            else
-                            {
-                                <div class="w-full h-64 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-slate-200">
-                                    <svg class="h-16 w-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                </div>
-                                <p class="mt-3 text-center text-sm text-slate-400">No photo uploaded</p>
-                            }
-                        </div>
-                    </div>
-
-                    <!-- ID Document -->
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="px-4 py-3 border-b border-slate-200">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
-                                    <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
-                                    </svg>
-                                </div>
-                                <span class="text-sm font-semibold text-slate-800">ID Document</span>
-                            </div>
-                        </div>
-                        <div class="p-4">
-                            @if (registration.FileUploadInfo.IdDocument != null && !string.IsNullOrEmpty(idDownloadUrl))
-                            {
-                                @if (IsImageExtension(registration.FileUploadInfo.IdDocument.Extension))
-                                {
-                                    <button type="button" @onclick="() => OpenImageDialog(idDownloadUrl)" class="relative block w-full cursor-pointer group rounded-lg overflow-hidden">
-                                        <img src="@idDownloadUrl"
-                                             alt="ID Document"
-                                             class="w-full h-48 object-cover blur-md scale-105" />
-                                        <div class="absolute inset-0 bg-slate-900/40 flex flex-col items-center justify-center gap-2 group-hover:bg-slate-900/50 transition-colors">
-                                            <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            </div>
-                                            <span class="text-white text-sm font-medium">Click to view</span>
-                                        </div>
-                                    </button>
-                                    <button type="button" @onclick="() => DownloadFile(idDownloadUrl)"
-                                            class="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 text-sm font-medium text-slate-600 hover:text-cyan-700 transition-all cursor-pointer">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Download ID
-                                    </button>
-                                }
-                                else
-                                {
-                                    <div class="w-full h-32 rounded-lg bg-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-2">
-                                        <svg class="h-10 w-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span class="text-sm text-slate-500">@registration.FileUploadInfo.IdDocument.Extension.ToUpperInvariant() file</span>
-                                    </div>
-                                    <button type="button" @onclick="() => DownloadFile(idDownloadUrl)"
-                                            class="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 text-sm font-medium text-slate-600 hover:text-cyan-700 transition-all cursor-pointer">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Download ID
-                                    </button>
-                                }
-                            }
-                            else
-                            {
-                                <div class="w-full h-32 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-slate-200">
-                                    <svg class="h-10 w-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
-                                    </svg>
-                                </div>
-                                <p class="mt-3 text-center text-sm text-slate-400">No ID document uploaded</p>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ═══════════════════════════════════════════════════════════════════ -->
-            <!-- IMAGE LIGHTBOX                                                       -->
-            <!-- ═══════════════════════════════════════════════════════════════════ -->
-            @if (!string.IsNullOrEmpty(dialogImageUrl))
-            {
-                <div @onclick="CloseDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                    <div class="relative max-w-6xl max-h-[90vh] p-4">
-                        <img src="@dialogImageUrl"
-                             alt="Preview"
-                             class="max-w-full max-h-[85vh] rounded-lg shadow-2xl @rotationClass @scaleClass transition-transform duration-200" />
-
-                        <div class="absolute top-6 right-6 flex items-center gap-2">
-                            <button type="button"
-                                    class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
-                                    @onclick="RotateImage"
-                                    @onclick:stopPropagation
-                                    title="Rotate">
-                                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z" />
-                                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466" />
-                                </svg>
-                            </button>
-
-                            <button type="button"
-                                    class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
-                                    @onclick="ToggleScale"
-                                    @onclick:stopPropagation
-                                    title="@(isScaled ? "Zoom in" : "Zoom out")">
-                                @if (isScaled)
-                                {
-                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707" />
-                                    </svg>
-                                }
-                                else
-                                {
-                                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd" d="M.172 15.828a.5.5 0 0 0 .707 0l4.096-4.096V14.5a.5.5 0 1 0 1 0v-3.975a.5.5 0 0 0-.5-.5H1.5a.5.5 0 0 0 0 1h2.768L.172 15.121a.5.5 0 0 0 0 .707M15.828.172a.5.5 0 0 0-.707 0l-4.096 4.096V1.5a.5.5 0 1 0-1 0v3.975a.5.5 0 0 0 .5.5H14.5a.5.5 0 0 0 0-1h-2.768L15.828.879a.5.5 0 0 0 0-.707" />
-                                    </svg>
-                                }
-                            </button>
-
-                            <button type="button"
-                                    class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
-                                    @onclick="CloseDialog"
-                                    title="Close">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
+                        }
                     </div>
                 </div>
             }
-
-            <!-- ═══════════════════════════════════════════════════════════════════ -->
-            <!-- WITHDRAW MODAL                                                       -->
-            <!-- ═══════════════════════════════════════════════════════════════════ -->
-            @if (showWithdrawModal)
+            else if (!isAdmin)
             {
-                <div class="fixed inset-0 z-50 overflow-y-auto">
-                    <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @onclick="CloseWithdrawModal"></div>
-
-                        <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
-                            <div class="px-6 py-5 border-b border-slate-200">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
-                                        <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-slate-800">Withdraw Registration</h3>
-                                        <p class="text-sm text-slate-500">This action cannot be undone</p>
-                                    </div>
-                                </div>
+                <!-- Non-admin users see file info summary instead -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-600 to-slate-700 rounded-t-xl">
+                        <div class="flex items-center gap-2">
+                            @Icons.Document("h-3.5 w-3.5 text-slate-300")
+                            <span class="text-xs font-semibold text-white uppercase tracking-wide">Files</span>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-2.5 text-xs">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                @Icons.Photo("h-4 w-4 text-slate-400")
+                                <span class="text-slate-700">Competitor Photo</span>
                             </div>
-
-                            <div class="px-6 py-5">
-                                <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 mb-4">
-                                    <div class="text-sm">
-                                        <div class="font-medium text-slate-800">@registration!.PersonalInfo.FullName</div>
-                                        <div class="text-slate-500 mt-1">@(division?.Name ?? "—") / @(category?.Name ?? "—")</div>
-                                    </div>
-                                </div>
-
-                                @if (!string.IsNullOrEmpty(withdrawError))
-                                {
-                                    <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-4">
-                                        <p class="text-sm text-red-700">@withdrawError</p>
-                                    </div>
-                                }
-
-                                <div class="space-y-1.5 mb-4">
-                                    <label class="text-sm font-medium text-slate-700">Reason for withdrawal <span class="text-red-500">*</span></label>
-                                    <select @bind="withdrawReasonType"
-                                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 cursor-pointer">
-                                        <option value="">Select a reason...</option>
-                                        <option value="ScheduleConflict">Schedule conflict</option>
-                                        <option value="HealthRelated">Health-related reason</option>
-                                        <option value="InsufficientPreparation">Insufficient preparation</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-
-                                @if (withdrawReasonType == "Other")
-                                {
-                                    <div class="space-y-1.5">
-                                        <label class="text-sm font-medium text-slate-700">Please explain <span class="text-red-500">*</span></label>
-                                        <textarea @bind="withdrawOtherReason"
-                                                  rows="3"
-                                                  placeholder="Please explain why you are withdrawing this registration..."
-                                                  class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"></textarea>
-                                    </div>
-                                }
+                            @if (registration.FileUploadInfo.Photo != null)
+                            {
+                                @Icons.CheckCircle("h-4 w-4 text-emerald-500")
+                            }
+                            else
+                            {
+                                <span class="text-slate-400">Not uploaded</span>
+                            }
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                @Icons.IdCard("h-4 w-4 text-slate-400")
+                                <span class="text-slate-700">ID Document</span>
                             </div>
-
-                            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
-                                <button type="button"
-                                        class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                                        @onclick="CloseWithdrawModal"
-                                        disabled="@isWithdrawing">
-                                    Cancel
-                                </button>
-                                <button type="button"
-                                        class="cursor-pointer rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all flex items-center gap-2"
-                                        @onclick="ConfirmWithdraw"
-                                        disabled="@isWithdrawing">
-                                    @if (isWithdrawing)
-                                    {
-                                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                    }
-                                    Withdraw Registration
-                                </button>
+                            @if (registration.FileUploadInfo.IdDocument != null)
+                            {
+                                @Icons.CheckCircle("h-4 w-4 text-emerald-500")
+                            }
+                            else
+                            {
+                                <span class="text-slate-400">Not uploaded</span>
+                            }
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                @Icons.Video("h-4 w-4 text-slate-400")
+                                <span class="text-slate-700">Recitation Video</span>
                             </div>
+                            @if (registration.FileUploadInfo.Video != null)
+                            {
+                                @Icons.CheckCircle("h-4 w-4 text-emerald-500")
+                            }
+                            else
+                            {
+                                <span class="text-slate-400">Not uploaded</span>
+                            }
                         </div>
                     </div>
                 </div>
             }
         </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- IMAGE LIGHTBOX                                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    @if (!string.IsNullOrEmpty(dialogImageUrl))
+    {
+        <div @onclick="CloseDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div class="relative max-w-6xl max-h-[90vh] p-4">
+                <img src="@dialogImageUrl" alt="Preview"
+                     class="max-w-full max-h-[85vh] rounded-lg shadow-2xl @rotationClass @scaleClass transition-transform duration-200" />
+
+                @if (isViewingId)
+                {
+                    <div class="absolute bottom-6 left-6 px-4 py-2.5 bg-black/60 backdrop-blur-md rounded-xl shadow-lg" @onclick:stopPropagation>
+                        <div class="flex items-center gap-3">
+                            @Icons.User("h-4 w-4 text-cyan-400")
+                            <div>
+                                <p class="text-sm font-semibold text-white leading-tight">@registration!.PersonalInfo.FullName</p>
+                                <p class="text-xs text-slate-300 mt-0.5">
+                                    DOB: @registration.PersonalInfo.DateOfBirth.ToString("MMMM d, yyyy")
+                                    @if (settings != null)
+                                    {
+                                        <span class="text-cyan-400 ml-1">(@registration.CalculateAgeAsOf(settings.AgeCutoffDate) yrs)</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="absolute top-6 right-6 flex items-center gap-2">
+                    <button type="button"
+                            class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
+                            @onclick="RotateImage" @onclick:stopPropagation title="Rotate">
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z" />
+                            <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466" />
+                        </svg>
+                    </button>
+                    <button type="button"
+                            class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
+                            @onclick="ToggleScale" @onclick:stopPropagation title="@(isScaled ? "Zoom in" : "Zoom out")">
+                        @Icons.ZoomIn("h-5 w-5")
+                    </button>
+                    <button type="button"
+                            class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
+                            @onclick="CloseDialog" title="Close">
+                        @Icons.XMark("h-5 w-5")
+                    </button>
+                </div>
+            </div>
+        </div>
     }
-</div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- WITHDRAW MODAL                                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    @if (showWithdrawModal)
+    {
+        <div class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @onclick="CloseWithdrawModal"></div>
+                <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
+                    <div class="px-6 py-5 border-b border-slate-200">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
+                                @Icons.Warning("h-5 w-5 text-white")
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-slate-800">Withdraw Registration</h3>
+                                <p class="text-sm text-slate-500">This action cannot be undone</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-5">
+                        <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 mb-4">
+                            <div class="text-sm font-medium text-slate-800">@registration.PersonalInfo.FullName</div>
+                            <div class="text-sm text-slate-500 mt-0.5">@(division?.Name ?? "—") / @(category?.Name ?? "—")</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(withdrawError))
+                        {
+                            <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-4">
+                                <p class="text-sm text-red-700">@withdrawError</p>
+                            </div>
+                        }
+                        <div class="space-y-1.5 mb-4">
+                            <label class="text-sm font-medium text-slate-700">Reason for withdrawal <span class="text-red-500">*</span></label>
+                            <select @bind="withdrawReasonType"
+                                    class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 cursor-pointer">
+                                <option value="">Select a reason...</option>
+                                <option value="ScheduleConflict">Schedule conflict</option>
+                                <option value="HealthRelated">Health-related reason</option>
+                                <option value="InsufficientPreparation">Insufficient preparation</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        @if (withdrawReasonType == "Other")
+                        {
+                            <div class="space-y-1.5">
+                                <label class="text-sm font-medium text-slate-700">Please explain <span class="text-red-500">*</span></label>
+                                <textarea @bind="withdrawOtherReason" rows="3"
+                                          placeholder="Please explain why you are withdrawing..."
+                                          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"></textarea>
+                            </div>
+                        }
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                        <button type="button" @onclick="CloseWithdrawModal" disabled="@isWithdrawing"
+                                class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="button" @onclick="ConfirmWithdraw" disabled="@isWithdrawing"
+                                class="cursor-pointer rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all flex items-center gap-2">
+                            @if (isWithdrawing)
+                            {
+                                @Icons.Spinner("h-4 w-4")
+                            }
+                            Withdraw Registration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
 
 @code {
     [Parameter] public string Id { get; set; } = string.Empty;
@@ -697,7 +607,6 @@
 
     private bool isLoading = true;
     private bool isAdmin;
-
     private bool canEdit;
     private bool canWithdraw;
 
@@ -705,17 +614,18 @@
     private string? photoDownloadUrl;
     private string? videoDownloadUrl;
 
-    // Timestamps derived from audit entries
     private DateTimeOffset? submittedAt;
     private DateTimeOffset? lastUpdatedAt;
 
-    // Image dialog state
+    // Image dialog
     private string? dialogImageUrl;
+    private bool isViewingId;
     private string rotationClass = "";
     private string scaleClass = "";
     private bool isScaled = false;
+    private int rotationDegrees = 0;
 
-    // Withdrawal modal state
+    // Withdraw modal
     private bool showWithdrawModal;
     private string withdrawReasonType = string.Empty;
     private string withdrawOtherReason = string.Empty;
@@ -741,7 +651,6 @@
             }
 
             isAdmin = currentUser.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
-
             registration = await RegistrationService.GetByIdAsync(Id);
 
             if (registration == null)
@@ -761,13 +670,11 @@
             division = settings?.Divisions.FirstOrDefault(d => d.Id == registration.CompetitionSelection.DivisionId);
             category = division?.Categories.FirstOrDefault(c => c.Id == registration.CompetitionSelection.CategoryId);
 
-            canEdit = CanEdit(registration) || isAdmin;
-            canWithdraw = CanWithdraw(registration);
+            canEdit = CanEditRegistration(registration) || isAdmin;
+            canWithdraw = CanWithdrawRegistration(registration);
 
             GenerateDownloadUrls();
 
-            // Load audit entries for all users — needed for timestamps
-            // Full activity section is shown for admin only
             auditEntries = (await AuditService.GetEntityHistoryAsync("Registration", registration.Id)).ToList();
 
             submittedAt = auditEntries
@@ -789,7 +696,7 @@
     // PERMISSIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private bool CanEdit(Registration reg)
+    private bool CanEditRegistration(Registration reg)
     {
         if (reg.Status != RegistrationStatus.AwaitingReview &&
             reg.Status != RegistrationStatus.Pending)
@@ -797,11 +704,10 @@
 
         var cat = settings?.FindDivision(reg.CompetitionSelection.DivisionId)
             ?.FindCategory(reg.CompetitionSelection.CategoryId);
-
         return cat?.AllowEdit ?? true;
     }
 
-    private bool CanWithdraw(Registration reg)
+    private bool CanWithdrawRegistration(Registration reg)
     {
         if (reg.Status == RegistrationStatus.Withdrawn ||
             reg.Status == RegistrationStatus.Disqualified)
@@ -809,7 +715,6 @@
 
         var cat = settings?.FindDivision(reg.CompetitionSelection.DivisionId)
             ?.FindCategory(reg.CompetitionSelection.CategoryId);
-
         return cat?.AllowWithdraw ?? true;
     }
 
@@ -820,30 +725,20 @@
     private void GenerateDownloadUrls()
     {
         if (registration == null) return;
-
         var year = registration.CompetitionYear;
 
         if (registration.FileUploadInfo.IdDocument != null)
-        {
-            idDownloadUrl = BlobSasService.GenerateSasUriFromReference(
-                registration.FileUploadInfo.IdDocument.StorageReference, year);
-        }
+            idDownloadUrl = BlobSasService.GenerateSasUriFromReference(registration.FileUploadInfo.IdDocument.StorageReference, year);
 
         if (registration.FileUploadInfo.Photo != null)
-        {
-            photoDownloadUrl = BlobSasService.GenerateSasUriFromReference(
-                registration.FileUploadInfo.Photo.StorageReference, year);
-        }
+            photoDownloadUrl = BlobSasService.GenerateSasUriFromReference(registration.FileUploadInfo.Photo.StorageReference, year);
 
         if (registration.FileUploadInfo.Video != null && isAdmin)
-        {
-            videoDownloadUrl = BlobSasService.GenerateSasUriFromReference(
-                registration.FileUploadInfo.Video.StorageReference, year);
-        }
+            videoDownloadUrl = BlobSasService.GenerateSasUriFromReference(registration.FileUploadInfo.Video.StorageReference, year);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // WITHDRAWAL MODAL
+    // WITHDRAWAL
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void ShowWithdrawModal()
@@ -900,30 +795,14 @@
 
             await AuditContextProvider.SetCurrentUserContextAsync();
 
-            await RegistrationService.WithdrawAsync(
-                registration.Id,
-                user.ObjectIdentifier,
-                reasonText);
+            await RegistrationService.WithdrawAsync(registration.Id, user.ObjectIdentifier, reasonText);
 
             await AuditService.LogFieldChangesAsync(
-                "Registration",
-                registration.Id,
+                "Registration", registration.Id,
                 new List<FieldChange>
                 {
-                    new FieldChange
-                    {
-                        FieldName = "Status",
-                        DisplayName = "Status",
-                        OldValue = previousStatus,
-                        NewValue = RegistrationStatus.Withdrawn.ToString()
-                    },
-                    new FieldChange
-                    {
-                        FieldName = "WithdrawComment",
-                        DisplayName = "Withdrawal Reason",
-                        OldValue = null,
-                        NewValue = reasonText
-                    }
+                    new() { FieldName = "Status", DisplayName = "Status", OldValue = previousStatus, NewValue = RegistrationStatus.Withdrawn.ToString() },
+                    new() { FieldName = "WithdrawComment", DisplayName = "Withdrawal Reason", OldValue = null, NewValue = reasonText }
                 },
                 action: AuditAction.Withdrawn,
                 summary: $"Registration withdrawn. Reason: {reasonText}",
@@ -950,44 +829,52 @@
     // IMAGE DIALOG
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private void OpenImageDialog(string? imageUrl)
+    private void OpenImageDialog(string? imageUrl, bool viewingId = false)
     {
         if (!string.IsNullOrEmpty(imageUrl))
         {
             dialogImageUrl = imageUrl;
+            isViewingId = viewingId;
             rotationClass = "";
             scaleClass = "";
             isScaled = false;
+            rotationDegrees = 0;
         }
     }
 
     private void CloseDialog()
     {
         dialogImageUrl = null;
+        isViewingId = false;
         rotationClass = "";
         scaleClass = "";
         isScaled = false;
+        rotationDegrees = 0;
     }
 
     private void RotateImage()
     {
-        var rotations = new[] { "", "rotate-90", "rotate-180", "-rotate-90" };
-        var currentIndex = Array.IndexOf(rotations, rotationClass);
-        rotationClass = rotations[(currentIndex + 1) % rotations.Length];
+        rotationDegrees = (rotationDegrees + 90) % 360;
+        rotationClass = rotationDegrees switch
+        {
+            0 => "",
+            90 => "rotate-90",
+            180 => "rotate-180",
+            270 => "[transform:rotate(270deg)]",
+            _ => ""
+        };
     }
 
     private void ToggleScale()
     {
         isScaled = !isScaled;
-        scaleClass = isScaled ? "scale-75" : "";
+        scaleClass = isScaled ? "scale-150" : "";
     }
 
     private void DownloadFile(string? url)
     {
         if (!string.IsNullOrEmpty(url))
-        {
             NavigationManager.NavigateTo(url, forceLoad: true);
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -996,14 +883,13 @@
 
     private bool IsImageExtension(string extension)
     {
-        var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
-        return imageExtensions.Contains(extension.ToLowerInvariant());
+        var exts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
+        return exts.Contains(extension.ToLowerInvariant());
     }
 
     private string FormatPhone(string phone)
     {
-        if (string.IsNullOrWhiteSpace(phone) || phone.Length != 10)
-            return phone;
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length != 10) return phone;
         return $"({phone[..3]}) {phone[3..6]}-{phone[6..]}";
     }
 
@@ -1021,7 +907,7 @@
         AuditAction.Approved or AuditAction.Verified => "bg-emerald-100 text-emerald-700",
         AuditAction.Rejected or AuditAction.Deleted => "bg-red-100 text-red-600",
         AuditAction.StatusChanged => "bg-amber-100 text-amber-700",
-        AuditAction.Withdrawn or AuditAction.WithdrawalRequested => "bg-slate-100 text-slate-600",
+        AuditAction.EmailSent => "bg-blue-100 text-blue-700",
         _ => "bg-slate-100 text-slate-600"
     };
 
@@ -1031,37 +917,35 @@
         {
             case AuditAction.Created:
             case AuditAction.Submitted:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 break;
             case AuditAction.Updated:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
                 break;
             case AuditAction.Approved:
             case AuditAction.Verified:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
                 break;
             case AuditAction.Rejected:
             case AuditAction.Deleted:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 break;
-            case AuditAction.StatusChanged:
-            case AuditAction.Withdrawn:
-            case AuditAction.WithdrawalRequested:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            case AuditAction.EmailSent:
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 break;
             default:
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
                 break;
         }
