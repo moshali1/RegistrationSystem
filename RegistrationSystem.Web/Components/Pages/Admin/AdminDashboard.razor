@@ -30,7 +30,7 @@ else
                 <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo.CompetitionName — @competitionYear</p>
             </div>
             <button type="button" @onclick="RefreshData"
-                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm text-slate-600 transition-colors cursor-pointer flex items-center gap-1.5">
+                    class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm text-slate-600 transition-colors cursor-pointer flex items-center gap-1.5">
                 @Icons.Refresh("h-4 w-4")
                 Refresh
             </button>
@@ -366,10 +366,16 @@ else
             .ToList();
     }
 
+    private static readonly TimeZoneInfo CentralTz =
+        TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+
+    private static DateOnly TodayCentral =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTz));
+
     private async Task LoadAuditData()
     {
         // Get stats for the registration window period (or last 90 days)
-        var endDate = DateOnly.FromDateTime(DateTime.Today);
+        var endDate = TodayCentral;
         var startDate = settings?.RegistrationStart != null
             ? DateOnly.FromDateTime(settings.RegistrationStart.Value.DateTime)
             : endDate.AddDays(-90);
@@ -428,9 +434,9 @@ else
                     {
                         var count = statusCounts.GetValueOrDefault(status);
                         var pct = totalRegistrations > 0 ? (count * 100.0 / totalRegistrations) : 0;
-                        var bgColor = GetStatusBarColor(status);
+                        var bgColor = StatusBadge.GetBgColor(status);
                         <div class="flex items-center gap-3">
-                            <span class="text-xs font-medium text-slate-600 w-28 text-right">@GetStatusDisplayName(status)</span>
+                            <span class="text-xs font-medium text-slate-600 w-28 text-right">@StatusBadge.GetDisplayName(status)</span>
                             <div class="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-500 @bgColor" style="width: @(pct)%"></div>
                             </div>
@@ -998,28 +1004,6 @@ else
     // ═══════════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
-
-    private static string GetStatusDisplayName(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "Awaiting Review",
-        RegistrationStatus.Pending => "Pending",
-        RegistrationStatus.Reviewed => "Reviewed",
-        RegistrationStatus.Verified => "Verified",
-        RegistrationStatus.Withdrawn => "Withdrawn",
-        RegistrationStatus.Disqualified => "Disqualified",
-        _ => status.ToString()
-    };
-
-    private static string GetStatusBarColor(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "bg-emerald-500",
-        RegistrationStatus.Pending => "bg-red-500",
-        RegistrationStatus.Reviewed => "bg-cyan-500",
-        RegistrationStatus.Verified => "bg-violet-500",
-        RegistrationStatus.Withdrawn => "bg-amber-500",
-        RegistrationStatus.Disqualified => "bg-gray-500",
-        _ => "bg-slate-500"
-    };
 
     private static string GetActionDisplayName(AuditAction action) => action switch
     {

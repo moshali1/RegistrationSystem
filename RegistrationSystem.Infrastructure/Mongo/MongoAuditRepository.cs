@@ -5,6 +5,8 @@ using RegistrationSystem.Infrastructure.Mongo;
 
 namespace RegistrationSystem.Infrastructure.Persistence;
 
+// All DateOnly parameters are treated as Central Time dates and converted to UTC for querying.
+
 /// <summary>
 /// MongoDB implementation of IAuditRepository.
 /// </summary>
@@ -107,8 +109,8 @@ public class MongoAuditRepository : IAuditRepository
         DateOnly date,
         CancellationToken cancellationToken = default)
     {
-        var startUtc = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endUtc = date.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var startUtc = ToUtcStartOfDay(date);
+        var endUtc = ToUtcStartOfDay(date.AddDays(1));
 
         var entries = await _collection
             .Find(x => x.Timestamp >= startUtc && x.Timestamp < endUtc)
@@ -138,21 +140,21 @@ public class MongoAuditRepository : IAuditRepository
         DateOnly to,
         CancellationToken cancellationToken = default)
     {
-        var startUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endUtc = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var startUtc = ToUtcStartOfDay(from);
+        var endUtc = ToUtcStartOfDay(to.AddDays(1));
 
         var entries = await _collection
             .Find(x => x.Timestamp >= startUtc && x.Timestamp < endUtc)
             .ToListAsync(cancellationToken);
 
-        // Group by date and calculate stats
+        // Group by Central Time date and calculate stats
         var stats = new List<AuditDailyStats>();
         var current = from;
 
         while (current <= to)
         {
-            var dayStart = current.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-            var dayEnd = current.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var dayStart = ToUtcStartOfDay(current);
+            var dayEnd = ToUtcStartOfDay(current.AddDays(1));
 
             var dayEntries = entries
                 .Where(x => x.Timestamp >= dayStart && x.Timestamp < dayEnd)
@@ -182,9 +184,34 @@ public class MongoAuditRepository : IAuditRepository
         return stats;
     }
 
+    public async Task<long> DeleteByEntityAsync(
+        string entityType,
+        string entityId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _collection.DeleteManyAsync(
+            x => x.EntityType == entityType && x.EntityId == entityId,
+            cancellationToken);
+        return result.DeletedCount;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly TimeZoneInfo CentralTz =
+        TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+
+    /// <summary>
+    /// Converts a Central Time DateOnly to the start-of-day in UTC.
+    /// e.g. Feb 10 CT midnight = Feb 10 06:00 UTC (CST) or Feb 10 05:00 UTC (CDT).
+    /// </summary>
+    private static DateTimeOffset ToUtcStartOfDay(DateOnly date)
+    {
+        var centralMidnight = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        var offset = CentralTz.GetUtcOffset(centralMidnight);
+        return new DateTimeOffset(centralMidnight, offset).ToUniversalTime();
+    }
 
     private static FilterDefinition<AuditEntry> BuildFilter(AuditSearchCriteria criteria)
     {
@@ -208,13 +235,13 @@ public class MongoAuditRepository : IAuditRepository
 
         if (criteria.FromDate.HasValue)
         {
-            var fromUtc = criteria.FromDate.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var fromUtc = ToUtcStartOfDay(criteria.FromDate.Value);
             filters.Add(builder.Gte(x => x.Timestamp, fromUtc));
         }
 
         if (criteria.ToDate.HasValue)
         {
-            var toUtc = criteria.ToDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var toUtc = ToUtcStartOfDay(criteria.ToDate.Value.AddDays(1));
             filters.Add(builder.Lt(x => x.Timestamp, toUtc));
         }
 

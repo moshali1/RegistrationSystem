@@ -1,0 +1,879 @@
+@page "/admin/test-data"
+@using RegistrationSystem.Core.Application.Azure
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Application.Users
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+@using Microsoft.AspNetCore.Hosting
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+
+<PageTitle>Test Data Generator</PageTitle>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Test Data Generator</h1>
+        <p class="text-sm text-slate-500 mt-1">
+            @if (settings != null)
+            {
+                <span>@settings.CompetitionInfo.CompetitionName · @competitionYear</span>
+            }
+            else
+            {
+                <span>Generate bulk fake registrations for testing</span>
+            }
+        </p>
+    </div>
+
+    @if (isInitialLoading)
+    {
+        <div class="flex items-center justify-center py-20">
+            <div class="text-center space-y-3">
+                @Icons.Spinner("w-8 h-8 text-teal-600 animate-spin mx-auto")
+                <p class="text-slate-500 text-sm">Loading competition settings...</p>
+            </div>
+        </div>
+    }
+    else if (settings == null || !divisions.Any())
+    {
+        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+            @Icons.Warning("w-8 h-8 text-amber-500 mx-auto mb-2")
+            <p class="text-amber-800 font-medium">No competition settings or divisions found.</p>
+            <p class="text-amber-600 text-sm mt-1">Please configure competition settings with at least one enabled division before generating test data.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Configuration Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-4">
+                <h2 class="text-white font-semibold">Generation Settings</h2>
+                <p class="text-slate-300 text-xs mt-0.5">Configure and generate bulk test registrations</p>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Division Selection -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Division</label>
+                        <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                value="@selectedDivisionId"
+                                @onchange="HandleDivisionChanged">
+                            <option value="">Select division...</option>
+                            @foreach (var div in divisions)
+                            {
+                                <option value="@div.Id">@div.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
+                        <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                value="@selectedCategoryId"
+                                @onchange="HandleCategoryChanged"
+                                disabled="@(string.IsNullOrEmpty(selectedDivisionId))">
+                            <option value="">Select category...</option>
+                            @foreach (var cat in availableCategories)
+                            {
+                                var label = cat.AlternateName != null ? $"{cat.Name} ({cat.AlternateName})" : cat.Name;
+                                var ageLabel = cat.MaxAgeYears.HasValue ? $" — Max age: {cat.MaxAgeYears}" : "";
+                                <option value="@cat.Id">@label@ageLabel</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Number of Registrations</label>
+                        <input type="number"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                               min="1"
+                               max="500"
+                               @bind="numberOfRegistrations" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Gender Distribution</label>
+                        <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                @bind="genderDistribution">
+                            <option value="mixed">Mixed (50/50)</option>
+                            <option value="male">All Male</option>
+                            <option value="female">All Female</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Region Distribution -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Region Distribution</label>
+                        <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                @bind="regionDistribution">
+                            <option value="mostly-mn">Mostly Minnesota (~70%)</option>
+                            <option value="mixed">Mixed States (~50/50)</option>
+                            <option value="all-mn">All Minnesota</option>
+                            <option value="all-other">All Out-of-State</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Initial Status</label>
+                        <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                @bind="initialStatus">
+                            <option value="AwaitingReview">Awaiting Review</option>
+                            <option value="Reviewed">Reviewed</option>
+                            <option value="Verified">Verified</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Portion Choice</label>
+                        @if (selectedCategory?.PortionOption == PortionOption.TopOrBottom)
+                        {
+                            <select class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                    @bind="portionDistribution">
+                                <option value="mixed">Mixed (Top & Bottom)</option>
+                                <option value="top">All Top</option>
+                                <option value="bottom">All Bottom</option>
+                            </select>
+                        }
+                        else if (selectedCategory?.PortionOption == PortionOption.TopOnly)
+                        {
+                            <span class="inline-flex items-center mt-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-sm">Top Only</span>
+                        }
+                        else if (selectedCategory?.PortionOption == PortionOption.BottomOnly)
+                        {
+                            <span class="inline-flex items-center mt-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-sm">Bottom Only</span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center mt-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-sm">N/A</span>
+                        }
+                    </div>
+
+                    <div class="flex items-end">
+                        <button class="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white
+                                       bg-gradient-to-r from-cyan-600 to-cyan-700
+                                       hover:from-cyan-700 hover:to-cyan-800
+                                       disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed
+                                       shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
+                                @onclick="GenerateRegistrations"
+                                disabled="@(!CanGenerate || isGenerating)">
+                            @if (isGenerating)
+                            {
+                                @Icons.Spinner("w-4 h-4 animate-spin")
+                                <span>Generating... (@generatedCount / @numberOfRegistrations)</span>
+                            }
+                            else
+                            {
+                                @Icons.Lightning("w-4 h-4")
+                                <span>Generate @numberOfRegistrations Registrations</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Creator & Upload Options -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="lg:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Creator Email (optional)</label>
+                        <div class="flex gap-2">
+                            <input type="email"
+                                   class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow"
+                                   placeholder="user@example.com — leave blank for random IDs"
+                                   @bind="creatorEmail" />
+                            <button type="button"
+                                    class="px-4 py-3 rounded-xl text-sm font-medium text-white
+                                           bg-slate-600 hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed
+                                           transition-colors flex items-center gap-1.5"
+                                    @onclick="LookupUser"
+                                    disabled="@(string.IsNullOrWhiteSpace(creatorEmail) || isLookingUpUser)">
+                                @if (isLookingUpUser)
+                                {
+                                    @Icons.Spinner("w-4 h-4 animate-spin")
+                                }
+                                else
+                                {
+                                    @Icons.Search("w-4 h-4")
+                                }
+                                <span>Lookup</span>
+                            </button>
+                        </div>
+                        @if (resolvedUser != null)
+                        {
+                            <div class="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                                @Icons.CheckCircle("w-4 h-4 text-emerald-500 flex-shrink-0")
+                                <span class="text-xs text-emerald-700">
+                                    Found: <span class="font-medium">@resolvedUser.DisplayName</span>
+                                    <span class="text-emerald-500">(@resolvedUser.Email)</span>
+                                    — All registrations will be owned by this user
+                                </span>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(userLookupError))
+                        {
+                            <div class="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+                                @Icons.Warning("w-4 h-4 text-red-500 flex-shrink-0")
+                                <span class="text-xs text-red-700">@userLookupError</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="flex items-start pt-7">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" @bind="uploadSampleImages"
+                                   class="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                            <div>
+                                <span class="text-sm font-medium text-slate-700">Upload sample images</span>
+                                <p class="text-xs text-slate-500 mt-0.5">Upload test_id_sample.png & test_photo_sample.png to blob storage</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Category Info Badge -->
+                @if (selectedCategory != null)
+                {
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700">
+                            @Icons.Info("w-3.5 h-3.5")
+                            Category: @selectedCategory.Name
+                        </span>
+                        @if (selectedCategory.MaxAgeYears.HasValue)
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                @Icons.Calendar("w-3.5 h-3.5")
+                                Max Age: @selectedCategory.MaxAgeYears years (cutoff: @settings!.AgeCutoffDate.ToString("MMM d, yyyy"))
+                            </span>
+                        }
+                        @if (selectedCategory.RequiresVideo)
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+                                @Icons.Video("w-3.5 h-3.5")
+                                Video Required (placeholder will be used)
+                            </span>
+                        }
+                        @if (uploadSampleImages)
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700">
+                                @Icons.Photo("w-3.5 h-3.5")
+                                Sample images will be uploaded to blob storage
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+                                @Icons.Warning("w-3.5 h-3.5")
+                                Test data — placeholder file references, no blob uploads
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Success/Error Messages -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-sm p-4 flex items-start gap-3">
+                @Icons.CheckCircle("w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5")
+                <div>
+                    <p class="text-emerald-800 font-medium text-sm">@successMessage</p>
+                </div>
+                <button @onclick='() => successMessage = ""' class="ml-auto text-emerald-400 hover:text-emerald-600">
+                    @Icons.XMark("w-4 h-4")
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="rounded-xl border border-red-200 bg-red-50 shadow-sm p-4 flex items-start gap-3">
+                @Icons.Warning("w-5 h-5 text-red-500 flex-shrink-0 mt-0.5")
+                <div>
+                    <p class="text-red-800 font-medium text-sm">@errorMessage</p>
+                </div>
+                <button @onclick='() => errorMessage = ""' class="ml-auto text-red-400 hover:text-red-600">
+                    @Icons.XMark("w-4 h-4")
+                </button>
+            </div>
+        }
+
+        <!-- Generation Log -->
+        @if (generationLog.Any())
+        {
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-slate-800">Generation Log</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">@generationLog.Count entries</p>
+                    </div>
+                    <button @onclick="() => generationLog.Clear()"
+                            class="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                        Clear log
+                    </button>
+                </div>
+                <div class="max-h-80 overflow-y-auto">
+                    <div class="divide-y divide-slate-50">
+                        @foreach (var entry in generationLog.AsEnumerable().Reverse().Take(50))
+                        {
+                            <div class="px-6 py-2 text-xs font-mono @(entry.IsError ? "text-red-600 bg-red-50" : "text-slate-600")">
+                                <span class="text-slate-400">[@entry.Timestamp.ToString("HH:mm:ss")]</span>
+                                @entry.Message
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private IRegistrationRepository RegistrationRepository { get; set; } = null!;
+    [Inject] private SettingsService SettingsService { get; set; } = null!;
+    [Inject] private UserService UserService { get; set; } = null!;
+    [Inject] private BlobStorageService BlobStorageService { get; set; } = null!;
+    [Inject] private IWebHostEnvironment Environment { get; set; } = null!;
+
+    // State
+    private bool isInitialLoading = true;
+    private bool isGenerating = false;
+    private CompetitionSettings? settings;
+    private int competitionYear;
+    private List<Division> divisions = new();
+
+    // Form
+    private string selectedDivisionId = string.Empty;
+    private string selectedCategoryId = string.Empty;
+    private int numberOfRegistrations = 50;
+    private string genderDistribution = "mixed";
+    private string regionDistribution = "mostly-mn";
+    private string initialStatus = "AwaitingReview";
+    private string portionDistribution = "mixed";
+    private int generatedCount = 0;
+
+    // Creator email
+    private string creatorEmail = string.Empty;
+    private bool isLookingUpUser = false;
+    private Core.Domain.Users.User? resolvedUser;
+    private string userLookupError = string.Empty;
+
+    // Upload options
+    private bool uploadSampleImages = false;
+    private byte[]? sampleIdBytes;
+    private byte[]? samplePhotoBytes;
+
+    // Messages
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private List<LogEntry> generationLog = new();
+
+    // Computed
+    private List<Category> availableCategories = new();
+    private Category? selectedCategory => availableCategories.FirstOrDefault(c => c.Id == selectedCategoryId);
+    private Division? selectedDivision => divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+    private bool CanGenerate => !string.IsNullOrEmpty(selectedDivisionId)
+                                && !string.IsNullOrEmpty(selectedCategoryId)
+                                && numberOfRegistrations > 0
+                                && numberOfRegistrations <= 500
+                                && !isGenerating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isInitialLoading = true;
+        try
+        {
+            settings = await SettingsService.GetSettingsAsync();
+            competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+            divisions = settings?.Divisions.Where(d => d.IsEnabled).ToList() ?? new();
+        }
+        finally
+        {
+            isInitialLoading = false;
+        }
+    }
+
+    private void HandleDivisionChanged(ChangeEventArgs e)
+    {
+        selectedDivisionId = e.Value?.ToString() ?? "";
+        selectedCategoryId = string.Empty;
+
+        if (!string.IsNullOrEmpty(selectedDivisionId))
+        {
+            var div = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+            availableCategories = div?.Categories.Where(c => c.IsEnabled).ToList() ?? new();
+        }
+        else
+        {
+            availableCategories = new();
+        }
+    }
+
+    private void HandleCategoryChanged(ChangeEventArgs e)
+    {
+        selectedCategoryId = e.Value?.ToString() ?? "";
+    }
+
+    private async Task LookupUser()
+    {
+        if (string.IsNullOrWhiteSpace(creatorEmail)) return;
+
+        isLookingUpUser = true;
+        resolvedUser = null;
+        userLookupError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var user = await UserService.GetByEmailAsync(creatorEmail.Trim());
+            if (user != null)
+            {
+                resolvedUser = user;
+            }
+            else
+            {
+                userLookupError = $"No user found with email \"{creatorEmail.Trim()}\". The user must have logged in at least once.";
+            }
+        }
+        catch (Exception ex)
+        {
+            userLookupError = $"Error looking up user: {ex.Message}";
+        }
+        finally
+        {
+            isLookingUpUser = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSampleImagesAsync()
+    {
+        if (sampleIdBytes != null && samplePhotoBytes != null) return; // already loaded
+
+        var wwwroot = Environment.WebRootPath;
+        var idPath = Path.Combine(wwwroot, "images", "test_id-sample.png");
+        var photoPath = Path.Combine(wwwroot, "images", "test_photo_sample.png");
+
+        if (File.Exists(idPath))
+            sampleIdBytes = await File.ReadAllBytesAsync(idPath);
+        else
+            Log($"Warning: Sample ID image not found at {idPath}", isError: true);
+
+        if (File.Exists(photoPath))
+            samplePhotoBytes = await File.ReadAllBytesAsync(photoPath);
+        else
+            Log($"Warning: Sample photo image not found at {photoPath}", isError: true);
+    }
+
+    private async Task GenerateRegistrations()
+    {
+        if (!CanGenerate || settings == null) return;
+
+        isGenerating = true;
+        generatedCount = 0;
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+        generationLog.Clear();
+        StateHasChanged();
+
+        var random = new Random();
+        var division = selectedDivision!;
+        var category = selectedCategory!;
+        var status = Enum.Parse<RegistrationStatus>(initialStatus);
+        var divisionName = division.Name;
+
+        // Determine age range for this category
+        var maxAge = category.MaxAgeYears ?? 50;
+        var minAge = 5; // reasonable minimum
+
+        // Get CID prefix info
+        var divisionLetter = divisionName.FirstOrDefault().ToString().ToUpperInvariant();
+
+        // Determine creator
+        var creatorUserId = resolvedUser?.ObjectIdentifier ?? null;
+        if (creatorUserId != null)
+            Log($"Using creator: {resolvedUser!.DisplayName} ({resolvedUser.Email}) — OID: {creatorUserId}");
+        else
+            Log("No creator email set — each registration will get a random test ID.");
+
+        // Load sample images if uploading
+        if (uploadSampleImages)
+        {
+            await LoadSampleImagesAsync();
+            if (sampleIdBytes != null && samplePhotoBytes != null)
+                Log($"Sample images loaded: ID={sampleIdBytes.Length / 1024}KB, Photo={samplePhotoBytes.Length / 1024}KB — will upload to blob storage.");
+            else
+                Log("Sample images could not be loaded. Falling back to placeholder references.", isError: true);
+        }
+
+        Log($"Starting generation of {numberOfRegistrations} registrations for {divisionName} / {category.Name}");
+        Log($"Age range: {minAge}-{maxAge} | Status: {status} | Gender: {genderDistribution} | Region: {regionDistribution}");
+
+        var errors = 0;
+
+        for (int i = 0; i < numberOfRegistrations; i++)
+        {
+            try
+            {
+                var gender = PickGender(random, i);
+                var age = random.Next(minAge, Math.Min(maxAge, 35) + 1);
+                var dob = GenerateDob(age, settings.AgeCutoffDate);
+                var firstName = PickFirstName(random, gender);
+                var middleName = random.Next(100) < 40 ? PickMiddleName(random, gender) : null;
+                var lastName = GenerateTestCode();
+                var (state, city, country) = PickLocation(random, i);
+
+                // Generate CID
+                var stateCode = settings.CidConfiguration.GetStateCode(state);
+                var cidPrefix = $"{divisionLetter}{stateCode}";
+                var maxSeq = await RegistrationRepository.GetMaxCidSequenceAsync(competitionYear, cidPrefix);
+                var cid = $"{cidPrefix}{(maxSeq + 1):D3}";
+
+                // Determine portion choice
+                PortionChoice? portionChoice = category.PortionOption switch
+                {
+                    PortionOption.TopOnly => PortionChoice.Top,
+                    PortionOption.BottomOnly => PortionChoice.Bottom,
+                    PortionOption.TopOrBottom => PickPortion(random),
+                    _ => null
+                };
+
+                var phone = GeneratePhone(random);
+                var parentFirstName = PickFirstName(random, random.Next(2) == 0 ? Gender.Male : Gender.Female);
+                var parentLastName = lastName; // same family
+                var teacherFirstName = PickFirstName(random, random.Next(2) == 0 ? Gender.Male : Gender.Female);
+                var teacherLastName = GenerateTestCode();
+
+                var registration = new Registration
+                {
+                    CreatorUserId = creatorUserId ?? $"test-generator-{Guid.NewGuid():N}",
+                    CompetitionYear = competitionYear,
+                    Cid = cid,
+                    Status = status,
+                    TermsAccepted = true,
+                    PersonalInfo = new PersonalInfo
+                    {
+                        FirstName = firstName,
+                        MiddleName = middleName,
+                        LastName = lastName,
+                        Gender = gender,
+                        DateOfBirth = dob,
+                        PhoneNumber = GeneratePhone(random)
+                    },
+                    AddressInfo = new AddressInfo
+                    {
+                        Country = country,
+                        StateProvince = state,
+                        City = city
+                    },
+                    CompetitionSelection = new CompetitionSelection
+                    {
+                        DivisionId = selectedDivisionId,
+                        CategoryId = selectedCategoryId,
+                        PortionChoice = portionChoice
+                    },
+                    ParentInfo = new ParentInfo
+                    {
+                        FirstName = parentFirstName,
+                        LastName = parentLastName,
+                        PhoneNumber = GeneratePhone(random)
+                    },
+                    TeacherInfo = new TeacherInfo
+                    {
+                        FirstName = teacherFirstName,
+                        LastName = teacherLastName,
+                        PhoneNumber = GeneratePhone(random),
+                        Institution = PickInstitution(random)
+                    },
+                    FileUploadInfo = await BuildFileUploadInfoAsync(
+                        firstName, lastName, dob, divisionName, category.RequiresVideo, random)
+                };
+
+                await RegistrationRepository.SaveAsync(registration);
+                generatedCount++;
+
+                if (generatedCount % 10 == 0 || generatedCount == numberOfRegistrations)
+                {
+                    Log($"Generated {generatedCount}/{numberOfRegistrations} — Last: {firstName} {lastName} ({cid})");
+                    StateHasChanged();
+                    await Task.Delay(1); // yield to UI
+                }
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                Log($"Error #{errors} generating registration {i + 1}: {ex.Message}", isError: true);
+                if (errors > 10)
+                {
+                    Log("Too many errors, stopping generation.", isError: true);
+                    break;
+                }
+            }
+        }
+
+        isGenerating = false;
+
+        if (errors == 0)
+        {
+            successMessage = $"Successfully generated {generatedCount} test registrations for {divisionName} / {category.Name}.";
+            Log($"✓ Generation complete. {generatedCount} registrations created.");
+        }
+        else
+        {
+            errorMessage = $"Generated {generatedCount} registrations with {errors} errors.";
+            Log($"Generation finished with {errors} errors.");
+        }
+
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILE UPLOAD
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<FileUploadInfo> BuildFileUploadInfoAsync(
+        string firstName, string lastName, DateOnly dob, string divisionName,
+        bool requiresVideo, Random random)
+    {
+        string idStorageRef;
+        string photoStorageRef;
+        long idSize;
+        long photoSize;
+        var idDetails = "Test data — placeholder ID document";
+        var photoDetails = "Test data — placeholder photo";
+
+        if (uploadSampleImages && sampleIdBytes != null && samplePhotoBytes != null)
+        {
+            // Upload real sample images to blob storage
+            var idContainerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Id);
+            var photoContainerName = BlobStorageService.GenerateContainerName(competitionYear, divisionName, FileType.Photo);
+
+            var idBlobName = BlobStorageService.GenerateBlobName(
+                FileType.Id, divisionName, firstName, lastName, dob, ".png");
+            var photoBlobName = BlobStorageService.GenerateBlobName(
+                FileType.Photo, divisionName, firstName, lastName, dob, ".png");
+
+            using var idStream = new MemoryStream(sampleIdBytes);
+            await BlobStorageService.UploadAsync(idStream, idContainerName, idBlobName, "image/png");
+
+            using var photoStream = new MemoryStream(samplePhotoBytes);
+            await BlobStorageService.UploadAsync(photoStream, photoContainerName, photoBlobName, "image/png");
+
+            idStorageRef = idBlobName;
+            photoStorageRef = photoBlobName;
+            idSize = sampleIdBytes.Length;
+            photoSize = samplePhotoBytes.Length;
+            idDetails = "Test data — sample ID uploaded to blob storage";
+            photoDetails = "Test data — sample photo uploaded to blob storage";
+        }
+        else
+        {
+            // Placeholder references only
+            idStorageRef = $"test-placeholder/id-{Guid.NewGuid():N}.png";
+            photoStorageRef = $"test-placeholder/photo-{Guid.NewGuid():N}.png";
+            idSize = random.Next(100_000, 2_000_000);
+            photoSize = random.Next(80_000, 1_500_000);
+        }
+
+        return new FileUploadInfo
+        {
+            IdDocument = new FileMetadata
+            {
+                FileName = $"TEST_ID_{firstName}_{lastName}.png",
+                StorageReference = idStorageRef,
+                FileSizeBytes = idSize,
+                Extension = ".png",
+                ContentType = "image/png",
+                ValidationResult = new FileValidationResult { IsValid = true, Details = idDetails }
+            },
+            Photo = new FileMetadata
+            {
+                FileName = $"TEST_Photo_{firstName}_{lastName}.png",
+                StorageReference = photoStorageRef,
+                FileSizeBytes = photoSize,
+                Extension = ".png",
+                ContentType = "image/png",
+                ValidationResult = new FileValidationResult { IsValid = true, Details = photoDetails }
+            },
+            Video = requiresVideo ? new FileMetadata
+            {
+                FileName = $"TEST_Video_{firstName}_{lastName}.mp4",
+                StorageReference = $"test-placeholder/video-{Guid.NewGuid():N}.mp4",
+                FileSizeBytes = random.Next(5_000_000, 50_000_000),
+                Extension = ".mp4",
+                ContentType = "video/mp4",
+                ValidationResult = new FileValidationResult { IsValid = true, Details = "Test data — placeholder video" }
+            } : null,
+            NiqabBypassApproved = false
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DATA GENERATION HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private Gender PickGender(Random rng, int index) => genderDistribution switch
+    {
+        "male" => Gender.Male,
+        "female" => Gender.Female,
+        _ => index % 2 == 0 ? Gender.Male : Gender.Female
+    };
+
+    private PortionChoice PickPortion(Random rng) => portionDistribution switch
+    {
+        "top" => PortionChoice.Top,
+        "bottom" => PortionChoice.Bottom,
+        _ => rng.Next(2) == 0 ? PortionChoice.Top : PortionChoice.Bottom
+    };
+
+    private DateOnly GenerateDob(int targetAge, DateOnly cutoffDate)
+    {
+        var birthYear = cutoffDate.Year - targetAge;
+        var month = Random.Shared.Next(1, 13);
+        var maxDay = DateTime.DaysInMonth(birthYear, month);
+        var day = Random.Shared.Next(1, maxDay + 1);
+        return new DateOnly(birthYear, month, day);
+    }
+
+    private (string state, string city, string country) PickLocation(Random rng, int index)
+    {
+        var useMn = regionDistribution switch
+        {
+            "all-mn" => true,
+            "all-other" => false,
+            "mostly-mn" => rng.Next(100) < 70,
+            _ => rng.Next(100) < 50 // mixed
+        };
+
+        if (useMn)
+        {
+            var city = _mnCities[rng.Next(_mnCities.Length)];
+            return ("Minnesota", city, "United States");
+        }
+        else
+        {
+            var (state, city) = _otherLocations[rng.Next(_otherLocations.Length)];
+            return (state, city, "United States");
+        }
+    }
+
+    private static string GeneratePhone(Random rng)
+    {
+        return $"({rng.Next(200, 999):D3}) {rng.Next(200, 999):D3}-{rng.Next(1000, 9999):D4}";
+    }
+
+    private static string PickFirstName(Random rng, Gender gender)
+    {
+        return gender == Gender.Male
+            ? _maleFirstNames[rng.Next(_maleFirstNames.Length)]
+            : _femaleFirstNames[rng.Next(_femaleFirstNames.Length)];
+    }
+
+    private static string PickMiddleName(Random rng, Gender gender)
+    {
+        return gender == Gender.Male
+            ? _maleMiddleNames[rng.Next(_maleMiddleNames.Length)]
+            : _femaleMiddleNames[rng.Next(_femaleMiddleNames.Length)];
+    }
+
+    private static string GenerateTestCode()
+    {
+        return "T-" + Guid.NewGuid().ToString("N")[..5].ToUpperInvariant();
+    }
+
+    private static string PickInstitution(Random rng)
+    {
+        return _institutions[rng.Next(_institutions.Length)];
+    }
+
+    private void Log(string message, bool isError = false)
+    {
+        generationLog.Add(new LogEntry(DateTimeOffset.Now, message, isError));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TEST DATA POOLS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] _maleFirstNames = {
+        "Ahmad", "Mohammed", "Ibrahim", "Yusuf", "Omar", "Ali", "Hassan", "Hussein",
+        "Khalid", "Abdallah", "Hamza", "Bilal", "Idris", "Ismail", "Zakariya", "Dawud",
+        "Sulaiman", "Musa", "Isa", "Nuh", "Adam", "Salman", "Tariq", "Umar",
+        "Ayman", "Faisal", "Jamal", "Kareem", "Malik", "Nasir", "Rashid", "Samir",
+        "Waleed", "Zaid", "Amin", "Bashir", "Fahad", "Ghazi", "Hakim", "Jabir",
+        "Luqman", "Muaz", "Naeem", "Qadir", "Rafiq", "Sadiq", "Tahir", "Waqas",
+        "Yasir", "Zubair", "Abdirahman", "Abdinasir", "Abdikadir", "Mahad", "Hamdi",
+        "Samatar", "Abshir", "Liiban", "Cabdi", "Guled", "Axmed", "Maxamed"
+    };
+
+    private static readonly string[] _femaleFirstNames = {
+        "Fatima", "Aisha", "Maryam", "Khadija", "Zainab", "Hana", "Layla", "Sara",
+        "Noor", "Amina", "Safiya", "Ruqayya", "Halima", "Sumaya", "Yasmin", "Zahra",
+        "Asma", "Hafsa", "Jamila", "Karima", "Lubna", "Malika", "Naima", "Qamar",
+        "Rahma", "Samira", "Tahira", "Umm", "Warda", "Zubaida", "Ayan", "Hodan",
+        "Ifrah", "Sagal", "Ubah", "Barwaaqo", "Fardowsa", "Ikraan", "Nimco", "Sahra",
+        "Fadumo", "Xalimo", "Deeqa", "Filsan", "Hamda", "Kowsar", "Maryan", "Nasra"
+    };
+
+    private static readonly string[] _maleMiddleNames = {
+        "Ahmed", "Ali", "Hassan", "Ibrahim", "Mohammed", "Omar", "Yusuf", "Khalid",
+        "Abdullahi", "Abdi", "Nur", "Ismail", "Aden", "Mohamed", "Jama", "Farah"
+    };
+
+    private static readonly string[] _femaleMiddleNames = {
+        "Amina", "Fatima", "Halima", "Khadija", "Maryam", "Noor", "Safia", "Zahra",
+        "Asha", "Hawa", "Ubah", "Hoyo", "Barni", "Deka", "Fowsia", "Habiba"
+    };
+
+    private static readonly string[] _mnCities = {
+        "Minneapolis", "Saint Paul", "Rochester", "Bloomington", "Brooklyn Park",
+        "Plymouth", "Woodbury", "Lakeville", "Eagan", "Eden Prairie",
+        "Maple Grove", "Burnsville", "Coon Rapids", "Blaine", "Edina",
+        "Apple Valley", "Minnetonka", "Shakopee", "Richfield", "Columbia Heights",
+        "Fridley", "Savage", "Prior Lake", "Roseville", "Maplewood"
+    };
+
+    private static readonly (string state, string city)[] _otherLocations = {
+        ("Texas", "Houston"), ("Texas", "Dallas"), ("Texas", "Austin"), ("Texas", "San Antonio"),
+        ("Ohio", "Columbus"), ("Ohio", "Cleveland"), ("Ohio", "Cincinnati"),
+        ("Virginia", "Arlington"), ("Virginia", "Fairfax"), ("Virginia", "Richmond"),
+        ("California", "Los Angeles"), ("California", "San Diego"), ("California", "San Jose"),
+        ("Illinois", "Chicago"), ("Illinois", "Naperville"), ("Illinois", "Schaumburg"),
+        ("New York", "New York"), ("New York", "Buffalo"), ("New York", "Albany"),
+        ("Michigan", "Detroit"), ("Michigan", "Dearborn"), ("Michigan", "Ann Arbor"),
+        ("Tennessee", "Nashville"), ("Tennessee", "Memphis"), ("Tennessee", "Murfreesboro"),
+        ("Georgia", "Atlanta"), ("Georgia", "Marietta"), ("Georgia", "Savannah"),
+        ("New Jersey", "Jersey City"), ("New Jersey", "Paterson"), ("New Jersey", "Newark"),
+        ("Maryland", "Baltimore"), ("Maryland", "Silver Spring"), ("Maryland", "Rockville"),
+        ("Pennsylvania", "Philadelphia"), ("Pennsylvania", "Pittsburgh"),
+        ("Washington", "Seattle"), ("Washington", "Bellevue"),
+        ("Arizona", "Phoenix"), ("Arizona", "Tempe"), ("Arizona", "Chandler"),
+        ("Florida", "Orlando"), ("Florida", "Jacksonville"), ("Florida", "Tampa"),
+        ("Indiana", "Indianapolis"), ("Indiana", "Fort Wayne"),
+        ("North Carolina", "Charlotte"), ("North Carolina", "Raleigh"),
+        ("Colorado", "Denver"), ("Colorado", "Aurora"),
+        ("Wisconsin", "Milwaukee"), ("Wisconsin", "Madison"),
+        ("Missouri", "Kansas City"), ("Missouri", "Saint Louis"),
+        ("Connecticut", "Hartford"), ("Connecticut", "New Haven"),
+        ("Massachusetts", "Boston"), ("Massachusetts", "Cambridge")
+    };
+
+    private static readonly string[] _institutions = {
+        "Al-Furqan Academy", "Dar Al-Quran Institute", "Islamic Academy of Minnesota",
+        "Al-Huda School", "Tarbiya Institute", "Al-Iman School", "Noor Academy",
+        "Al-Amal Islamic Center", "Masjid An-Nur", "Islamic Center of Minnesota",
+        "Al-Hidaya Academy", "Quran Academy", "Al-Ihsan Institute", "Dar Al-Hijra",
+        "Islamic Foundation School", "Al-Furqan Institute", "Minneapolis Islamic Center",
+        "Saint Paul Islamic School", "Brooklyn Park Islamic Academy", "Eden Prairie Masjid",
+        "Burnsville Islamic Center", "Plymouth Islamic Center", "Maple Grove Quran School",
+        "Rochester Islamic Academy", "Bloomington Islamic School", "Woodbury Dar Al-Quran",
+        "Al-Rashid Academy", "Tawheed Academy", "Al-Falah Institute", "Sunrise Academy"
+    };
+
+    private record LogEntry(DateTimeOffset Timestamp, string Message, bool IsError);
+}

@@ -1,0 +1,92 @@
+@using RegistrationSystem.Core.Domain.Registrations
+
+@{
+    var bgClass = GetBgColor(Status);
+    var displayName = GetDisplayName(Status);
+}
+
+@if (Size == StatusBadgeSize.Mini)
+{
+    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium text-white flex-shrink-0 @bgClass">
+        @GetShortName(Status)
+    </span>
+}
+else
+{
+    var sizeClasses = Size == StatusBadgeSize.Large
+        ? "px-3 py-1.5 text-sm"
+        : "px-2.5 py-1 text-xs";
+
+    <span class="inline-flex items-center gap-1.5 @sizeClasses rounded-full font-semibold text-white shadow-sm @bgClass">
+        @switch (Status)
+        {
+            case RegistrationStatus.AwaitingReview:
+                @Icons.Clock("h-3.5 w-3.5")
+                break;
+            case RegistrationStatus.Pending:
+                @Icons.Warning("h-3.5 w-3.5")
+                break;
+            case RegistrationStatus.Reviewed:
+                @Icons.CheckCircle("h-3.5 w-3.5")
+                break;
+            case RegistrationStatus.Verified:
+                @Icons.Shield("h-3.5 w-3.5")
+                break;
+            case RegistrationStatus.Withdrawn:
+                @Icons.Ban("h-3.5 w-3.5")
+                break;
+            case RegistrationStatus.Disqualified:
+                @Icons.XCircle("h-3.5 w-3.5")
+                break;
+        }
+        @displayName
+    </span>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public RegistrationStatus Status { get; set; }
+
+    [Parameter]
+    public StatusBadgeSize Size { get; set; } = StatusBadgeSize.Default;
+
+    public static string GetDisplayName(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "Awaiting Review",
+        RegistrationStatus.Pending => "Pending",
+        RegistrationStatus.Reviewed => "Reviewed",
+        RegistrationStatus.Verified => "Verified",
+        RegistrationStatus.Withdrawn => "Withdrawn",
+        RegistrationStatus.Disqualified => "Disqualified",
+        _ => status.ToString()
+    };
+
+    public static string GetBgColor(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "bg-emerald-600",
+        RegistrationStatus.Pending => "bg-amber-500",
+        RegistrationStatus.Reviewed => "bg-cyan-600",
+        RegistrationStatus.Verified => "bg-violet-600",
+        RegistrationStatus.Withdrawn => "bg-amber-700",
+        RegistrationStatus.Disqualified => "bg-gray-600",
+        _ => "bg-slate-600"
+    };
+
+    public static string GetShortName(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.AwaitingReview => "Awaiting",
+        RegistrationStatus.Pending => "Pending",
+        RegistrationStatus.Reviewed => "Reviewed",
+        RegistrationStatus.Verified => "Verified",
+        RegistrationStatus.Withdrawn => "Withdrawn",
+        RegistrationStatus.Disqualified => "DQ",
+        _ => status.ToString()
+    };
+
+    public enum StatusBadgeSize
+    {
+        Default,
+        Large,
+        Mini
+    }
+}

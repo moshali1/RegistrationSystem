@@ -144,6 +144,19 @@ public class RegistrationService
         await _repository.SaveAsync(registration, cancellationToken);
     }
 
+    /// <summary>
+    /// Updates registration status for admin operations, bypassing edit-eligibility checks.
+    /// </summary>
+    public async Task AdminUpdateStatusAsync(
+        Registration registration,
+        CancellationToken cancellationToken = default)
+    {
+        _ = await _repository.GetByIdAsync(registration.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Registration not found.");
+
+        await _repository.SaveAsync(registration, cancellationToken);
+    }
+
     public async Task<bool> CanEditAsync(
         Registration registration,
         CancellationToken cancellationToken = default)

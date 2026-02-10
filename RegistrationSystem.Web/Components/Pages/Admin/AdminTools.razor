@@ -1,0 +1,75 @@
+@page "/admin/tools"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+
+<PageTitle>Admin Tools</PageTitle>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-slate-800">Admin Tools</h1>
+        <p class="text-sm text-slate-500 mt-1">Utilities and auxiliary admin features</p>
+    </div>
+
+    <!-- Tool Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Round Messages -->
+        <a href="admin/round-messages"
+           class="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+            <div class="flex items-start gap-4">
+                <div class="p-2.5 bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                    @Icons.ChatBubble("w-6 h-6 text-white")
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-slate-800 group-hover:text-violet-700 transition-colors">Round Messages</h3>
+                    <p class="text-sm text-slate-500 mt-1">Send competition round notifications and schedule messages to competitors.</p>
+                </div>
+                @Icons.Chevron("w-5 h-5 text-slate-300 group-hover:text-violet-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1")
+            </div>
+        </a>
+
+        <!-- Transfer Registration -->
+        <a href="admin/transfer-registration"
+           class="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+            <div class="flex items-start gap-4">
+                <div class="p-2.5 bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                    @Icons.ArrowsRightLeft("w-6 h-6 text-white")
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-slate-800 group-hover:text-cyan-700 transition-colors">Transfer Registration</h3>
+                    <p class="text-sm text-slate-500 mt-1">Transfer registration ownership between user accounts.</p>
+                </div>
+                @Icons.Chevron("w-5 h-5 text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1")
+            </div>
+        </a>
+
+        <!-- Test Data Generator -->
+        <a href="admin/test-data"
+           class="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+            <div class="flex items-start gap-4">
+                <div class="p-2.5 bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                    @Icons.Beaker("w-6 h-6 text-white")
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-slate-800 group-hover:text-amber-700 transition-colors">Test Data Generator</h3>
+                    <p class="text-sm text-slate-500 mt-1">Generate bulk fake registrations for testing and development purposes.</p>
+                </div>
+                @Icons.Chevron("w-5 h-5 text-slate-300 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1")
+            </div>
+        </a>
+
+        <!-- Claims Debug -->
+        <a href="claims"
+           class="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+            <div class="flex items-start gap-4">
+                <div class="p-2.5 bg-gradient-to-br from-slate-500 to-slate-700 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                    @Icons.IdCard("w-6 h-6 text-white")
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-slate-800 group-hover:text-slate-900 transition-colors">Claims Debug</h3>
+                    <p class="text-sm text-slate-500 mt-1">Inspect JWT authentication claims, user identity, and token details.</p>
+                </div>
+                @Icons.Chevron("w-5 h-5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1")
+            </div>
+        </a>
+    </div>
+</div>

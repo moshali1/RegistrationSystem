@@ -44,7 +44,7 @@ else if (registration == null || !canEdit)
                 }
             </p>
             <a href="@(isAdmin ? "/admin/registrations" : "/registrations")"
-               class="inline-flex items-center gap-2 rounded-lg bg-slate-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-slate-700 transition-all">
+               class="inline-flex items-center gap-2 rounded-xl bg-slate-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-slate-700 transition-all">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                 </svg>
@@ -57,16 +57,10 @@ else
 {
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
-        <div class="flex items-center gap-4 mb-6">
-            <a href="@(isAdmin ? $"/admin/registration/{Id}" : $"/registration/{Id}")"
-               class="w-10 h-10 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 flex items-center justify-center transition-all shadow-sm">
-                <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-            </a>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div>
-                <h1 class="text-xl font-bold text-slate-800">Edit Registration</h1>
-                <p class="text-sm text-slate-500">
+                <h1 class="text-2xl font-bold text-slate-800">Edit Registration</h1>
+                <p class="text-sm text-slate-500 mt-1">
                     @originalRegistration!.PersonalInfo.FullName
                     @if (!string.IsNullOrEmpty(originalRegistration.Cid))
                     {
@@ -74,6 +68,7 @@ else
                     }
                 </p>
             </div>
+            <StatusBadge Status="originalRegistration.Status" Size="StatusBadge.StatusBadgeSize.Large" />
         </div>
 
         <!-- Error Messages -->
@@ -178,7 +173,7 @@ else
                         First Name <span class="text-red-500">*</span>
                     </label>
                     <input type="text" @bind="registration!.PersonalInfo.FirstName" @bind:event="oninput"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                            placeholder="Competitor's first name" />
                 </div>
 
@@ -186,7 +181,7 @@ else
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1.5">Middle Name</label>
                     <input type="text" @bind="registration!.PersonalInfo.MiddleName" @bind:event="oninput"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                            placeholder="Optional" />
                 </div>
 
@@ -196,7 +191,7 @@ else
                         Last Name <span class="text-red-500">*</span>
                     </label>
                     <input type="text" @bind="registration!.PersonalInfo.LastName" @bind:event="oninput"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                            placeholder="Competitor's last name" />
                 </div>
 
@@ -204,7 +199,7 @@ else
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1.5">Preferred Name</label>
                     <input type="text" @bind="registration!.PersonalInfo.PreferredName" @bind:event="oninput"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                            placeholder="Name for certificate (optional)" />
                 </div>
 
@@ -238,14 +233,14 @@ else
                     </label>
                     <input type="date" value="@registration!.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd")"
                            @onchange="OnDateOfBirthChanged"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm" />
                 </div>
 
                 <!-- Phone -->
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1.5">Competitor Phone</label>
                     <input type="tel" @bind="registration!.PersonalInfo.PhoneNumber" @bind:event="oninput"
-                           class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                            placeholder="10-digit phone (optional)" />
                 </div>
             </div>
@@ -261,7 +256,7 @@ else
                         </label>
                         <select @bind="registration!.AddressInfo.Country"
                                 @bind:after="OnCountryChanged"
-                                class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm">
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm">
                             <option value="">Select country</option>
                             @foreach (var country in LocationData.Countries)
                             {
@@ -276,7 +271,7 @@ else
                             State/Province <span class="text-red-500">*</span>
                         </label>
                         <select @bind="registration!.AddressInfo.StateProvince"
-                                class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                                 disabled="@(availableStates.Count == 0)">
                             <option value="">Select state</option>
                             @foreach (var state in availableStates)
@@ -292,7 +287,7 @@ else
                             City <span class="text-red-500">*</span>
                         </label>
                         <input type="text" @bind="registration!.AddressInfo.City" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                                placeholder="City name" />
                     </div>
                 </div>
@@ -326,7 +321,7 @@ else
                     </label>
                     <select value="@registration!.CompetitionSelection.DivisionId"
                             @onchange="OnDivisionChanged"
-                            class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm">
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm">
                         <option value="">Select division</option>
                         @foreach (var division in availableDivisions)
                         {
@@ -342,7 +337,7 @@ else
                     </label>
                     <select @bind="registration!.CompetitionSelection.CategoryId"
                             @bind:after="OnCategoryChanged"
-                            class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                             disabled="@(availableCategories.Count == 0)">
                         <option value="">Select category</option>
                         @foreach (var category in availableCategories)
@@ -423,21 +418,21 @@ else
                             First Name <span class="text-red-500">*</span>
                         </label>
                         <input type="text" @bind="registration!.ParentInfo.FirstName" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">
                             Last Name <span class="text-red-500">*</span>
                         </label>
                         <input type="text" @bind="registration!.ParentInfo.LastName" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">
                             Phone <span class="text-red-500">*</span>
                         </label>
                         <input type="tel" @bind="registration!.ParentInfo.PhoneNumber" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                                placeholder="10-digit phone" />
                     </div>
                 </div>
@@ -452,27 +447,27 @@ else
                             First Name <span class="text-red-500">*</span>
                         </label>
                         <input type="text" @bind="teacherFirstName" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">
                             Last Name <span class="text-red-500">*</span>
                         </label>
                         <input type="text" @bind="teacherLastName" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm" />
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">
                             Phone <span class="text-red-500">*</span>
                         </label>
                         <input type="tel" @bind="teacherPhone" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                                placeholder="10-digit phone" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">Institution</label>
                         <input type="text" @bind="teacherInstitution" @bind:event="oninput"
-                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm"
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-sm"
                                placeholder="Qur'an Institution (optional)" />
                     </div>
                 </div>
@@ -1688,39 +1683,6 @@ else
     // ═══════════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
-
-    private string GetStatusDisplayName(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "Awaiting Review",
-        RegistrationStatus.Pending => "Pending",
-        RegistrationStatus.Reviewed => "Reviewed",
-        RegistrationStatus.Verified => "Verified",
-        RegistrationStatus.Withdrawn => "Withdrawn",
-        RegistrationStatus.Disqualified => "Disqualified",
-        _ => status.ToString()
-    };
-
-    private string GetStatusStyles(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "bg-emerald-50 text-emerald-950",
-        RegistrationStatus.Pending => "bg-red-50 text-red-950",
-        RegistrationStatus.Reviewed => "bg-cyan-50 text-cyan-950",
-        RegistrationStatus.Verified => "bg-violet-50 text-violet-950",
-        RegistrationStatus.Withdrawn => "bg-amber-50 text-amber-950",
-        RegistrationStatus.Disqualified => "bg-gray-50 text-gray-950",
-        _ => "bg-slate-50 text-slate-950"
-    };
-
-    private string GetStatusRing(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "ring-emerald-600/20",
-        RegistrationStatus.Pending => "ring-red-600/20",
-        RegistrationStatus.Reviewed => "ring-cyan-600/20",
-        RegistrationStatus.Verified => "ring-violet-600/20",
-        RegistrationStatus.Withdrawn => "ring-amber-600/20",
-        RegistrationStatus.Disqualified => "ring-gray-600/20",
-        _ => "ring-slate-600/20"
-    };
 
     private string FormatFileSize(long bytes)
     {

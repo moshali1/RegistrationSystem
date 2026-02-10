@@ -41,31 +41,13 @@
 <!-- Desktop: Full Layout -->
 <div class="hidden lg:block max-w-[1800px] mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Registration Review</h1>
-            <p class="text-sm text-slate-500 mt-1">Review and process competitor registrations</p>
-        </div>
-        @if (stats != null)
-        {
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200">
-                    <div class="w-2 h-2 rounded-full bg-cyan-500"></div>
-                    <span class="text-sm font-medium text-cyan-700">@stats.AwaitingReview Awaiting</span>
-                </div>
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200">
-                    <div class="w-2 h-2 rounded-full bg-amber-500"></div>
-                    <span class="text-sm font-medium text-amber-700">@stats.Pending Pending</span>
-                </div>
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span class="text-sm font-medium text-slate-600">@stats.Total Total</span>
-                </div>
-            </div>
-        }
+    <div class="mb-4">
+        <h1 class="text-2xl font-bold text-slate-800">Registration Review</h1>
+        <p class="text-sm text-slate-500 mt-1">Review and process competitor registrations</p>
     </div>
 
     <!-- Filters Bar -->
-    <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-6 overflow-hidden">
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-4 overflow-hidden">
         <div class="bg-slate-800 px-5 py-3">
             <div class="flex flex-wrap items-center gap-4">
                 <!-- Status Filter -->
@@ -74,10 +56,17 @@
                     <div class="flex rounded-lg overflow-hidden border border-slate-600 divide-x divide-slate-500">
                         @foreach (var status in filterStatuses)
                         {
+                            var count = GetStatusCount(status);
                             <button type="button"
                                     @onclick="() => ToggleStatusFilter(status)"
-                                    class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer @(selectedStatuses.Contains(status) ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
-                                @GetStatusDisplayName(status)
+                                    class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 @(selectedStatuses.Contains(status) ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
+                                @StatusBadge.GetShortName(status)
+                                @if (count > 0)
+                                {
+                                    <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none @(selectedStatuses.Contains(status) ? "bg-white/25 text-white" : "bg-slate-500 text-slate-200")">
+                                        @count
+                                    </span>
+                                }
                             </button>
                         }
                     </div>
@@ -150,44 +139,40 @@
     else if (registrations.Count == 0 && !isLoading)
     {
         <!-- Empty State -->
-        <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-12 text-center">
-            <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                @Icons.Document("h-8 w-8 text-slate-400")
+        <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-12 text-center shadow-sm">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center mx-auto mb-5 shadow-lg">
+                @Icons.ClipboardCheck("h-7 w-7 text-white")
             </div>
-            <h3 class="text-lg font-semibold text-slate-800 mb-2">No Registrations Found</h3>
-            <p class="text-sm text-slate-500">Adjust your filters or click Fetch to load registrations.</p>
+            <h2 class="text-xl font-semibold text-slate-800 mb-2">No Registrations Found</h2>
+            <p class="text-slate-500 text-sm">No registrations match the current filters.</p>
         </div>
     }
     else if (registrations.Count > 0)
     {
         <!-- Main Content: 3 Column Layout -->
-        <div class="flex gap-4 xl:gap-6">
+        <div class="flex gap-3 xl:gap-4">
             <!-- Left Sidebar: Registration List (hidden on medium, visible on xl) -->
-            <div class="hidden xl:block w-72 flex-shrink-0">
-                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-6">
-                    <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <div class="hidden xl:block w-64 flex-shrink-0">
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-4">
+                    <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
                         <div class="flex items-center justify-between">
-                            <span class="text-sm font-semibold text-slate-700">Registrations</span>
-                            <span class="text-xs text-slate-500">@filteredRegistrations.Count of @registrations.Count</span>
+                            <span class="text-xs font-semibold text-slate-700">Registrations</span>
+                            <span class="text-[10px] text-slate-500">@filteredRegistrations.Count / @registrations.Count</span>
                         </div>
                     </div>
-                    <div class="max-h-[calc(100vh-280px)] overflow-y-auto divide-y divide-slate-100">
+                    <div class="max-h-[calc(100vh-200px)] overflow-y-auto divide-y divide-slate-100">
                         @foreach (var reg in filteredRegistrations)
                         {
                             var isSelected = selectedRegistration?.Id == reg.Id;
                             <button type="button" @onclick="() => SelectRegistration(reg)"
-                                    class="w-full px-4 py-3 text-left transition-colors cursor-pointer @(isSelected ? "bg-cyan-50 border-l-4 border-cyan-500" : "hover:bg-slate-50 border-l-4 border-transparent")">
-                                <div class="flex items-start justify-between gap-2">
+                                    class="w-full px-3 py-2 text-left transition-colors cursor-pointer @(isSelected ? "bg-cyan-50 border-l-3 border-cyan-500" : "hover:bg-slate-50 border-l-3 border-transparent")">
+                                <div class="flex items-center justify-between gap-1.5">
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-sm font-medium text-slate-800 truncate">@reg.PersonalInfo.FullName</p>
-                                        <p class="text-xs text-slate-500 mt-0.5">@GetDivisionName(reg) / @GetCategoryName(reg)</p>
+                                        <p class="text-xs font-medium text-slate-800 truncate">@reg.PersonalInfo.FullName</p>
+                                        <p class="text-[10px] text-slate-500 mt-0.5 truncate">@GetDivisionName(reg) / @GetCategoryName(reg)</p>
                                     </div>
-                                    @RenderStatusBadgeMini(reg.Status)
+                                    <StatusBadge Status="reg.Status" Size="StatusBadge.StatusBadgeSize.Mini" />
                                 </div>
-                                @if (!string.IsNullOrEmpty(reg.Cid))
-                                {
-                                    <p class="text-xs font-mono text-slate-400 mt-1">@reg.Cid</p>
-                                }
                             </button>
                         }
                     </div>
@@ -199,7 +184,7 @@
                 @if (selectedRegistration != null)
                 {
                     <!-- Quick Actions Bar -->
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-2">
                             <!-- Medium screens: left/right arrows -->
                             <button type="button" @onclick="SelectPrevious" disabled="@(!CanGoPrevious)"
@@ -245,84 +230,74 @@
                     <!-- Registration Card -->
                     <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                         <!-- Header -->
-                        <div class="bg-slate-800 px-6 py-4">
+                        <div class="bg-slate-800 px-5 py-3">
                             <div class="flex items-center justify-between">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">@selectedRegistration.PersonalInfo.FullName</h2>
-                                    <div class="flex items-center gap-3 mt-1">
-                                        @if (!string.IsNullOrEmpty(selectedRegistration.Cid))
-                                        {
-                                            <span class="font-mono text-cyan-300 text-sm">@selectedRegistration.Cid</span>
-                                        }
-                                    </div>
+                                <div class="flex items-center gap-3">
+                                    <h2 class="text-lg font-bold text-white">@selectedRegistration.PersonalInfo.FullName</h2>
+                                    @if (!string.IsNullOrEmpty(selectedRegistration.Cid))
+                                    {
+                                        <span class="font-mono text-cyan-300 text-sm">@selectedRegistration.Cid</span>
+                                    }
                                 </div>
-                                @RenderStatusBadge(selectedRegistration.Status)
+                                <StatusBadge Status="selectedRegistration.Status" Size="StatusBadge.StatusBadgeSize.Large" />
                             </div>
                         </div>
 
                         <!-- Content -->
-                        <div class="p-4 xl:p-6">
-                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                        <div class="p-4">
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
                                 <!-- Left Column: Personal & Competition Info -->
-                                <div class="space-y-4 xl:space-y-6">
+                                <div class="space-y-3">
                                     <!-- Personal Info -->
                                     <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
-                                                    @Icons.User("h-4 w-4 text-white")
-                                                </div>
-                                                <h3 class="text-sm font-semibold text-slate-800">Personal Information</h3>
+                                        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                                            <div class="flex items-center gap-2">
+                                                @Icons.User("h-4 w-4 text-cyan-600")
+                                                <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Personal</h3>
                                             </div>
                                         </div>
-                                        <div class="p-4 space-y-2">
+                                        <div class="px-3 py-2 space-y-1.5">
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Full Name</span>
-                                                <span class="text-sm font-medium text-slate-800">@selectedRegistration.PersonalInfo.FullName</span>
+                                                <span class="text-xs text-slate-500">Full Name</span>
+                                                <span class="text-xs font-medium text-slate-800">@selectedRegistration.PersonalInfo.FullName</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Date of Birth</span>
-                                                <span class="text-sm font-medium text-slate-800">@selectedRegistration.PersonalInfo.DateOfBirth.ToString("MMMM d, yyyy")</span>
+                                                <span class="text-xs text-slate-500">Date of Birth</span>
+                                                <span class="text-xs font-medium text-slate-800">@selectedRegistration.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy") (@(CalculateAge(selectedRegistration.PersonalInfo.DateOfBirth))y)</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Age</span>
-                                                <span class="text-sm font-medium text-slate-800">@CalculateAge(selectedRegistration.PersonalInfo.DateOfBirth) years</span>
+                                                <span class="text-xs text-slate-500">Gender</span>
+                                                <span class="text-xs font-medium text-slate-800">@selectedRegistration.PersonalInfo.Gender</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Gender</span>
-                                                <span class="text-sm font-medium text-slate-800">@selectedRegistration.PersonalInfo.Gender</span>
-                                            </div>
-                                            <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Location</span>
-                                                <span class="text-sm font-medium text-slate-800">@selectedRegistration.AddressInfo.City, @selectedRegistration.AddressInfo.StateProvince</span>
+                                                <span class="text-xs text-slate-500">Location</span>
+                                                <span class="text-xs font-medium text-slate-800">@selectedRegistration.AddressInfo.City, @selectedRegistration.AddressInfo.StateProvince</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     <!-- Competition Info -->
                                     <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
-                                                    @Icons.Award("h-4 w-4 text-white")
-                                                </div>
-                                                <h3 class="text-sm font-semibold text-slate-800">Competition</h3>
+                                        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                                            <div class="flex items-center gap-2">
+                                                @Icons.Award("h-4 w-4 text-amber-600")
+                                                <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Competition</h3>
                                             </div>
                                         </div>
-                                        <div class="p-4 space-y-2">
+                                        <div class="px-3 py-2 space-y-1.5">
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Division</span>
-                                                <span class="text-sm font-medium text-slate-800">@GetDivisionName(selectedRegistration)</span>
+                                                <span class="text-xs text-slate-500">Division</span>
+                                                <span class="text-xs font-medium text-slate-800">@GetDivisionName(selectedRegistration)</span>
                                             </div>
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Category</span>
-                                                <span class="text-sm font-medium text-slate-800">@GetCategoryName(selectedRegistration)</span>
+                                                <span class="text-xs text-slate-500">Category</span>
+                                                <span class="text-xs font-medium text-slate-800">@GetCategoryName(selectedRegistration)</span>
                                             </div>
                                             @if (selectedRegistration.CompetitionSelection.PortionChoice.HasValue)
                                             {
                                                 <div class="flex justify-between">
-                                                    <span class="text-sm text-slate-500">Portion</span>
-                                                    <span class="text-sm font-medium text-slate-800">@selectedRegistration.CompetitionSelection.PortionChoice</span>
+                                                    <span class="text-xs text-slate-500">Portion</span>
+                                                    <span class="text-xs font-medium text-slate-800">@selectedRegistration.CompetitionSelection.PortionChoice</span>
                                                 </div>
                                             }
                                         </div>
@@ -330,18 +305,16 @@
 
                                     <!-- Contact Info -->
                                     <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-slate-500 flex items-center justify-center shadow-sm">
-                                                    @Icons.Phone("h-4 w-4 text-white")
-                                                </div>
-                                                <h3 class="text-sm font-semibold text-slate-800">Contacts</h3>
+                                        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                                            <div class="flex items-center gap-2">
+                                                @Icons.Phone("h-4 w-4 text-slate-500")
+                                                <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Contacts</h3>
                                             </div>
                                         </div>
-                                        <div class="p-4 space-y-2">
+                                        <div class="px-3 py-2 space-y-1.5">
                                             <div class="flex justify-between">
-                                                <span class="text-sm text-slate-500">Parent</span>
-                                                <span class="text-sm font-medium text-slate-800">
+                                                <span class="text-xs text-slate-500">Parent</span>
+                                                <span class="text-xs font-medium text-slate-800">
                                                     @selectedRegistration.ParentInfo.FullName
                                                     @if (!string.IsNullOrEmpty(selectedRegistration.ParentInfo.PhoneNumber))
                                                     {
@@ -353,8 +326,8 @@
                                             @if (selectedRegistration.TeacherInfo != null)
                                             {
                                                 <div class="flex justify-between">
-                                                    <span class="text-sm text-slate-500">Teacher</span>
-                                                    <span class="text-sm font-medium text-slate-800">
+                                                    <span class="text-xs text-slate-500">Teacher</span>
+                                                    <span class="text-xs font-medium text-slate-800">
                                                         @selectedRegistration.TeacherInfo.FullName
                                                         @if (!string.IsNullOrEmpty(selectedRegistration.TeacherInfo.PhoneNumber))
                                                         {
@@ -369,23 +342,21 @@
                                 </div>
 
                                 <!-- Right Column: Files & Status -->
-                                <div class="space-y-4 xl:space-y-6">
+                                <div class="space-y-3">
                                     <!-- Files -->
                                     <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
-                                                    @Icons.Photo("h-4 w-4 text-white")
-                                                </div>
-                                                <h3 class="text-sm font-semibold text-slate-800">Documents</h3>
+                                        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                                            <div class="flex items-center gap-2">
+                                                @Icons.Photo("h-4 w-4 text-cyan-600")
+                                                <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Documents</h3>
                                                 @if (selectedRegistration.FileUploadInfo.NiqabBypassApproved)
                                                 {
-                                                    <span class="ml-auto px-2 py-0.5 rounded bg-slate-100 text-xs font-medium text-slate-600">Niqab Bypass</span>
+                                                    <span class="ml-auto px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Niqab Bypass</span>
                                                 }
                                             </div>
                                         </div>
-                                        <div class="p-4">
-                                            <div class="grid grid-cols-2 gap-3">
+                                        <div class="p-3">
+                                            <div class="grid grid-cols-2 gap-2">
                                                 <!-- ID Document -->
                                                 @if (selectedRegistration.FileUploadInfo.IdDocument != null)
                                                 {
@@ -451,18 +422,18 @@
                                             <!-- Video Download -->
                                             @if (selectedRegistration.FileUploadInfo.Video != null)
                                             {
-                                                <div class="mt-3">
+                                                <div class="mt-2">
                                                     <button type="button" @onclick="DownloadVideo"
-                                                            class="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-medium text-slate-700 transition-colors cursor-pointer flex items-center justify-center gap-2">
-                                                        @Icons.Download("h-4 w-4")
+                                                            class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-medium text-slate-700 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+                                                        @Icons.Download("h-3.5 w-3.5")
                                                         Download Video (@FormatFileSize(selectedRegistration.FileUploadInfo.Video.FileSizeBytes))
                                                     </button>
                                                 </div>
                                             }
                                             else if (CategoryRequiresVideo(selectedRegistration))
                                             {
-                                                <div class="mt-3 px-4 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 text-center">
-                                                    <span class="text-xs font-medium text-amber-600">Video required but not uploaded</span>
+                                                <div class="mt-2 px-3 py-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50 text-center">
+                                                    <span class="text-[11px] font-medium text-amber-600">Video required but not uploaded</span>
                                                 </div>
                                             }
                                         </div>
@@ -471,58 +442,114 @@
                                     <!-- Current Status Comment -->
                                     @if (!string.IsNullOrEmpty(selectedRegistration.StatusComment))
                                     {
-                                        <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                            <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shadow-sm">
-                                                        @Icons.ChatBubble("h-4 w-4 text-white")
-                                                    </div>
-                                                    <h3 class="text-sm font-semibold text-slate-800">Status Comment</h3>
-                                                </div>
-                                            </div>
-                                            <div class="p-4">
-                                                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                                    <p class="text-sm text-amber-800">@selectedRegistration.StatusComment</p>
-                                                </div>
+                                        <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                            <div class="flex items-start gap-2">
+                                                @Icons.ChatBubble("h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0")
+                                                <p class="text-xs text-amber-800">@selectedRegistration.StatusComment</p>
                                             </div>
                                         </div>
                                     }
 
                                     <!-- Update Status -->
                                     <div class="rounded-lg border border-slate-200 overflow-hidden">
-                                        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
-                                                    @Icons.Refresh("h-4 w-4 text-white")
-                                                </div>
-                                                <h3 class="text-sm font-semibold text-slate-800">Update Status</h3>
+                                        <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                                            <div class="flex items-center gap-2">
+                                                @Icons.Refresh("h-4 w-4 text-cyan-600")
+                                                <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Update Status</h3>
                                             </div>
                                         </div>
-                                        <div class="p-4 space-y-3">
+                                        <div class="px-3 py-2.5 space-y-2">
                                             <select @bind="newStatus"
-                                                    class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm cursor-pointer">
+                                                    class="w-full px-3 py-1.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-xs cursor-pointer">
                                                 <option value="">Select new status...</option>
                                                 @foreach (var status in GetAvailableStatuses(selectedRegistration.Status))
                                                 {
-                                                    <option value="@status">@GetStatusDisplayName(status)</option>
+                                                    <option value="@status">@StatusBadge.GetDisplayName(status)</option>
                                                 }
                                             </select>
                                             <textarea @bind="newComment" rows="2"
-                                                      placeholder="Add a comment (optional for approval, required for rejection)..."
-                                                      class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-sm resize-none"></textarea>
-                                            <button type="button" @onclick="UpdateStatus" disabled="@(string.IsNullOrEmpty(newStatus) || isUpdating)"
-                                                    class="w-full px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-400 text-white text-sm font-medium transition-colors cursor-pointer flex items-center justify-center gap-2">
-                                                @if (isUpdating)
+                                                      placeholder="Comment (optional for approval, required for rejection)..."
+                                                      class="w-full px-3 py-1.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-xs resize-none"></textarea>
+                                            <div class="flex gap-2">
+                                                <button type="button" @onclick="UpdateStatus" disabled="@(string.IsNullOrEmpty(newStatus) || isUpdating)"
+                                                        class="flex-1 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-400 text-white text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+                                                    @if (isUpdating)
+                                                    {
+                                                        @Icons.Spinner("h-3.5 w-3.5")
+                                                        <span>Updating...</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        @Icons.CheckCircle("h-3.5 w-3.5")
+                                                        <span>Apply Status</span>
+                                                    }
+                                                </button>
+                                                @if (selectedRegistration.Status == RegistrationStatus.AwaitingReview || selectedRegistration.Status == RegistrationStatus.Pending)
                                                 {
-                                                    @Icons.Spinner("h-4 w-4")
-                                                    <span>Updating...</span>
+                                                    <button type="button" @onclick="MarkAsReviewed" disabled="@isUpdating"
+                                                            title="Mark as Reviewed"
+                                                            class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+                                                        @if (isUpdating)
+                                                        {
+                                                            @Icons.Spinner("h-3.5 w-3.5")
+                                                        }
+                                                        else
+                                                        {
+                                                            @Icons.CheckCircle("h-3.5 w-3.5")
+                                                            <span>Reviewed</span>
+                                                        }
+                                                    </button>
                                                 }
-                                                else
-                                                {
-                                                    @Icons.CheckCircle("h-4 w-4")
-                                                    <span>Apply Status</span>
-                                                }
-                                            </button>
+                                            </div>
+                                            @if (selectedRegistration.Status == RegistrationStatus.Pending)
+                                            {
+                                                <div class="pt-2 border-t border-slate-100 space-y-1.5">
+                                                    <button type="button" @onclick="UpdatePendingComment"
+                                                            disabled="@(string.IsNullOrWhiteSpace(newComment) || isUpdating)"
+                                                            class="w-full px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 disabled:bg-slate-100 disabled:border-slate-200 text-xs font-medium text-amber-800 disabled:text-slate-400 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+                                                        @if (isUpdating)
+                                                        {
+                                                            @Icons.Spinner("h-3.5 w-3.5")
+                                                            <span>Updating...</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @Icons.ChatBubble("h-3.5 w-3.5")
+                                                            <span>Update Comment & Notify</span>
+                                                        }
+                                                    </button>
+                                                    <button type="button" @onclick="ResendPendingEmail"
+                                                            disabled="@(isResendingEmail || string.IsNullOrEmpty(selectedRegistration.StatusComment))"
+                                                            class="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 disabled:bg-slate-50 text-xs font-medium text-slate-600 disabled:text-slate-400 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+                                                        @if (isResendingEmail)
+                                                        {
+                                                            @Icons.Spinner("h-3.5 w-3.5")
+                                                            <span>Sending...</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @Icons.Envelope("h-3.5 w-3.5")
+                                                            <span>Resend Email</span>
+                                                        }
+                                                        @if (pendingEmailsSentCount > 0)
+                                                        {
+                                                            <span class="ml-auto px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">@pendingEmailsSentCount sent</span>
+                                                        }
+                                                    </button>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(statusUpdateError))
+                                            {
+                                                <div class="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                                                    @Icons.XCircle("h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0")
+                                                    <div>
+                                                        <span class="font-medium">Error:</span> @statusUpdateError
+                                                    </div>
+                                                    <button type="button" @onclick="() => statusUpdateError = null" class="ml-auto shrink-0 text-red-400 hover:text-red-600 cursor-pointer">
+                                                        @Icons.XCircle("h-3.5 w-3.5")
+                                                    </button>
+                                                </div>
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -531,7 +558,7 @@
                             <!-- Submission Footer -->
                             @if (submitterInfo != null)
                             {
-                                <div class="mt-4 pt-4 border-t border-slate-200">
+                                <div class="mt-3 pt-3 border-t border-slate-200">
                                     <div class="flex items-center justify-between text-xs text-slate-500">
                                         <div class="flex items-center gap-1.5">
                                             @Icons.User("h-3.5 w-3.5 text-slate-400")
@@ -566,25 +593,25 @@
             </div>
 
             <!-- Right Sidebar: Quick Presets -->
-            <div class="w-60 xl:w-72 flex-shrink-0">
-                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-6">
-                    <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                        <span class="text-sm font-semibold text-slate-700">Quick Actions</span>
+            <div class="w-56 xl:w-60 flex-shrink-0">
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden sticky top-4">
+                    <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+                        <span class="text-xs font-semibold text-slate-700">Quick Actions</span>
                     </div>
-                    <div class="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
+                    <div class="p-3 space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
                         <!-- Approve -->
                         <div>
-                            <h4 class="text-xs font-semibold text-cyan-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <h4 class="text-[10px] font-semibold text-cyan-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                 @Icons.CheckCircle("h-3 w-3")
                                 Approve
                             </h4>
-                            <div class="space-y-1.5">
+                            <div class="space-y-1">
                                 <button type="button" @onclick='() => ApplyPreset("Reviewed", "")'
-                                        class="w-full px-3 py-2 rounded-lg border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-left text-xs text-cyan-800 transition-colors cursor-pointer">
+                                        class="w-full px-2.5 py-1.5 rounded-lg border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-left text-[11px] text-cyan-800 transition-colors cursor-pointer">
                                     Mark as Reviewed
                                 </button>
                                 <button type="button" @onclick='() => ApplyPreset("Verified", "")'
-                                        class="w-full px-3 py-2 rounded-lg border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-left text-xs text-cyan-800 transition-colors cursor-pointer">
+                                        class="w-full px-2.5 py-1.5 rounded-lg border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-left text-[11px] text-cyan-800 transition-colors cursor-pointer">
                                     Mark as Verified
                                 </button>
                             </div>
@@ -592,15 +619,15 @@
 
                         <!-- Send Back (Pending) -->
                         <div>
-                            <h4 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <h4 class="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                 @Icons.Warning("h-3 w-3")
                                 Send Back
                             </h4>
-                            <div class="space-y-1.5">
+                            <div class="space-y-1">
                                 @foreach (var preset in pendingPresets)
                                 {
                                     <button type="button" @onclick="() => ApplyPreset(nameof(RegistrationStatus.Pending), preset)"
-                                            class="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-left text-xs text-amber-800 transition-colors cursor-pointer">
+                                            class="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-left text-[11px] leading-tight text-amber-800 transition-colors cursor-pointer">
                                         @preset
                                     </button>
                                 }
@@ -609,15 +636,15 @@
 
                         <!-- Disqualify -->
                         <div>
-                            <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <h4 class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                 @Icons.XCircle("h-3 w-3")
                                 Disqualify
                             </h4>
-                            <div class="space-y-1.5">
+                            <div class="space-y-1">
                                 @foreach (var preset in disqualifyPresets)
                                 {
                                     <button type="button" @onclick="() => ApplyPreset(nameof(RegistrationStatus.Disqualified), preset)"
-                                            class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-xs text-slate-700 transition-colors cursor-pointer">
+                                            class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-[11px] leading-tight text-slate-700 transition-colors cursor-pointer">
                                         @preset
                                     </button>
                                 }
@@ -626,13 +653,13 @@
 
                         <!-- Withdraw -->
                         <div>
-                            <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <h4 class="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                 @Icons.Ban("h-3 w-3")
                                 Withdraw
                             </h4>
-                            <div class="space-y-1.5">
+                            <div class="space-y-1">
                                 <button type="button" @onclick='() => ApplyPreset("Withdrawn", "Withdrawn by administrator")'
-                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-xs text-slate-700 transition-colors cursor-pointer">
+                                        class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left text-[11px] text-slate-700 transition-colors cursor-pointer">
                                     Admin Withdrawal
                                 </button>
                             </div>
@@ -677,6 +704,7 @@
     private bool isLoading = false;
     private bool isInitialLoading = true;
     private bool isUpdating = false;
+    private string? statusUpdateError;
     private string loadingMessage = "Fetching competition settings...";
     private CompetitionSettings? settings;
     private int competitionYear;
@@ -711,6 +739,10 @@
     // Submitter info
     private SubmitterInfo? submitterInfo;
 
+    // Email tracking
+    private int pendingEmailsSentCount = 0;
+    private bool isResendingEmail = false;
+
     // Lightbox
     private string? lightboxUrl;
     private string rotationClass = string.Empty;
@@ -743,9 +775,7 @@
         .Where(r => selectedStatuses.Contains(r.Status))
         .Where(r => string.IsNullOrEmpty(selectedDivisionId) || r.CompetitionSelection.DivisionId == selectedDivisionId)
         .Where(r => string.IsNullOrEmpty(selectedCategoryId) || r.CompetitionSelection.CategoryId == selectedCategoryId)
-        .Where(r => string.IsNullOrEmpty(searchQuery) ||
-                    r.PersonalInfo.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
-                    (r.Cid?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(r => MatchesSearch(r))
         .ToList();
 
     private int currentIndex => selectedRegistration != null
@@ -754,6 +784,41 @@
 
     private bool CanGoPrevious => currentIndex > 0;
     private bool CanGoNext => currentIndex >= 0 && currentIndex < filteredRegistrations.Count - 1;
+
+    private int GetStatusCount(RegistrationStatus status) => registrations.Count(r => r.Status == status);
+
+    private bool MatchesSearch(Registration r)
+    {
+        if (string.IsNullOrEmpty(searchQuery)) return true;
+
+        var query = searchQuery.Trim();
+
+        // CID match
+        if (r.Cid?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            return true;
+
+        var fullName = r.PersonalInfo.FullName;
+        var firstName = r.PersonalInfo.FirstName;
+        var lastName = r.PersonalInfo.LastName;
+
+        // Direct full name match
+        if (fullName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Multi-word search: each query part must match first, middle, or last name
+        // This allows "John Smith" to match "John Michael Smith"
+        var queryParts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (queryParts.Length > 1)
+        {
+            var middleName = r.PersonalInfo.MiddleName ?? "";
+            return queryParts.All(part =>
+                firstName.Contains(part, StringComparison.OrdinalIgnoreCase) ||
+                middleName.Contains(part, StringComparison.OrdinalIgnoreCase) ||
+                lastName.Contains(part, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -857,7 +922,9 @@
         selectedRegistration = reg;
         newStatus = string.Empty;
         newComment = string.Empty;
+        pendingEmailsSentCount = 0;
         await LoadSubmitterInfo(reg);
+        _ = LoadEmailSentCount(reg);
         _ = PreloadAdjacentImages();
     }
 
@@ -942,14 +1009,15 @@
             var editUrl = $"{EmailOptions.SiteUrl.TrimEnd('/')}/registration/{registration.Id}/edit";
 
             var (subject, plainText, html) = PendingStatusEmailBuilder.Build(
-                creatorDisplayName: user.DisplayName,
+                parentName: user.DisplayName,
                 competitorFullName: registration.PersonalInfo.FullName,
                 cid: registration.Cid ?? "N/A",
                 divisionName: divisionName,
                 categoryName: categoryName,
                 statusComment: registration.StatusComment ?? "",
                 registrationEditUrl: editUrl,
-                registrationDeadline: settings?.RegistrationEnd);
+                registrationDeadline: settings?.RegistrationEnd,
+                siteUrl: EmailOptions.SiteUrl);
 
             var sent = await EmailService.SendEmailAsync(user.Email, user.DisplayName, subject, plainText, html);
 
@@ -969,10 +1037,101 @@
         }
     }
 
+    private async Task LoadEmailSentCount(Registration reg)
+    {
+        try
+        {
+            var auditEntries = await AuditService.GetEntityHistoryAsync("Registration", reg.Id);
+            pendingEmailsSentCount = auditEntries.Count(e => e.Action == AuditAction.EmailSent);
+            StateHasChanged();
+        }
+        catch
+        {
+            // Best-effort
+        }
+    }
+
+    private async Task UpdatePendingComment()
+    {
+        if (selectedRegistration == null || selectedRegistration.Status != RegistrationStatus.Pending)
+            return;
+
+        if (string.IsNullOrWhiteSpace(newComment))
+            return;
+
+        isUpdating = true;
+        statusUpdateError = null;
+        StateHasChanged();
+
+        try
+        {
+            var oldComment = selectedRegistration.StatusComment;
+            selectedRegistration.StatusComment = newComment;
+
+            try
+            {
+                await RegistrationService.AdminUpdateStatusAsync(selectedRegistration);
+            }
+            catch (InvalidOperationException ex)
+            {
+                selectedRegistration.StatusComment = oldComment;
+                statusUpdateError = ex.Message;
+                return;
+            }
+
+            // Log audit
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogAsync(
+                AuditAction.StatusChanged,
+                "Registration",
+                selectedRegistration.Id,
+                summary: $"Pending comment updated: {newComment}",
+                entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
+
+            // Send updated email notification
+            await SendPendingEmailAsync(selectedRegistration);
+            pendingEmailsSentCount++;
+
+            newComment = string.Empty;
+        }
+        finally
+        {
+            isUpdating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResendPendingEmail()
+    {
+        if (selectedRegistration == null || selectedRegistration.Status != RegistrationStatus.Pending)
+            return;
+
+        isResendingEmail = true;
+        StateHasChanged();
+
+        try
+        {
+            await SendPendingEmailAsync(selectedRegistration);
+            pendingEmailsSentCount++;
+        }
+        finally
+        {
+            isResendingEmail = false;
+            StateHasChanged();
+        }
+    }
+
     private void ApplyPreset(string status, string comment)
     {
         newStatus = status;
         newComment = comment;
+    }
+
+    private async Task MarkAsReviewed()
+    {
+        newStatus = nameof(RegistrationStatus.Reviewed);
+        newComment = string.Empty;
+        await UpdateStatus();
     }
 
     private async Task UpdateStatus()
@@ -985,6 +1144,8 @@
         {
             return;
         }
+
+        statusUpdateError = null;
 
         isUpdating = true;
         StateHasChanged();
@@ -1018,49 +1179,56 @@
                     : newComment;
             }
 
-            // Save
-            var result = await RegistrationService.UpdateAsync(selectedRegistration);
-
-            if (result.IsValid)
+            // Save via admin method (bypasses user-facing edit checks)
+            try
             {
-                // Log audit
-                await AuditContextProvider.SetCurrentUserContextAsync();
-                await AuditService.LogAsync(
-                    AuditAction.StatusChanged,
-                    "Registration",
-                    selectedRegistration.Id,
-                    summary: $"Status changed from {GetStatusDisplayName(oldStatus)} to {GetStatusDisplayName(newStatusEnum)}",
-                    entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
+                await RegistrationService.AdminUpdateStatusAsync(selectedRegistration);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Revert in-memory status change
+                selectedRegistration.Status = oldStatus;
+                statusUpdateError = ex.Message;
+                return;
+            }
 
-                // Send pending status email notification (fire-and-forget)
-                if (newStatusEnum == RegistrationStatus.Pending
-                    && !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment))
-                {
-                    _ = SendPendingEmailAsync(selectedRegistration);
-                }
+            // Log audit
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogAsync(
+                AuditAction.StatusChanged,
+                "Registration",
+                selectedRegistration.Id,
+                summary: $"Status changed from {StatusBadge.GetDisplayName(oldStatus)} to {StatusBadge.GetDisplayName(newStatusEnum)}",
+                entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
 
-                // Update stats
-                if (stats != null)
-                {
-                    if (oldStatus == RegistrationStatus.AwaitingReview) stats.AwaitingReview--;
-                    if (oldStatus == RegistrationStatus.Pending) stats.Pending--;
-                    if (newStatusEnum == RegistrationStatus.AwaitingReview) stats.AwaitingReview++;
-                    if (newStatusEnum == RegistrationStatus.Pending) stats.Pending++;
-                }
+            // Send pending status email notification
+            if (newStatusEnum == RegistrationStatus.Pending
+                && !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment))
+            {
+                await SendPendingEmailAsync(selectedRegistration);
+            }
 
-                // Clear form and advance to next registration
-                newStatus = string.Empty;
-                newComment = string.Empty;
+            // Update stats
+            if (stats != null)
+            {
+                if (oldStatus == RegistrationStatus.AwaitingReview) stats.AwaitingReview--;
+                if (oldStatus == RegistrationStatus.Pending) stats.Pending--;
+                if (newStatusEnum == RegistrationStatus.AwaitingReview) stats.AwaitingReview++;
+                if (newStatusEnum == RegistrationStatus.Pending) stats.Pending++;
+            }
 
-                if (nextRegistration != null)
-                {
-                    await SelectRegistrationAsync(nextRegistration);
-                }
-                else
-                {
-                    selectedRegistration = null;
-                    submitterInfo = null;
-                }
+            // Clear form and advance to next registration
+            newStatus = string.Empty;
+            newComment = string.Empty;
+
+            if (nextRegistration != null)
+            {
+                await SelectRegistrationAsync(nextRegistration);
+            }
+            else
+            {
+                selectedRegistration = null;
+                submitterInfo = null;
             }
         }
         finally
@@ -1108,6 +1276,7 @@
             {
                 lightboxUrl = url;
                 rotationClass = string.Empty;
+                rotationDegrees = 0;
                 scaleClass = string.Empty;
                 isScaled = false;
             }
@@ -1125,6 +1294,7 @@
         {
             lightboxUrl = GetFileUrl(selectedRegistration.FileUploadInfo.Photo.StorageReference);
             rotationClass = string.Empty;
+            rotationDegrees = 0;
             scaleClass = string.Empty;
             isScaled = false;
         }
@@ -1141,13 +1311,17 @@
 
     private void CloseLightbox() => lightboxUrl = null;
 
+    private int rotationDegrees = 0;
+
     private void RotateImage()
     {
-        rotationClass = rotationClass switch
+        rotationDegrees = (rotationDegrees + 90) % 360;
+        rotationClass = rotationDegrees switch
         {
-            "" => "rotate-90",
-            "rotate-90" => "rotate-180",
-            "rotate-180" => "-rotate-90",
+            0 => "",
+            90 => "rotate-90",
+            180 => "rotate-180",
+            270 => "[transform:rotate(270deg)]",
             _ => ""
         };
     }
@@ -1201,78 +1375,6 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // STATUS BADGES
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    private static string GetStatusDisplayName(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "Awaiting Review",
-        RegistrationStatus.Pending => "Pending",
-        RegistrationStatus.Reviewed => "Reviewed",
-        RegistrationStatus.Verified => "Verified",
-        RegistrationStatus.Withdrawn => "Withdrawn",
-        RegistrationStatus.Disqualified => "Disqualified",
-        _ => status.ToString()
-    };
-
-    private RenderFragment RenderStatusBadge(RegistrationStatus status) => __builder =>
-    {
-        var (bgClass, icon) = status switch
-        {
-            RegistrationStatus.AwaitingReview => ("bg-emerald-600", "clock"),
-            RegistrationStatus.Pending => ("bg-red-500", "warning"),
-            RegistrationStatus.Reviewed => ("bg-cyan-600", "check"),
-            RegistrationStatus.Verified => ("bg-violet-600", "shield"),
-            RegistrationStatus.Withdrawn => ("bg-amber-700", "ban"),
-            RegistrationStatus.Disqualified => ("bg-gray-600", "x"),
-            _ => ("bg-slate-600", "circle")
-        };
-
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-white shadow-sm @bgClass">
-            @switch (icon)
-            {
-                case "clock":
-                    @Icons.Clock("h-3.5 w-3.5")
-                    break;
-                case "warning":
-                    @Icons.Warning("h-3.5 w-3.5")
-                    break;
-                case "check":
-                    @Icons.CheckCircle("h-3.5 w-3.5")
-                    break;
-                case "shield":
-                    @Icons.Shield("h-3.5 w-3.5")
-                    break;
-                case "ban":
-                    @Icons.Ban("h-3.5 w-3.5")
-                    break;
-                case "x":
-                    @Icons.XCircle("h-3.5 w-3.5")
-                    break;
-            }
-            @GetStatusDisplayName(status)
-        </span>
-    };
-
-    private RenderFragment RenderStatusBadgeMini(RegistrationStatus status) => __builder =>
-    {
-        var bgClass = status switch
-        {
-            RegistrationStatus.AwaitingReview => "bg-emerald-600",
-            RegistrationStatus.Pending => "bg-red-500",
-            RegistrationStatus.Reviewed => "bg-cyan-600",
-            RegistrationStatus.Verified => "bg-violet-600",
-            RegistrationStatus.Withdrawn => "bg-amber-700",
-            RegistrationStatus.Disqualified => "bg-gray-600",
-            _ => "bg-slate-600"
-        };
-
-        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium text-white flex-shrink-0 @bgClass">
-            @GetStatusShortName(status)
-        </span>
-    };
-
-    // ═══════════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1304,17 +1406,6 @@
         var ext = extension.ToLowerInvariant().TrimStart('.');
         return ext is "jpg" or "jpeg" or "png" or "gif" or "webp" or "bmp";
     }
-
-    private string GetStatusShortName(RegistrationStatus status) => status switch
-    {
-        RegistrationStatus.AwaitingReview => "Awaiting",
-        RegistrationStatus.Pending => "Pending",
-        RegistrationStatus.Reviewed => "Reviewed",
-        RegistrationStatus.Verified => "Verified",
-        RegistrationStatus.Withdrawn => "Withdrawn",
-        RegistrationStatus.Disqualified => "Disqualified",
-        _ => status.ToString()
-    };
 
     private int CalculateAge(DateOnly dateOfBirth)
     {

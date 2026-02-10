@@ -1,4 +1,5 @@
 ﻿@page "/admin/competition-tracking"
+@attribute [Authorize(Roles = "Admin")]
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.CompetitionRounds
 @using RegistrationSystem.Core.Domain.Settings
@@ -25,8 +26,8 @@
         <!-- Page Header -->
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-semibold text-slate-800">Competition Tracking</h1>
-                <p class="text-sm text-slate-500 mt-0.5">Monitor progress across all divisions and categories</p>
+                <h1 class="text-2xl font-bold text-slate-800">Competition Tracking</h1>
+                <p class="text-sm text-slate-500 mt-1">Monitor progress across all divisions and categories</p>
             </div>
             <div class="flex items-center gap-6 text-sm">
                 <div class="flex items-center gap-2">
