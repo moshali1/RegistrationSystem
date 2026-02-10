@@ -224,6 +224,19 @@
                                 @Icons.Clock("h-4 w-4")
                                 Audit
                             </a>
+                            <button type="button" @onclick="RefreshSelectedRegistration" disabled="@isRefreshing"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 text-sm font-medium text-slate-600 transition-colors cursor-pointer flex items-center gap-1.5"
+                                    title="Refresh registration data">
+                                @if (isRefreshing)
+                                {
+                                    @Icons.Spinner("h-4 w-4")
+                                }
+                                else
+                                {
+                                    @Icons.Refresh("h-4 w-4")
+                                }
+                                Refresh
+                            </button>
                         </div>
                     </div>
 
@@ -695,6 +708,25 @@
             <!-- Image -->
             <img src="@lightboxUrl" alt="Document"
                  class="max-w-full max-h-[85vh] rounded-lg shadow-2xl @rotationClass @scaleClass transition-transform" />
+
+            @if (isViewingId && selectedRegistration != null)
+            {
+                <div class="absolute bottom-4 left-4 px-4 py-2.5 bg-black/60 backdrop-blur-md rounded-xl shadow-lg z-20">
+                    <div class="flex items-center gap-3">
+                        @Icons.User("h-4 w-4 text-cyan-400")
+                        <div>
+                            <p class="text-sm font-semibold text-white leading-tight">@selectedRegistration.PersonalInfo.FullName</p>
+                            <p class="text-xs text-slate-300 mt-0.5">
+                                DOB: @selectedRegistration.PersonalInfo.DateOfBirth.ToString("MMMM d, yyyy")
+                                @if (settings != null)
+                                {
+                                    <span class="text-cyan-400 ml-1">(@selectedRegistration.CalculateAgeAsOf(settings.AgeCutoffDate) yrs)</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 }
@@ -743,8 +775,12 @@
     private int pendingEmailsSentCount = 0;
     private bool isResendingEmail = false;
 
+    // Refresh
+    private bool isRefreshing = false;
+
     // Lightbox
     private string? lightboxUrl;
+    private bool isViewingId;
     private string rotationClass = string.Empty;
     private string scaleClass = string.Empty;
     private bool isScaled = false;
@@ -946,6 +982,33 @@
         if (CanGoNext)
         {
             _ = SelectRegistrationAsync(filteredRegistrations[currentIndex + 1]);
+        }
+    }
+
+    private async Task RefreshSelectedRegistration()
+    {
+        if (selectedRegistration == null) return;
+
+        isRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            var refreshed = await RegistrationService.GetByIdAsync(selectedRegistration.Id);
+            if (refreshed != null)
+            {
+                // Update in the registrations list
+                var idx = registrations.FindIndex(r => r.Id == refreshed.Id);
+                if (idx >= 0)
+                    registrations[idx] = refreshed;
+
+                await SelectRegistrationAsync(refreshed);
+            }
+        }
+        finally
+        {
+            isRefreshing = false;
+            StateHasChanged();
         }
     }
 
@@ -1275,6 +1338,7 @@
             if (IsImageFile(selectedRegistration.FileUploadInfo.IdDocument.Extension))
             {
                 lightboxUrl = url;
+                isViewingId = true;
                 rotationClass = string.Empty;
                 rotationDegrees = 0;
                 scaleClass = string.Empty;
@@ -1293,6 +1357,7 @@
         if (selectedRegistration?.FileUploadInfo.Photo != null)
         {
             lightboxUrl = GetFileUrl(selectedRegistration.FileUploadInfo.Photo.StorageReference);
+            isViewingId = false;
             rotationClass = string.Empty;
             rotationDegrees = 0;
             scaleClass = string.Empty;
@@ -1309,7 +1374,11 @@
         }
     }
 
-    private void CloseLightbox() => lightboxUrl = null;
+    private void CloseLightbox()
+    {
+        lightboxUrl = null;
+        isViewingId = false;
+    }
 
     private int rotationDegrees = 0;
 
@@ -1329,7 +1398,7 @@
     private void ToggleScale()
     {
         isScaled = !isScaled;
-        scaleClass = isScaled ? "scale-75" : "";
+        scaleClass = isScaled ? "scale-150" : "";
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
