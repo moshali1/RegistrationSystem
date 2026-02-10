@@ -13,6 +13,7 @@ using RegistrationSystem.Core.Application.Users;
 using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.Registrations;
+using RegistrationSystem.Core.Domain.Messaging;
 using RegistrationSystem.Core.Domain.Users;
 using RegistrationSystem.Core.Application.Messaging;
 using RegistrationSystem.Infrastructure.Graph;
@@ -78,14 +79,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INiqabBypassRepository, MongoNiqabBypassRepository>();
         services.AddScoped<IAuditRepository, MongoAuditRepository>();
         services.AddScoped<ICompetitionRoundRepository, MongoCompetitionRoundRepository>();
+        services.AddScoped<IEmailTemplateRepository, MongoEmailTemplateRepository>();
 
         // Application Services
         services.AddScoped<RegistrationService>();
         services.AddScoped<NiqabBypassService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<CompetitionRoundService>();
-
-
+        services.AddScoped<EmailTemplateService>();
 
         return services;
     }
@@ -99,6 +100,18 @@ public static class ServiceCollectionExtensions
         if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionRound)))
         {
             BsonClassMap.RegisterClassMap<CompetitionRound>(cm =>
+            {
+                cm.AutoMap();
+                cm.MapIdProperty(c => c.Id)
+                    .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance)
+                    .SetSerializer(new StringSerializer(BsonType.ObjectId));
+            });
+        }
+
+        // EmailTemplate - Map ObjectId to string for Id property
+        if (!BsonClassMap.IsClassMapRegistered(typeof(EmailTemplate)))
+        {
+            BsonClassMap.RegisterClassMap<EmailTemplate>(cm =>
             {
                 cm.AutoMap();
                 cm.MapIdProperty(c => c.Id)

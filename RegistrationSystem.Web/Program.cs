@@ -113,6 +113,10 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+// Serve static files (images, JS, CSS) before auth so they're accessible
+// without login — needed for email logo images loaded by email clients.
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
