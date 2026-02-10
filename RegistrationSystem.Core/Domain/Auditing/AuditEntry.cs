@@ -99,7 +99,7 @@ public class AuditEntry
     /// </summary>
     public DateTime GetCentralTime()
     {
-        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
         return TimeZoneInfo.ConvertTimeFromUtc(Timestamp.UtcDateTime, centralZone);
     }
 

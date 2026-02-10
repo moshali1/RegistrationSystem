@@ -10,8 +10,8 @@
     <!-- Page Header -->
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-xl font-semibold text-slate-800">Round Messages</h1>
-            <p class="text-sm text-slate-500 mt-0.5">Manage custom messages for competitors who advance to each round</p>
+            <h1 class="text-2xl font-bold text-slate-800">Round Messages</h1>
+            <p class="text-sm text-slate-500 mt-1">Manage custom messages for competitors who advance to each round</p>
         </div>
         @if (hasUnsavedChanges)
         {
@@ -26,7 +26,7 @@
                 <button type="button"
                         @onclick="SaveAllAsync"
                         disabled="@isSaving"
-                        class="cursor-pointer rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2">
+                        class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2">
                     @if (isSaving)
                     {
                         <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

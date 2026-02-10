@@ -56,6 +56,9 @@ builder.Services.AddRazorComponents()
         options.DetailedErrors = builder.Environment.IsDevelopment();
     }); ;
 
+// Add in-memory cache (used by SettingsService for CompetitionSettings)
+builder.Services.AddMemoryCache();
+
 // Add Core application services
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<UserService>();

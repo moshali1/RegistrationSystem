@@ -1,0 +1,886 @@
+@page "/admin/registrations"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+
+@inject RegistrationService RegistrationService
+@inject IRegistrationRepository RegistrationRepository
+@inject SettingsService SettingsService
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
+
+<PageTitle>Registration List</PageTitle>
+
+<div class="max-w-[1800px] mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Registration List</h1>
+            <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo?.CompetitionName — @competitionYear</p>
+        </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-6 overflow-hidden">
+        <div class="bg-slate-800 px-5 py-3">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Status Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Status</span>
+                    <div class="flex rounded-lg overflow-hidden border border-slate-600 divide-x divide-slate-500">
+                        @foreach (var status in allStatuses)
+                        {
+                            <button type="button"
+                                    @onclick="() => ToggleStatusFilter(status)"
+                                    class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer @(selectedStatuses.Contains(status) ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
+                                @StatusBadge.GetDisplayName(status)
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Division Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Division</span>
+                    <select @bind="selectedDivisionId" @bind:after="OnDivisionChanged"
+                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                        <option value="">All Divisions</option>
+                        @foreach (var division in divisions)
+                        {
+                            <option value="@division.Id">@division.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Category Filter -->
+                @if (!string.IsNullOrEmpty(selectedDivisionId))
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Category</span>
+                        <select @bind="selectedCategoryId"
+                                class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All Categories</option>
+                            @foreach (var category in availableCategories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <!-- Region Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Region</span>
+                    <select @bind="selectedRegion"
+                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                        <option value="">All Regions</option>
+                        <option value="MN">Minnesota</option>
+                        <option value="OutOfState">Out of State</option>
+                    </select>
+                </div>
+
+                <!-- Gender Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Gender</span>
+                    <select @bind="selectedGender"
+                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                        <option value="">All</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+
+                <!-- Niqab Bypass Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Niqab</span>
+                    <select @bind="selectedNiqabFilter"
+                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                        <option value="">All</option>
+                        <option value="Yes">Bypass Enabled</option>
+                        <option value="No">No Bypass</option>
+                    </select>
+                </div>
+
+                <!-- Search -->
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" @bind="searchQuery" @bind:event="oninput"
+                           placeholder="Search by name or CID..."
+                           class="w-full px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                </div>
+
+                <!-- Fetch Button -->
+                <button type="button" @onclick="FetchRegistrations" disabled="@isLoading"
+                        class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-500 text-white text-sm font-medium transition-colors cursor-pointer flex items-center gap-2">
+                    @if (isLoading)
+                    {
+                        @Icons.Spinner("h-4 w-4")
+                    }
+                    else
+                    {
+                        @Icons.Refresh("h-4 w-4")
+                    }
+                    Fetch
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Count Bar (like My Registrations) -->
+        <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
+            <span class="text-slate-600">
+                Showing <span class="font-semibold text-slate-800">@filteredRegistrations.Count</span> of <span class="font-semibold text-slate-800">@registrations.Count</span> registrations
+            </span>
+            <!-- Status counts: dark bg, light text badges -->
+            <div class="flex items-center gap-2">
+                @foreach (var status in allStatuses)
+                {
+                    var count = filteredRegistrations.Count(r => r.Status == status);
+                    if (count > 0)
+                    {
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium @StatusBadge.GetBgColor(status) text-white">
+                            @count @StatusBadge.GetDisplayName(status)
+                        </span>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (isInitialLoading)
+    {
+        <!-- Loading Screen -->
+        <div class="flex flex-col items-center justify-center min-h-[60vh]">
+            <div class="w-16 h-16 rounded-2xl bg-cyan-100 flex items-center justify-center mb-4">
+                @Icons.Spinner("h-8 w-8 text-cyan-600")
+            </div>
+            <h2 class="text-lg font-semibold text-slate-800 mb-1">Loading Registrations</h2>
+            <p class="text-sm text-slate-500">@loadingMessage</p>
+        </div>
+    }
+    else if (registrations.Count == 0 && !isLoading)
+    {
+        <!-- Empty State -->
+        <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-12 text-center shadow-sm">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center mx-auto mb-5 shadow-lg">
+                @Icons.Document("h-8 w-8 text-white")
+            </div>
+            <h3 class="text-xl font-semibold text-slate-800 mb-2">No Registrations Found</h3>
+            <p class="text-slate-600">No registrations have been submitted for this competition year.</p>
+        </div>
+    }
+    else if (filteredRegistrations.Count == 0)
+    {
+        <!-- No Results After Filtering -->
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm px-4 py-12 text-center">
+            @Icons.Search("h-12 w-12 text-slate-300 mx-auto mb-3")
+            <p class="text-slate-500">No registrations match your filters.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Table -->
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-slate-700 to-slate-800">
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Competitor</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">CID</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Division</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Category</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Location</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Status</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Flags</th>
+                            <th class="text-center px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider w-32">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach (var reg in pagedRegistrations)
+                        {
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <!-- Competitor: gender bar + name + gender/DOB/age -->
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-1.5 h-10 rounded-full flex-shrink-0 @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-500" : "bg-pink-500")"></div>
+                                        <div class="min-w-0 flex-1">
+                                            <span class="font-medium text-slate-800 truncate max-w-[200px] block"
+                                                  title="@reg.PersonalInfo.FullName">
+                                                @reg.PersonalInfo.FullName
+                                            </span>
+                                            <div class="text-xs text-slate-500 flex items-center gap-2">
+                                                <span>@reg.PersonalInfo.Gender</span>
+                                                <span class="text-slate-300">·</span>
+                                                <span class="whitespace-nowrap">@reg.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")</span>
+                                                @if (settings != null)
+                                                {
+                                                    <span class="text-slate-300">·</span>
+                                                    <span class="text-cyan-600 font-medium whitespace-nowrap">@reg.CalculateAgeAsOf(settings.AgeCutoffDate) yrs</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- CID -->
+                                <td class="px-4 py-4">
+                                    @if (!string.IsNullOrEmpty(reg.Cid))
+                                    {
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-mono whitespace-nowrap">
+                                            @reg.Cid
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300 text-sm">—</span>
+                                    }
+                                </td>
+
+                                <!-- Division -->
+                                <td class="px-4 py-4">
+                                    <div class="text-sm font-medium text-slate-800">@GetDivisionName(reg)</div>
+                                </td>
+
+                                <!-- Category + Portion -->
+                                <td class="px-4 py-4">
+                                    <div class="text-sm">
+                                        <div class="text-xs text-slate-500 flex items-center gap-1 flex-wrap">
+                                            <span>@GetCategoryName(reg)</span>
+                                            @if (reg.CompetitionSelection.PortionChoice.HasValue)
+                                            {
+                                                <span class="text-slate-300">·</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs whitespace-nowrap">
+                                                    @(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼") @reg.CompetitionSelection.PortionChoice
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Location -->
+                                <td class="px-4 py-4">
+                                    <div class="text-sm">
+                                        @if (!string.IsNullOrEmpty(reg.AddressInfo.City))
+                                        {
+                                            <div class="text-slate-700">@reg.AddressInfo.City, @reg.AddressInfo.StateProvince</div>
+                                            <div class="text-xs text-slate-500">@reg.AddressInfo.Country</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-slate-300">—</span>
+                                        }
+                                    </div>
+                                </td>
+
+                                <!-- Status (same badge as My Registrations) -->
+                                <td class="px-4 py-4">
+                                    <StatusBadge Status="reg.Status" />
+                                </td>
+
+                                <!-- Flags -->
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-1.5">
+                                        @if (reg.FileUploadInfo.NiqabBypassApproved)
+                                        {
+                                            <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-xs font-medium" title="Niqab Bypass Enabled">Niqab</span>
+                                        }
+                                        @if (reg.FileUploadInfo.Video != null)
+                                        {
+                                            <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium" title="Has Video">Video</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(reg.StatusComment))
+                                        {
+                                            <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium" title="@reg.StatusComment">Comment</span>
+                                        }
+                                    </div>
+                                </td>
+
+                                <!-- Actions (round icon buttons like My Registrations) -->
+                                <td class="px-4 py-4 whitespace-nowrap text-right">
+                                    <div class="inline-flex items-center gap-1 justify-end">
+                                        <a href="/admin/registration/@reg.Id" target="_blank"
+                                           class="p-2 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200"
+                                           title="View Details">
+                                            @Icons.Eye("h-4 w-4")
+                                        </a>
+                                        <a href="/admin/registration/@reg.Id/edit" target="_blank"
+                                           class="p-2 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200"
+                                           title="Edit Registration">
+                                            @Icons.Edit("h-4 w-4")
+                                        </a>
+                                        <a href="/admin/audit/Registration/@reg.Id" target="_blank"
+                                           class="p-2 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200"
+                                           title="Audit Trail">
+                                            @Icons.Clock("h-4 w-4")
+                                        </a>
+                                        <button type="button" @onclick="() => OpenDeleteModal(reg)"
+                                                class="p-2 text-slate-400 hover:text-red-500 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200 cursor-pointer"
+                                                title="Delete Registration">
+                                            @Icons.Trash("h-4 w-4")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (totalPages > 1)
+            {
+                <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div class="text-sm text-slate-500">
+                        Showing @((currentPage - 1) * pageSize + 1)–@(Math.Min(currentPage * pageSize, filteredRegistrations.Count)) of @filteredRegistrations.Count
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @onclick="() => GoToPage(1)" disabled="@(currentPage == 1)"
+                                class="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            First
+                        </button>
+                        <button type="button" @onclick="() => GoToPage(currentPage - 1)" disabled="@(currentPage == 1)"
+                                class="p-1.5 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600 rotate-180")
+                        </button>
+
+                        @foreach (var pg in GetPageNumbers())
+                        {
+                            var pageNum = pg;
+                            <button type="button" @onclick="() => GoToPage(pageNum)"
+                                    class="px-3 py-1 rounded text-sm font-medium transition-colors cursor-pointer @(pageNum == currentPage ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-slate-200")">
+                                @pageNum
+                            </button>
+                        }
+
+                        <button type="button" @onclick="() => GoToPage(currentPage + 1)" disabled="@(currentPage == totalPages)"
+                                class="p-1.5 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600")
+                        </button>
+                        <button type="button" @onclick="() => GoToPage(totalPages)" disabled="@(currentPage == totalPages)"
+                                class="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            Last
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Delete Confirmation Modal -->
+@if (deleteTarget != null)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseDeleteModal"></div>
+
+            <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <!-- Modal Header -->
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
+                            @Icons.Trash("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Delete Registration</h3>
+                            <p class="text-sm text-slate-500">This action cannot be undone</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Content -->
+                <div class="px-6 py-5 space-y-4">
+                    <!-- Registration Details -->
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-slate-500">Competitor</span>
+                            <span class="text-sm font-medium text-slate-800">@deleteTarget.PersonalInfo.FullName</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(deleteTarget.Cid))
+                        {
+                            <div class="flex justify-between">
+                                <span class="text-sm text-slate-500">CID</span>
+                                <span class="text-sm font-mono text-cyan-700">@deleteTarget.Cid</span>
+                            </div>
+                        }
+                        <div class="flex justify-between">
+                            <span class="text-sm text-slate-500">Division / Category</span>
+                            <span class="text-sm font-medium text-slate-800">@GetDivisionName(deleteTarget) / @GetCategoryName(deleteTarget)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-slate-500">Status</span>
+                            <StatusBadge Status="deleteTarget.Status" />
+                        </div>
+                        @if (deleteTarget.FileUploadInfo.NiqabBypassApproved)
+                        {
+                            <div class="flex justify-between">
+                                <span class="text-sm text-slate-500">Niqab Bypass</span>
+                                <span class="px-2 py-0.5 rounded bg-violet-100 text-violet-700 text-xs font-medium">Enabled</span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Audit Trail Section -->
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                        <div class="flex items-start gap-3">
+                            @Icons.Warning("h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5")
+                            <div class="flex-1">
+                                <h4 class="text-sm font-semibold text-amber-800 mb-1">Audit Trail</h4>
+                                @if (isLoadingAuditCount)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        @Icons.Spinner("h-4 w-4 text-amber-600")
+                                        <span class="text-sm text-amber-700">Loading audit entries...</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-sm text-amber-700 mb-2">
+                                        This registration has <span class="font-bold">@auditEntryCount audit entries</span>.
+                                    </p>
+                                    <a href="/admin/audit/Registration/@deleteTarget.Id" target="_blank"
+                                       class="inline-flex items-center gap-1.5 text-sm text-amber-800 font-medium hover:text-amber-900 underline decoration-amber-400">
+                                        @Icons.ExternalLink("h-3.5 w-3.5")
+                                        View full audit trail
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delete Audit Checkbox -->
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" @bind="deleteAuditTrail"
+                               class="mt-0.5 w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" />
+                        <div>
+                            <span class="text-sm font-medium text-slate-800">Also delete all audit trail entries</span>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Permanently removes @auditEntryCount audit log entries associated with this registration.
+                                This data cannot be recovered.
+                            </p>
+                        </div>
+                    </label>
+
+                    <!-- Confirmation Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Type <span class="font-bold text-red-600">DELETE</span> to confirm
+                        </label>
+                        <input type="text" @bind="deleteConfirmation" @bind:event="oninput"
+                               placeholder="Type DELETE here"
+                               class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm" />
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <button type="button" @onclick="CloseDeleteModal"
+                            class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteDelete"
+                            disabled="@(deleteConfirmation != "DELETE" || isDeleting)"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-2.5 text-sm font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all flex items-center gap-2">
+                        @if (isDeleting)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            @Icons.Trash("h-4 w-4")
+                            <span>Delete Registration</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Success/Error Messages -->
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="fixed bottom-6 right-6 z-40 max-w-sm">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.CheckCircle("h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5")
+            <div class="flex-1">
+                <p class="text-sm font-medium text-emerald-800">@successMessage</p>
+            </div>
+            <button type="button" @onclick='() => successMessage = ""'
+                    class="text-emerald-400 hover:text-emerald-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="fixed bottom-6 right-6 z-40 max-w-sm">
+        <div class="rounded-xl border border-red-200 bg-red-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.XCircle("h-5 w-5 text-red-600 flex-shrink-0 mt-0.5")
+            <div class="flex-1">
+                <p class="text-sm font-medium text-red-800">@errorMessage</p>
+            </div>
+            <button type="button" @onclick='() => errorMessage = ""'
+                    class="text-red-400 hover:text-red-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    // State
+    private bool isLoading = false;
+    private bool isInitialLoading = true;
+    private string loadingMessage = "Loading...";
+    private CompetitionSettings? settings;
+    private int competitionYear;
+
+    // Filter state
+    private static readonly RegistrationStatus[] allStatuses = new[]
+    {
+        RegistrationStatus.AwaitingReview,
+        RegistrationStatus.Pending,
+        RegistrationStatus.Reviewed,
+        RegistrationStatus.Verified,
+        RegistrationStatus.Withdrawn,
+        RegistrationStatus.Disqualified
+    };
+
+    private HashSet<RegistrationStatus> selectedStatuses = new(allStatuses);
+    private string selectedDivisionId = string.Empty;
+    private string selectedCategoryId = string.Empty;
+    private string selectedRegion = string.Empty;
+    private string selectedGender = string.Empty;
+    private string selectedNiqabFilter = string.Empty;
+    private string searchQuery = string.Empty;
+
+    // Data
+    private List<Division> divisions = new();
+    private List<Category> availableCategories = new();
+    private List<Registration> registrations = new();
+
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 50;
+
+    // Delete modal
+    private Registration? deleteTarget;
+    private bool deleteAuditTrail = false;
+    private string deleteConfirmation = string.Empty;
+    private bool isDeleting = false;
+    private bool isLoadingAuditCount = false;
+    private int auditEntryCount = 0;
+
+    // Messages
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    // Computed
+    private List<Registration> filteredRegistrations => registrations
+        .Where(r => selectedStatuses.Contains(r.Status))
+        .Where(r => string.IsNullOrEmpty(selectedDivisionId) || r.CompetitionSelection.DivisionId == selectedDivisionId)
+        .Where(r => string.IsNullOrEmpty(selectedCategoryId) || r.CompetitionSelection.CategoryId == selectedCategoryId)
+        .Where(r => MatchesRegion(r))
+        .Where(r => string.IsNullOrEmpty(selectedGender) || r.PersonalInfo.Gender.ToString() == selectedGender)
+        .Where(r => MatchesNiqabFilter(r))
+        .Where(r => MatchesSearch(r))
+        .OrderByDescending(r => r.Id)
+        .ToList();
+
+    private int totalPages => (int)Math.Ceiling((double)filteredRegistrations.Count / pageSize);
+
+    private List<Registration> pagedRegistrations => filteredRegistrations
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isInitialLoading = true;
+
+        loadingMessage = "Loading competition settings...";
+        StateHasChanged();
+
+        settings = await SettingsService.GetSettingsAsync();
+        competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+
+        if (settings != null)
+        {
+            divisions = settings.Divisions.Where(d => d.IsEnabled).ToList();
+        }
+
+        loadingMessage = "Fetching registrations...";
+        StateHasChanged();
+
+        await FetchRegistrations();
+
+        isInitialLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task FetchRegistrations()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var allRegistrations = await RegistrationService.GetAllByYearAsync(competitionYear);
+            registrations = allRegistrations.ToList();
+            currentPage = 1;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILTERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void ToggleStatusFilter(RegistrationStatus status)
+    {
+        if (selectedStatuses.Contains(status))
+        {
+            if (selectedStatuses.Count > 1)
+                selectedStatuses.Remove(status);
+        }
+        else
+        {
+            selectedStatuses.Add(status);
+        }
+        currentPage = 1;
+    }
+
+    private void OnDivisionChanged()
+    {
+        selectedCategoryId = string.Empty;
+        currentPage = 1;
+
+        if (!string.IsNullOrEmpty(selectedDivisionId))
+        {
+            var division = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+            availableCategories = division?.Categories.Where(c => c.IsEnabled).ToList() ?? new();
+        }
+        else
+        {
+            availableCategories = new();
+        }
+    }
+
+    private bool MatchesRegion(Registration reg)
+    {
+        if (string.IsNullOrEmpty(selectedRegion)) return true;
+        var state = reg.AddressInfo.StateProvince ?? "";
+        return selectedRegion switch
+        {
+            "MN" => state.Equals("Minnesota", StringComparison.OrdinalIgnoreCase)
+                  || state.Equals("MN", StringComparison.OrdinalIgnoreCase),
+            "OutOfState" => !state.Equals("Minnesota", StringComparison.OrdinalIgnoreCase)
+                         && !state.Equals("MN", StringComparison.OrdinalIgnoreCase),
+            _ => true
+        };
+    }
+
+    private bool MatchesNiqabFilter(Registration reg)
+    {
+        if (string.IsNullOrEmpty(selectedNiqabFilter)) return true;
+        return selectedNiqabFilter switch
+        {
+            "Yes" => reg.FileUploadInfo.NiqabBypassApproved,
+            "No" => !reg.FileUploadInfo.NiqabBypassApproved,
+            _ => true
+        };
+    }
+
+    private bool MatchesSearch(Registration r)
+    {
+        if (string.IsNullOrEmpty(searchQuery)) return true;
+
+        var query = searchQuery.Trim();
+
+        // CID match
+        if (r.Cid?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            return true;
+
+        var fullName = r.PersonalInfo.FullName;
+        var firstName = r.PersonalInfo.FirstName;
+        var lastName = r.PersonalInfo.LastName;
+
+        // Direct full name match
+        if (fullName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Multi-word search: each query part must match first, middle, or last name
+        // This allows "John Smith" to match "John Michael Smith"
+        var queryParts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (queryParts.Length > 1)
+        {
+            var middleName = r.PersonalInfo.MiddleName ?? "";
+            return queryParts.All(part =>
+                firstName.Contains(part, StringComparison.OrdinalIgnoreCase) ||
+                middleName.Contains(part, StringComparison.OrdinalIgnoreCase) ||
+                lastName.Contains(part, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAGINATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void GoToPage(int pg)
+    {
+        if (pg >= 1 && pg <= totalPages)
+        {
+            currentPage = pg;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        const int maxVisible = 7;
+        if (totalPages <= maxVisible)
+        {
+            return Enumerable.Range(1, totalPages);
+        }
+
+        var pages = new List<int>();
+        var start = Math.Max(1, currentPage - 3);
+        var end = Math.Min(totalPages, start + maxVisible - 1);
+        start = Math.Max(1, end - maxVisible + 1);
+
+        for (var i = start; i <= end; i++)
+        {
+            pages.Add(i);
+        }
+        return pages;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DELETE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task OpenDeleteModal(Registration reg)
+    {
+        deleteTarget = reg;
+        deleteAuditTrail = false;
+        deleteConfirmation = string.Empty;
+        isLoadingAuditCount = true;
+        auditEntryCount = 0;
+        StateHasChanged();
+
+        try
+        {
+            var entries = await AuditService.GetEntityHistoryAsync("Registration", reg.Id);
+            auditEntryCount = entries.Count;
+        }
+        catch
+        {
+            auditEntryCount = 0;
+        }
+        finally
+        {
+            isLoadingAuditCount = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseDeleteModal()
+    {
+        deleteTarget = null;
+        deleteConfirmation = string.Empty;
+        deleteAuditTrail = false;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (deleteTarget == null || deleteConfirmation != "DELETE") return;
+
+        isDeleting = true;
+        StateHasChanged();
+
+        try
+        {
+            var name = deleteTarget.PersonalInfo.FullName;
+            var cid = deleteTarget.Cid ?? "N/A";
+            var regId = deleteTarget.Id;
+
+            // Log the deletion audit BEFORE deleting
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogAsync(
+                AuditAction.Deleted,
+                "Registration",
+                regId,
+                summary: $"Deleted registration for {name} ({cid})",
+                entityDescription: $"{name} ({cid})",
+                metadata: new Dictionary<string, string>
+                {
+                    ["CompetitorName"] = name,
+                    ["CID"] = cid,
+                    ["Division"] = GetDivisionName(deleteTarget),
+                    ["Category"] = GetCategoryName(deleteTarget),
+                    ["Status"] = deleteTarget.Status.ToString(),
+                    ["AuditTrailDeleted"] = deleteAuditTrail.ToString()
+                });
+
+            // Delete the registration
+            await RegistrationRepository.DeleteAsync(regId);
+
+            // Optionally delete audit trail
+            if (deleteAuditTrail)
+            {
+                await AuditService.DeleteEntityAuditTrailAsync("Registration", regId);
+            }
+
+            // Remove from local list
+            registrations.Remove(deleteTarget);
+
+            // Fix current page if needed
+            if (currentPage > totalPages && totalPages > 0)
+            {
+                currentPage = totalPages;
+            }
+
+            successMessage = $"Registration for {name} ({cid}) deleted successfully.";
+            CloseDeleteModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete registration: {ex.Message}";
+        }
+        finally
+        {
+            isDeleting = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private string GetDivisionName(Registration reg)
+    {
+        return divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId)?.Name ?? "Unknown";
+    }
+
+    private string GetCategoryName(Registration reg)
+    {
+        var division = divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId);
+        return division?.Categories.FirstOrDefault(c => c.Id == reg.CompetitionSelection.CategoryId)?.Name ?? "Unknown";
+    }
+
+}

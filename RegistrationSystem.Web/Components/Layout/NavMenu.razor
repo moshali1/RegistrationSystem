@@ -47,72 +47,86 @@
     <!-- Admin section - Only visible to Admins -->
     <AuthorizeView Roles="Admin">
         <Authorized>
-            <div class="pt-4 mt-2 border-t border-white/10">
-                <p class="px-4 text-xs font-semibold tracking-wide uppercase text-slate-400 mb-2">
-                    Administration
-                </p>
-                <NavLink href="admin/dashboard"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.ChartBar("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Dashboard</span>
-                </NavLink>
+            <div class="pt-4 mt-2 border-t border-white/10 space-y-4">
+                <!-- Registrations -->
+                <div>
+                    <p class="px-4 text-xs font-semibold tracking-wide uppercase text-slate-400 mb-2">
+                        Registrations
+                    </p>
+                    <nav class="space-y-1">
+                        <NavLink href="admin/dashboard"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.ChartBar("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Dashboard</span>
+                        </NavLink>
 
-                <NavLink href="admin/registration-review"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.Users("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Registration Review</span>
-                </NavLink>
+                        <NavLink href="admin/registrations"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.ListBullet("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Registration List</span>
+                        </NavLink>
 
-                <NavLink href="admin/competition-settings"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.Cog("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Competition Settings</span>
-                </NavLink>
+                        <NavLink href="admin/registration-review"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.ClipboardCheck("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Registration Review</span>
+                        </NavLink>
 
-                <NavLink href="admin/competition-tracking"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.Trophy("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Competition Tracking</span>
-                </NavLink>
+                        <NavLink href="admin/competition-tracking"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.Eye("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Competition Tracking</span>
+                        </NavLink>
+                    </nav>
+                </div>
 
-                <NavLink href="admin/round-messages"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.ChatBubble("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Round Messages</span>
-                </NavLink>
+                <!-- System -->
+                <div>
+                    <p class="px-4 text-xs font-semibold tracking-wide uppercase text-slate-400 mb-2">
+                        System
+                    </p>
+                    <nav class="space-y-1">
+                        <NavLink href="admin/niqab-bypasses"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.Shield("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Niqab Bypasses</span>
+                        </NavLink>
 
-                <NavLink href="admin/transfer-registration"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.ArrowsRightLeft("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Transfer Registration</span>
-                </NavLink>
+                        <NavLink href="admin/audit"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.Clock("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Audit Trail</span>
+                        </NavLink>
 
-                <NavLink href="admin/niqab-bypasses"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.Shield("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Niqab Bypasses</span>
-                </NavLink>
+                        <NavLink href="admin/tools"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.Lightning("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Admin Tools</span>
+                        </NavLink>
+                    </nav>
+                </div>
 
-                <NavLink href="admin/audit"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.Clock("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Audit Trail</span>
-                </NavLink>
-
-                <NavLink href="claims"
-                         class="group nav-link"
-                         ActiveClass="nav-link-active">
-                    @Icons.IdCard("w-5 h-5 opacity-80 group-hover:opacity-100")
-                    <span>Claims Debug</span>
-                </NavLink>
+                <!-- Settings -->
+                <div>
+                    <p class="px-4 text-xs font-semibold tracking-wide uppercase text-slate-400 mb-2">
+                        Settings
+                    </p>
+                    <nav class="space-y-1">
+                        <NavLink href="admin/competition-settings"
+                                 class="group nav-link"
+                                 ActiveClass="nav-link-active">
+                            @Icons.Cog("w-5 h-5 opacity-80 group-hover:opacity-100")
+                            <span>Competition Settings</span>
+                        </NavLink>
+                    </nav>
+                </div>
             </div>
         </Authorized>
     </AuthorizeView>

@@ -1,4 +1,5 @@
-﻿using RegistrationSystem.Core.Domain.Settings;
+﻿using Microsoft.Extensions.Caching.Memory;
+using RegistrationSystem.Core.Domain.Settings;
 
 namespace RegistrationSystem.Core.Application.Settings;
 /// <summary>
@@ -8,16 +9,22 @@ namespace RegistrationSystem.Core.Application.Settings;
 /// <remarks>The SettingsService coordinates validation, persistence, and status computation for competition
 /// registration settings. It offers methods to determine registration availability and eligibility at the global,
 /// division, and category levels, as well as to check age-based eligibility. This service is intended for use in
-/// administrative dashboards and registration workflows that require up-to-date status and validation logic.</remarks>
+/// administrative dashboards and registration workflows that require up-to-date status and validation logic.
+/// Settings are cached in memory for 1 day and invalidated on save.</remarks>
 public class SettingsService
 {
     private readonly ICompetitionSettingsRepository _repository;
     private readonly CompetitionSettingsValidator _validator;
+    private readonly IMemoryCache _cache;
 
-    public SettingsService(ICompetitionSettingsRepository repository)
+    private const string SettingsCacheKey = "CompetitionSettings";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromDays(1);
+
+    public SettingsService(ICompetitionSettingsRepository repository, IMemoryCache cache)
     {
         _repository = repository;
         _validator = new CompetitionSettingsValidator();
+        _cache = cache;
     }
 
     public async Task SaveSettingsAsync(
@@ -26,13 +33,23 @@ public class SettingsService
     {
         _validator.Validate(settings).ThrowIfInvalid();
         await _repository.SaveAsync(settings, cancellationToken);
+
+        // Invalidate cache so next fetch picks up fresh data
+        _cache.Remove(SettingsCacheKey);
     }
 
     #region CRUD Operations
 
-    public Task<CompetitionSettings> GetSettingsAsync(
+    public async Task<CompetitionSettings> GetSettingsAsync(
         CancellationToken cancellationToken = default)
-        => _repository.GetAsync(cancellationToken);
+    {
+        if (_cache.TryGetValue(SettingsCacheKey, out CompetitionSettings? cached) && cached is not null)
+            return cached;
+
+        var settings = await _repository.GetAsync(cancellationToken);
+        _cache.Set(SettingsCacheKey, settings, CacheDuration);
+        return settings;
+    }
 
     #endregion
 
