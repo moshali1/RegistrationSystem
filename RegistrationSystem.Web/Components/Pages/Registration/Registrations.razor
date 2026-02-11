@@ -8,6 +8,7 @@
 @inject NavigationManager NavigationManager
 @inject IAuditService AuditService
 @inject BlazorAuditContextProvider AuditContextProvider
+@implements IDisposable
 
 <PageTitle>My Registrations</PageTitle>
 
@@ -475,6 +476,40 @@
     }
 </div>
 
+<!-- Admin Redirect Modal -->
+@if (showAdminRedirect)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50"></div>
+            <div class="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+                <div class="px-6 py-5 text-center">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-800 mb-1">Admin Registration List</h3>
+                    <p class="text-sm text-slate-500 mb-4">
+                        Use <strong>Admin Registrations</strong> for bulk actions, filters, and more.
+                    </p>
+                    <p class="text-xs text-slate-400 mb-5">Redirecting in <span class="font-bold text-slate-600">@redirectCountdown</span>s...</p>
+                    <div class="flex gap-3">
+                        <button type="button" @onclick="CancelAdminRedirect"
+                                class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                            Stay Here
+                        </button>
+                        <a href="/admin/registrations"
+                           class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold text-center hover:from-cyan-700 hover:to-cyan-800 transition-all">
+                            Go Now
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Withdraw Confirmation Modal -->
 @if (showWithdrawModal && withdrawingRegistration != null)
 {
@@ -582,6 +617,12 @@
     private bool showAllRegistrations = true;
     private string? currentUserId;
 
+    // Admin redirect
+    private bool showAdminRedirect;
+    private bool adminRedirectDismissed;
+    private int redirectCountdown = 3;
+    private System.Threading.Timer? redirectTimer;
+
     // Filters
     private string searchQuery = string.Empty;
     private string filterDivision = string.Empty;
@@ -666,6 +707,28 @@
             currentUserId = user.ObjectIdentifier;
             isAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
 
+            // Show redirect modal for admins
+            if (isAdmin && !showAdminRedirect && !adminRedirectDismissed)
+            {
+                showAdminRedirect = true;
+                redirectCountdown = 3;
+                redirectTimer = new System.Threading.Timer(async _ =>
+                {
+                    redirectCountdown--;
+                    if (redirectCountdown <= 0)
+                    {
+                        redirectTimer?.Dispose();
+                        await InvokeAsync(() => NavigationManager.NavigateTo("/admin/registrations"));
+                    }
+                    else
+                    {
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }, null, 1000, 1000);
+                isLoading = false;
+                return;
+            }
+
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
@@ -687,6 +750,20 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task CancelAdminRedirect()
+    {
+        redirectTimer?.Dispose();
+        redirectTimer = null;
+        showAdminRedirect = false;
+        adminRedirectDismissed = true;
+        await LoadDataAsync();
+    }
+
+    public void Dispose()
+    {
+        redirectTimer?.Dispose();
     }
 
     // Client-side permission checks - no async calls needed

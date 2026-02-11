@@ -244,8 +244,8 @@
 
                         <!-- Bulk Delete -->
                         <button type="button" @onclick="OpenBulkDeleteModal"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-600
-                                       text-white text-xs font-semibold shadow-sm hover:bg-red-700 transition-colors cursor-pointer">
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white
+                                       text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer">
                             @Icons.Trash("h-4 w-4")
                             Delete
                         </button>
@@ -312,8 +312,7 @@
                                     <div class="flex items-center gap-3">
                                         <div class="w-1.5 h-10 rounded-full flex-shrink-0 @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-500" : "bg-pink-500")"></div>
                                         <div class="min-w-0 flex-1">
-                                            <span class="font-medium text-slate-800 truncate max-w-[200px] block"
-                                                  title="@reg.PersonalInfo.FullName">
+                                            <span class="font-medium text-slate-800">
                                                 @reg.PersonalInfo.FullName
                                             </span>
                                             <div class="text-xs text-slate-500 flex items-center gap-2">
@@ -350,18 +349,13 @@
                                 </td>
 
                                 <!-- Category + Portion -->
-                                <td class="px-4 py-4">
+                                <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="text-sm">
-                                        <div class="text-xs text-slate-500 flex items-center gap-1 flex-wrap">
-                                            <span>@GetCategoryName(reg)</span>
-                                            @if (reg.CompetitionSelection.PortionChoice.HasValue)
-                                            {
-                                                <span class="text-slate-300">·</span>
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs whitespace-nowrap">
-                                                    @(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼") @reg.CompetitionSelection.PortionChoice
-                                                </span>
-                                            }
-                                        </div>
+                                        <div class="text-slate-700">@GetCategoryName(reg)</div>
+                                        @if (reg.CompetitionSelection.PortionChoice.HasValue)
+                                        {
+                                            <div class="text-xs text-slate-500">@(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼") @reg.CompetitionSelection.PortionChoice</div>
+                                        }
                                     </div>
                                 </td>
 

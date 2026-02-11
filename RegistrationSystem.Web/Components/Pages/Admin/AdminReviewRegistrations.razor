@@ -499,7 +499,7 @@
                                                         <span>Apply Status</span>
                                                     }
                                                 </button>
-                                                @if (selectedRegistration.Status == RegistrationStatus.AwaitingReview || selectedRegistration.Status == RegistrationStatus.Pending)
+                                                @if (string.IsNullOrEmpty(newStatus) && (selectedRegistration.Status == RegistrationStatus.AwaitingReview || selectedRegistration.Status == RegistrationStatus.Pending))
                                                 {
                                                     <button type="button" @onclick="MarkAsReviewed" disabled="@isUpdating"
                                                             title="Mark as Reviewed"
