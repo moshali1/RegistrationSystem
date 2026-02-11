@@ -122,6 +122,12 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
+// AllowAnonymous on static assets so email clients can load images (e.g. logo)
+// without authenticating. MapStaticAssets() creates endpoint-routed handlers that
+// inherit FallbackPolicy (DefaultPolicy = require auth), which causes image URLs
+// to 302 redirect to Azure CIAM login. This is safer than removing the FallbackPolicy
+// entirely, since only wwwroot static files are exempted — all Razor pages and API
+// endpoints still require authentication.
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
