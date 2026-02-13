@@ -105,6 +105,26 @@ public class MongoRegistrationRepository : IRegistrationRepository
         }
     }
 
+    /// <summary>
+    /// Partial update: only writes Status, StatusComment, and WithdrawComment fields.
+    /// Avoids replacing the entire document, so concurrent admin edits on other fields
+    /// (e.g. from the edit page) are never overwritten by stale browser data.
+    /// </summary>
+    public async Task UpdateStatusAsync(
+        string id,
+        RegistrationStatus status,
+        string? statusComment,
+        string? withdrawComment,
+        CancellationToken cancellationToken = default)
+    {
+        var update = Builders<Registration>.Update
+            .Set(r => r.Status, status)
+            .Set(r => r.StatusComment, statusComment)
+            .Set(r => r.WithdrawComment, withdrawComment);
+
+        await _collection.UpdateOneAsync(r => r.Id == id, update, cancellationToken: cancellationToken);
+    }
+
     public async Task DeleteAsync(
         string id,
         CancellationToken cancellationToken = default)
