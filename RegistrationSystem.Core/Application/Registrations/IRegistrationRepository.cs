@@ -12,6 +12,7 @@ public interface IRegistrationRepository
     Task<IReadOnlyList<Registration>> GetByCreatorDivisionAndYearAsync(string creatorUserId, string divisionId, int competitionYear, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Registration>> GetByStatusAsync(RegistrationStatus status, int competitionYear, CancellationToken cancellationToken = default);
     Task SaveAsync(Registration registration, CancellationToken cancellationToken = default);
+    Task UpdateStatusAsync(string id, RegistrationStatus status, string? statusComment, string? withdrawComment, CancellationToken cancellationToken = default);
     Task DeleteAsync(string id, CancellationToken cancellationToken = default);
     Task<int> CountByStatusAsync(RegistrationStatus status, int competitionYear, CancellationToken cancellationToken = default);
     Task<int> CountByYearAsync(int competitionYear, CancellationToken cancellationToken = default);

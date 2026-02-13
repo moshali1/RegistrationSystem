@@ -145,7 +145,10 @@ public class RegistrationService
     }
 
     /// <summary>
-    /// Updates registration status for admin operations, bypassing edit-eligibility checks.
+    /// Updates only the status-related fields of a registration (Status, StatusComment,
+    /// WithdrawComment) using a targeted partial update instead of replacing the whole
+    /// document. This prevents stale browser data from overwriting unrelated fields that
+    /// another admin may have changed concurrently (e.g. via the edit page).
     /// </summary>
     public async Task AdminUpdateStatusAsync(
         Registration registration,
@@ -154,7 +157,12 @@ public class RegistrationService
         _ = await _repository.GetByIdAsync(registration.Id, cancellationToken)
             ?? throw new InvalidOperationException("Registration not found.");
 
-        await _repository.SaveAsync(registration, cancellationToken);
+        await _repository.UpdateStatusAsync(
+            registration.Id,
+            registration.Status,
+            registration.StatusComment,
+            registration.WithdrawComment,
+            cancellationToken);
     }
 
     public async Task<bool> CanEditAsync(

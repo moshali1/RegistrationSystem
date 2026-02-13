@@ -180,6 +180,7 @@ public class EmailTemplateService
 
     /// <summary>
     /// Builds an HTML table of participants with inline CSS for email rendering.
+    /// Division, Category, and Portion are combined into a single "Competition" column.
     /// </summary>
     public static string BuildParticipantsTableHtml(List<ParticipantRow> participants)
     {
@@ -187,13 +188,12 @@ public class EmailTemplateService
         sb.Append("<table style=\"width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; margin: 16px 0;\">");
 
         // Header row
+        var thStyle = "padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;";
         sb.Append("<thead>");
         sb.Append("<tr style=\"background-color: #0e7490;\">");
-        sb.Append("<th style=\"padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">CID</th>");
-        sb.Append("<th style=\"padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">Full Name</th>");
-        sb.Append("<th style=\"padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">Division</th>");
-        sb.Append("<th style=\"padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">Category</th>");
-        sb.Append("<th style=\"padding: 10px 12px; text-align: left; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">Portion</th>");
+        sb.Append($"<th style=\"{thStyle}\">CID</th>");
+        sb.Append($"<th style=\"{thStyle}\">Name</th>");
+        sb.Append($"<th style=\"{thStyle}\">Competition</th>");
         sb.Append("</tr>");
         sb.Append("</thead>");
 
@@ -205,12 +205,15 @@ public class EmailTemplateService
             var bgColor = i % 2 == 0 ? "#ffffff" : "#f8fafc";
             var borderStyle = "border-bottom: 1px solid #e2e8f0;";
 
+            // Combine division · category (portion)
+            var competition = $"{WebUtility.HtmlEncode(p.DivisionName)} &middot; {WebUtility.HtmlEncode(p.CategoryName)}";
+            if (!string.IsNullOrEmpty(p.Portion))
+                competition += $" <span style=\"color: #64748b; font-size: 12px;\">({WebUtility.HtmlEncode(p.Portion)})</span>";
+
             sb.Append($"<tr style=\"background-color: {bgColor};\">");
             sb.Append($"<td style=\"padding: 10px 12px; {borderStyle}\"><code style=\"background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px;\">{WebUtility.HtmlEncode(p.Cid)}</code></td>");
             sb.Append($"<td style=\"padding: 10px 12px; {borderStyle} font-weight: 500;\">{WebUtility.HtmlEncode(p.FullName)}</td>");
-            sb.Append($"<td style=\"padding: 10px 12px; {borderStyle}\">{WebUtility.HtmlEncode(p.DivisionName)}</td>");
-            sb.Append($"<td style=\"padding: 10px 12px; {borderStyle}\">{WebUtility.HtmlEncode(p.CategoryName)}</td>");
-            sb.Append($"<td style=\"padding: 10px 12px; {borderStyle}\">{WebUtility.HtmlEncode(p.Portion ?? "\u2014")}</td>");
+            sb.Append($"<td style=\"padding: 10px 12px; {borderStyle}\">{competition}</td>");
             sb.Append("</tr>");
         }
         sb.Append("</tbody>");
@@ -221,6 +224,7 @@ public class EmailTemplateService
 
     /// <summary>
     /// Builds a plain-text formatted table of participants.
+    /// Division, Category, and Portion are combined into a single "Competition" column.
     /// </summary>
     public static string BuildParticipantsTablePlainText(List<ParticipantRow> participants)
     {
@@ -228,14 +232,16 @@ public class EmailTemplateService
         sb.AppendLine();
 
         // Header
-        sb.AppendLine($"  {"CID",-16} {"Full Name",-28} {"Division",-18} {"Category",-18} {"Portion",-10}");
-        sb.AppendLine($"  {new string('-', 16)} {new string('-', 28)} {new string('-', 18)} {new string('-', 18)} {new string('-', 10)}");
+        sb.AppendLine($"  {"CID",-16} {"Name",-28} {"Competition",-34}");
+        sb.AppendLine($"  {new string('-', 16)} {new string('-', 28)} {new string('-', 34)}");
 
         // Rows
         foreach (var p in participants)
         {
-            var portion = p.Portion ?? "---";
-            sb.AppendLine($"  {p.Cid,-16} {p.FullName,-28} {p.DivisionName,-18} {p.CategoryName,-18} {portion,-10}");
+            var competition = $"{p.DivisionName} / {p.CategoryName}";
+            if (!string.IsNullOrEmpty(p.Portion))
+                competition += $" ({p.Portion})";
+            sb.AppendLine($"  {p.Cid,-16} {p.FullName,-28} {competition,-34}");
         }
 
         sb.AppendLine();

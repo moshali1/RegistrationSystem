@@ -73,7 +73,7 @@
                 {
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Category</span>
-                        <select @bind="selectedCategoryId"
+                        <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
                                 class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
                             <option value="">All Categories</option>
                             @foreach (var category in availableCategories)
@@ -87,7 +87,7 @@
                 <!-- Region Filter -->
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Region</span>
-                    <select @bind="selectedRegion"
+                    <select @bind="selectedRegion" @bind:after="OnFilterChanged"
                             class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
                         <option value="">All Regions</option>
                         <option value="MN">Minnesota</option>
@@ -98,7 +98,7 @@
                 <!-- Gender Filter -->
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Gender</span>
-                    <select @bind="selectedGender"
+                    <select @bind="selectedGender" @bind:after="OnFilterChanged"
                             class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
                         <option value="">All</option>
                         <option value="Male">Male</option>
@@ -109,7 +109,7 @@
                 <!-- Niqab Bypass Filter -->
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Niqab</span>
-                    <select @bind="selectedNiqabFilter"
+                    <select @bind="selectedNiqabFilter" @bind:after="OnFilterChanged"
                             class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
                         <option value="">All</option>
                         <option value="Yes">Bypass Enabled</option>
@@ -119,7 +119,7 @@
 
                 <!-- Search -->
                 <div class="flex-1 min-w-[200px]">
-                    <input type="text" @bind="searchQuery" @bind:event="oninput"
+                    <input type="text" @bind="searchQuery" @bind:event="oninput" @bind:after="OnFilterChanged"
                            placeholder="Search by name or CID..."
                            class="w-full px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                 </div>
@@ -208,7 +208,23 @@
             <div class="mb-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg px-5 py-3 sticky top-2 z-30">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-slate-800">@selectedIds.Count selected</span>
+                        <span class="text-sm font-semibold text-slate-800">
+                            @if (allFilteredSelected)
+                            {
+                                @:All @filteredRegistrations.Count filtered registrations selected
+                            }
+                            else
+                            {
+                                @selectedIds.Count@: selected
+                            }
+                        </span>
+                        @if (!allFilteredSelected && IsAllPageSelected && filteredRegistrations.Count > pagedRegistrations.Count)
+                        {
+                            <button type="button" @onclick="SelectAllFiltered"
+                                    class="text-xs text-cyan-600 hover:text-cyan-700 font-medium cursor-pointer">
+                                Select all @filteredRegistrations.Count filtered registrations
+                            </button>
+                        }
                         <button type="button" @onclick="ClearSelection"
                                 class="text-xs text-slate-500 hover:text-slate-700 underline decoration-slate-300 cursor-pointer">
                             Clear selection
@@ -948,6 +964,7 @@
 
     // Selection state
     private HashSet<string> selectedIds = new();
+    private bool allFilteredSelected;
 
     // Bulk modals
     private bool showBulkVerifyModal;
@@ -977,29 +994,41 @@
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
 
-    // Computed
-    private List<Registration> filteredRegistrations => registrations
-        .Where(r => selectedStatuses.Contains(r.Status))
-        .Where(r => string.IsNullOrEmpty(selectedDivisionId) || r.CompetitionSelection.DivisionId == selectedDivisionId)
-        .Where(r => string.IsNullOrEmpty(selectedCategoryId) || r.CompetitionSelection.CategoryId == selectedCategoryId)
-        .Where(r => MatchesRegion(r))
-        .Where(r => string.IsNullOrEmpty(selectedGender) || r.PersonalInfo.Gender.ToString() == selectedGender)
-        .Where(r => MatchesNiqabFilter(r))
-        .Where(r => MatchesSearch(r))
-        .OrderByDescending(r => r.Id)
-        .ToList();
-
-    private int totalPages => (int)Math.Ceiling((double)filteredRegistrations.Count / pageSize);
-
-    private List<Registration> pagedRegistrations => filteredRegistrations
-        .Skip((currentPage - 1) * pageSize)
-        .Take(pageSize)
-        .ToList();
+    // Materialized filter/page results — rebuilt once via RebuildFilteredData() instead of
+    // recalculating on every property access. With 642+ registrations and ~14 template
+    // references per render, computed getters were re-running the full LINQ chain each time.
+    private List<Registration> filteredRegistrations = new();
+    private List<Registration> pagedRegistrations = new();
+    private int totalPages;
 
     private bool IsAllPageSelected => pagedRegistrations.Count > 0 && pagedRegistrations.All(r => selectedIds.Contains(r.Id));
 
     private bool AllSelectedAreReviewed => selectedIds.Count > 0 &&
         GetSelectedRegistrations().All(r => r.Status == RegistrationStatus.Reviewed);
+
+    private void RebuildFilteredData()
+    {
+        filteredRegistrations = registrations
+            .Where(r => selectedStatuses.Contains(r.Status))
+            .Where(r => string.IsNullOrEmpty(selectedDivisionId) || r.CompetitionSelection.DivisionId == selectedDivisionId)
+            .Where(r => string.IsNullOrEmpty(selectedCategoryId) || r.CompetitionSelection.CategoryId == selectedCategoryId)
+            .Where(r => MatchesRegion(r))
+            .Where(r => string.IsNullOrEmpty(selectedGender) || r.PersonalInfo.Gender.ToString() == selectedGender)
+            .Where(r => MatchesNiqabFilter(r))
+            .Where(r => MatchesSearch(r))
+            .OrderByDescending(r => r.Id)
+            .ToList();
+
+        totalPages = (int)Math.Ceiling((double)filteredRegistrations.Count / pageSize);
+
+        if (currentPage > totalPages && totalPages > 0)
+            currentPage = totalPages;
+
+        pagedRegistrations = filteredRegistrations
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LIFECYCLE
@@ -1043,6 +1072,8 @@
             registrations = allRegistrations.ToList();
             currentPage = 1;
             selectedIds.Clear();
+            allFilteredSelected = false;
+            RebuildFilteredData();
         }
         finally
         {
@@ -1059,14 +1090,25 @@
     {
         if (!selectedIds.Remove(id))
             selectedIds.Add(id);
+        else
+            allFilteredSelected = false; // Unchecking any item exits "select all filtered" mode
     }
 
     private void ToggleSelectAllPage()
     {
         if (IsAllPageSelected)
         {
-            foreach (var reg in pagedRegistrations)
-                selectedIds.Remove(reg.Id);
+            // If "select all filtered" is active, uncheck clears everything (Gmail behavior)
+            if (allFilteredSelected)
+            {
+                selectedIds.Clear();
+                allFilteredSelected = false;
+            }
+            else
+            {
+                foreach (var reg in pagedRegistrations)
+                    selectedIds.Remove(reg.Id);
+            }
         }
         else
         {
@@ -1075,10 +1117,23 @@
         }
     }
 
-    private void ClearSelection() => selectedIds.Clear();
+    private void SelectAllFiltered()
+    {
+        foreach (var reg in filteredRegistrations)
+            selectedIds.Add(reg.Id);
+        allFilteredSelected = true;
+    }
+
+    private void ClearSelection()
+    {
+        selectedIds.Clear();
+        allFilteredSelected = false;
+    }
 
     private List<Registration> GetSelectedRegistrations() =>
-        registrations.Where(r => selectedIds.Contains(r.Id)).ToList();
+        allFilteredSelected
+            ? filteredRegistrations
+            : registrations.Where(r => selectedIds.Contains(r.Id)).ToList();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FILTERS
@@ -1096,12 +1151,19 @@
             selectedStatuses.Add(status);
         }
         currentPage = 1;
+        // Clear selections when filters change — stale selections on hidden items
+        // can lead to accidental bulk actions on registrations the admin forgot about.
+        selectedIds.Clear();
+        allFilteredSelected = false;
+        RebuildFilteredData();
     }
 
     private void OnDivisionChanged()
     {
         selectedCategoryId = string.Empty;
         currentPage = 1;
+        selectedIds.Clear();
+        allFilteredSelected = false;
 
         if (!string.IsNullOrEmpty(selectedDivisionId))
         {
@@ -1112,6 +1174,15 @@
         {
             availableCategories = new();
         }
+        RebuildFilteredData();
+    }
+
+    private void OnFilterChanged()
+    {
+        currentPage = 1;
+        selectedIds.Clear();
+        allFilteredSelected = false;
+        RebuildFilteredData();
     }
 
     private bool MatchesRegion(Registration reg)
@@ -1177,6 +1248,7 @@
         if (pg >= 1 && pg <= totalPages)
         {
             currentPage = pg;
+            RebuildFilteredData();
         }
     }
 
@@ -1275,11 +1347,7 @@
 
             registrations.Remove(deleteTarget);
             selectedIds.Remove(regId);
-
-            if (currentPage > totalPages && totalPages > 0)
-            {
-                currentPage = totalPages;
-            }
+            RebuildFilteredData();
 
             successMessage = $"Registration for {name} ({cid}) deleted successfully.";
             CloseDeleteModal();
@@ -1418,12 +1486,15 @@
         isBulkProcessing = false;
         showBulkVerifyModal = false;
 
+        selectedIds.Clear();
+        allFilteredSelected = false;
+        RebuildFilteredData();
+
         bulkResultMessage = $"✓ {verified} verified";
         if (template != null) bulkResultMessage += $"\n✉ {emailsSent} emails sent to {accountCount} accounts";
         if (failures > 0) bulkResultMessage += $"\n✗ {failures} failed";
 
         showBulkResultsModal = true;
-        selectedIds.Clear();
         StateHasChanged();
     }
 
@@ -1525,6 +1596,7 @@
 
         showBulkResultsModal = true;
         selectedIds.Clear();
+        allFilteredSelected = false;
         StateHasChanged();
     }
 
@@ -1598,15 +1670,15 @@
         isBulkProcessing = false;
         showBulkDeleteModal = false;
 
-        if (currentPage > totalPages && totalPages > 0)
-            currentPage = totalPages;
+        selectedIds.Clear();
+        allFilteredSelected = false;
+        RebuildFilteredData();
 
         bulkResultMessage = $"🗑 {deleted} registrations deleted";
         if (bulkDeleteAuditTrail) bulkResultMessage += " (with audit trails)";
         if (failures > 0) bulkResultMessage += $"\n✗ {failures} failed";
 
         showBulkResultsModal = true;
-        selectedIds.Clear();
         StateHasChanged();
     }
 
