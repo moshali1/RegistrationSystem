@@ -17,7 +17,7 @@
 {
     <div class="flex items-center justify-center py-16">
         <div class="flex flex-col items-center gap-3">
-            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            @Icons.Spinner("h-8 w-8 text-cyan-700 animate-spin")
             <span class="text-sm text-slate-500">Loading registration...</span>
         </div>
     </div>
@@ -504,10 +504,7 @@ else
                     <button type="button"
                             class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
                             @onclick="RotateImage" @onclick:stopPropagation title="Rotate">
-                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z" />
-                            <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466" />
-                        </svg>
+                        @Icons.Refresh("h-5 w-5")
                     </button>
                     <button type="button"
                             class="cursor-pointer p-3 bg-black/60 hover:bg-black/80 rounded-xl text-white transition-all shadow-lg backdrop-blur-sm"
@@ -532,7 +529,7 @@ else
         <div class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
                 <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @onclick="CloseWithdrawModal"></div>
-                <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
+                <div class="relative w-full max-w-md rounded-xl bg-white shadow-2xl">
                     <div class="px-6 py-5 border-b border-slate-200">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow">
@@ -576,7 +573,7 @@ else
                             </div>
                         }
                     </div>
-                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-xl">
                         <button type="button" @onclick="CloseWithdrawModal" disabled="@isWithdrawing"
                                 class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
                             Cancel
@@ -917,36 +914,24 @@ else
         {
             case AuditAction.Created:
             case AuditAction.Submitted:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                @Icons.Plus("h-3.5 w-3.5")
                 break;
             case AuditAction.Updated:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+                @Icons.EditSquare("h-3.5 w-3.5")
                 break;
             case AuditAction.Approved:
             case AuditAction.Verified:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
+                @Icons.Check("h-3.5 w-3.5")
                 break;
             case AuditAction.Rejected:
             case AuditAction.Deleted:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                @Icons.XMark("h-3.5 w-3.5")
                 break;
             case AuditAction.EmailSent:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+                @Icons.Envelope("h-3.5 w-3.5")
                 break;
             default:
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
+                @Icons.ArrowsRightLeft("h-3.5 w-3.5")
                 break;
         }
     };

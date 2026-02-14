@@ -22,22 +22,22 @@
 }
 else
 {
-    <div class="max-w-[1600px] mx-auto">
+    <div class="space-y-6">
         <!-- Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-slate-800">Competition Dashboard</h1>
                 <p class="text-sm text-slate-500 mt-1">@settings?.CompetitionInfo.CompetitionName — @competitionYear</p>
             </div>
             <button type="button" @onclick="RefreshData"
-                    class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm text-slate-600 transition-colors cursor-pointer flex items-center gap-1.5">
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors cursor-pointer">
                 @Icons.Refresh("h-4 w-4")
                 Refresh
             </button>
         </div>
 
         <!-- Top-Level Summary Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow-sm">
@@ -77,7 +77,7 @@ else
         </div>
 
         <!-- Tabs -->
-        <div class="mb-6">
+        <div>
             <div class="flex border-b border-slate-200 gap-1">
                 @foreach (var (tab, index) in tabs.Select((t, i) => (t, i)))
                 {

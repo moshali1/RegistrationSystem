@@ -4,9 +4,7 @@
 <div class="p-6">
     <div class="flex items-center gap-3 mb-6">
         <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg">
-            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            @Icons.CheckCircle("h-5 w-5 text-white")
         </div>
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Review & Submit</h2>
@@ -73,9 +71,7 @@
                         @if (FormState.IdValidated)
                         {
                             <span class="inline-flex items-center gap-1 text-emerald-700">
-                                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
+                                @Icons.Check("h-4 w-4")
                                 Verified
                             </span>
                         }
@@ -89,9 +85,7 @@
                         @if (FormState.PhotoValidated)
                         {
                             <span class="inline-flex items-center gap-1 text-emerald-700">
-                                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
+                                @Icons.Check("h-4 w-4")
                                 Verified
                             </span>
                         }
@@ -104,9 +98,7 @@
                     {
                         <div class="sm:col-span-2">
                             <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
-                                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                </svg>
+                                @Icons.ShieldCheckFilled("h-3.5 w-3.5")
                                 Niqab exception approved
                             </span>
                         </div>
@@ -152,18 +144,14 @@
                             @if (FormState.VideoUploaded && !string.IsNullOrEmpty(FormState.VideoFileName))
                             {
                                 <span class="inline-flex items-center gap-1.5 text-emerald-700">
-                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                    </svg>
+                                    @Icons.Check("h-4 w-4")
                                     Uploaded (@RegistrationFormHelpers.FormatFileSize(FormState.VideoSize))
                                 </span>
                             }
                             else
                             {
                                 <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-100 text-red-700 text-xs font-medium">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
+                                    @Icons.Video("h-3.5 w-3.5")
                                     Required - Not uploaded
                                 </span>
                             }
@@ -264,9 +252,7 @@
             class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm flex items-center gap-2"
             @onclick="OnBack"
             disabled="@IsSubmitting">
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-        </svg>
+        @Icons.ArrowLeft("h-4 w-4")
         Back
     </button>
     <button type="button"
@@ -275,17 +261,12 @@
             disabled="@(IsSubmitting || !FormState.TermsAccepted)">
         @if (IsSubmitting)
         {
-            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
+            @Icons.Spinner("animate-spin h-4 w-4")
             <span>Submitting...</span>
         }
         else
         {
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
+            @Icons.Check("h-4 w-4")
             <span>Submit Registration</span>
         }
     </button>

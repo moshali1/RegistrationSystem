@@ -6,22 +6,27 @@
 
 <PageTitle>Round Messages</PageTitle>
 
-<div class="space-y-4">
+<div class="space-y-6">
     <!-- Page Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-2">
+                <a href="admin/tools" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+                <span>/</span>
+                <span class="text-slate-700 font-medium">Round Messages</span>
+            </div>
             <h1 class="text-2xl font-bold text-slate-800">Round Messages</h1>
             <p class="text-sm text-slate-500 mt-1">Manage custom messages for competitors who advance to each round</p>
         </div>
         @if (hasUnsavedChanges)
         {
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-sm text-amber-600 flex items-center gap-1.5">
                     <span class="flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-amber-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                     </span>
-                    Unsaved changes
+                    <span class="hidden sm:inline">Unsaved changes</span>
                 </span>
                 <button type="button"
                         @onclick="SaveAllAsync"
@@ -29,10 +34,7 @@
                         class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-2 text-sm font-semibold hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2">
                     @if (isSaving)
                     {
-                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
+                        @Icons.Spinner("animate-spin h-4 w-4")
                     }
                     Save All Changes
                 </button>
@@ -44,7 +46,7 @@
     {
         <div class="flex items-center justify-center py-16">
             <div class="flex flex-col items-center gap-3">
-                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+                @Icons.Spinner("h-8 w-8 text-cyan-700 animate-spin")
                 <span class="text-sm text-slate-500">Loading...</span>
             </div>
         </div>
@@ -54,44 +56,34 @@
         <!-- Success/Error Messages -->
         @if (!string.IsNullOrEmpty(successMessage))
         {
-            <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800 flex items-center justify-between">
+            <div class="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.CheckCircle("h-4 w-4")
                     <span>@successMessage</span>
                 </div>
                 <button @onclick="() => successMessage = null" class="text-cyan-600 hover:text-cyan-800">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XMark("h-4 w-4")
                 </button>
             </div>
         }
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between">
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XCircle("h-4 w-4")
                     <span>@errorMessage</span>
                 </div>
                 <button @onclick="() => errorMessage = null" class="text-red-600 hover:text-red-800">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
+                    @Icons.XMark("h-4 w-4")
                 </button>
             </div>
         }
 
         <!-- Info Box -->
-        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             <div class="flex gap-2">
-                <svg class="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                </svg>
+                @Icons.InfoCircleOutline("h-5 w-5 flex-shrink-0")
                 <div>
                     <p class="font-medium mb-1">How Round Instructions Work</p>
                     <ul class="text-xs space-y-0.5 list-disc list-inside">
@@ -112,9 +104,7 @@
                 <!-- Division Header -->
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
-                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
+                        @Icons.Boxes("h-4 w-4 text-white")
                     </div>
                     <h2 class="font-semibold text-slate-900">@division.Name</h2>
                 </div>
@@ -131,10 +121,7 @@
                                 type="button"
                                 class="cursor-pointer w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
                             <div class="flex items-center gap-3">
-                                <svg class="h-4 w-4 text-slate-400 transition-transform @(expandedCategories.Contains(catId) ? "rotate-90" : "")"
-                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                </svg>
+                                @Icons.Chevron($"h-4 w-4 text-slate-400 transition-transform {(expandedCategories.Contains(catId) ? "rotate-90" : "")}")
                                 <div class="text-left">
                                     <span class="font-semibold text-slate-900 text-sm">@category.Name</span>
                                     @if (!string.IsNullOrEmpty(category.AlternateName))
@@ -292,9 +279,7 @@
                 <div class="flex items-center justify-between">
                     <label class="text-sm font-semibold text-slate-700">@label</label>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-50 border border-cyan-200 text-xs font-medium text-cyan-700">
-                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                        @Icons.Users("h-3.5 w-3.5")
                         @applicableCount competitor@(applicableCount == 1 ? "" : "s")
                     </span>
                 </div>

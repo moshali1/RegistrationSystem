@@ -2,7 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage
 
-<div class="space-y-4">
+<div class="space-y-6">
     <!-- Page header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div class="flex items-center gap-3">
@@ -19,14 +19,14 @@
             @if (HasUnsavedChanges)
             {
                 <button type="button"
-                        class="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                        class="cursor-pointer rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-colors"
                         @onclick="async () => await ReloadAsync()"
                         disabled="@isSaving">
                     Discard
                 </button>
             }
             <button type="button"
-                    class="cursor-pointer rounded-md bg-cyan-700 text-white px-4 py-1.5 text-sm font-medium hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm"
+                    class="cursor-pointer rounded-xl bg-cyan-700 text-white px-4 py-1.5 text-sm font-medium hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm"
                     @onclick="SaveAsync"
                     disabled="@(isSaving || !HasUnsavedChanges)">
                 @if (isSaving)
@@ -42,7 +42,7 @@
     {
         <div class="flex items-center justify-center py-16">
             <div class="flex flex-col items-center gap-3">
-                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+                @Icons.Spinner("h-8 w-8 text-cyan-700 animate-spin")
                 <span class="text-sm text-slate-500">Loading settings...</span>
             </div>
         </div>
@@ -431,7 +431,7 @@
                 {
                     <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                         <!-- Division header -->
-                        <div class="px-3 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
+                        <div class="px-3 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="flex-shrink-0 @(division.IsManuallyEnabled ? "text-cyan-600" : "text-slate-400")">
                                     @if (division.IsManuallyEnabled)

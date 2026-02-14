@@ -1,18 +1,35 @@
-﻿@page "/admin/niqab-bypasses"
+@page "/admin/niqab-bypasses"
 @attribute [Authorize(Roles = "Admin")]
 
 @using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Messaging
 @using RegistrationSystem.Core.Application.NiqabBypasses
+@using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
 @using RegistrationSystem.Core.Domain.NiqabBypasses
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Web.Services
 
 @inject NiqabBypassService BypassService
+@inject RegistrationService RegistrationService
 @inject SettingsService SettingsService
+@inject IEmailService EmailService
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
 @inject NavigationManager NavigationManager
 
 <PageTitle>Niqab Bypass Management</PageTitle>
 
 <div class="space-y-6">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-slate-500 mb-2">
+        <a href="admin/tools" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+        <span>/</span>
+        <span class="text-slate-700 font-medium">Niqab Bypass Management</span>
+    </div>
+
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -21,10 +38,8 @@
         </div>
         <button type="button"
                 @onclick="ShowCreateModal"
-                class="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-2 rounded-xl font-medium transition-all">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
+                class="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-2 rounded-xl font-medium transition-all cursor-pointer">
+            @Icons.Plus("h-5 w-5")
             Generate New Code
         </button>
     </div>
@@ -34,10 +49,8 @@
     {
         <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-800 flex items-center justify-between">
             <span>@successMessage</span>
-            <button type="button" @onclick="() => successMessage = null" class="text-emerald-600 hover:text-emerald-800">
-                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" @onclick="() => successMessage = null" class="text-emerald-600 hover:text-emerald-800 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
             </button>
         </div>
     }
@@ -46,20 +59,18 @@
     {
         <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-800 flex items-center justify-between">
             <span>@errorMessage</span>
-            <button type="button" @onclick="() => errorMessage = null" class="text-red-600 hover:text-red-800">
-                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" @onclick="() => errorMessage = null" class="text-red-600 hover:text-red-800 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
             </button>
         </div>
     }
 
-    <!-- Bypasses Table -->
+    <!-- Bypasses List -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         @if (isLoading)
         {
             <div class="p-8 text-center">
-                <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-600 border-t-transparent mx-auto"></div>
+                @Icons.Spinner("h-8 w-8 text-cyan-600 mx-auto")
                 <p class="mt-3 text-sm text-slate-500">Loading bypasses...</p>
             </div>
         }
@@ -67,9 +78,7 @@
         {
             <div class="p-8 text-center">
                 <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                    <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    @Icons.Document("h-8 w-8 text-slate-400")
                 </div>
                 <p class="text-slate-600 font-medium">No bypass codes generated yet</p>
                 <p class="text-sm text-slate-500 mt-1">Click "Generate New Code" to create an exception.</p>
@@ -77,7 +86,8 @@
         }
         else
         {
-            <div class="overflow-x-auto">
+            <!-- Desktop Table -->
+            <div class="hidden md:block overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 border-b border-slate-200">
                         <tr>
@@ -85,6 +95,7 @@
                             <th class="px-4 py-3 text-left font-semibold text-slate-700">Competitor</th>
                             <th class="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
                             <th class="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                            <th class="px-4 py-3 text-left font-semibold text-slate-700">Registration</th>
                             <th class="px-4 py-3 text-left font-semibold text-slate-700">Created</th>
                             <th class="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
                         </tr>
@@ -100,52 +111,97 @@
                                 </td>
                                 <td class="px-4 py-3 font-medium text-slate-900">
                                     @bypass.FirstName @bypass.LastName
+                                    @if (!string.IsNullOrEmpty(bypass.Notes))
+                                    {
+                                        <p class="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]" title="@bypass.Notes">@bypass.Notes</p>
+                                    }
                                 </td>
                                 <td class="px-4 py-3 text-slate-600">
                                     @bypass.DateOfBirth.ToString("MMM d, yyyy")
                                 </td>
                                 <td class="px-4 py-3">
-                                    @if (bypass.IsUsed)
+                                    @if (bypass.IsUsed && registrationChecks.TryGetValue(bypass.Id, out var check) && check.HasRegistration)
                                     {
                                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                            </svg>
-                                            Used
+                                            @Icons.CheckCircle("h-3 w-3")
+                                            Registered
+                                        </span>
+                                    }
+                                    else if (bypass.IsUsed)
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                            @Icons.CheckCircle("h-3 w-3")
+                                            Claimed
                                         </span>
                                     }
                                     else
                                     {
                                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-                                            </svg>
+                                            @Icons.Clock("h-3 w-3")
                                             Pending
                                         </span>
+                                    }
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if (checkingBypassId == bypass.Id)
+                                    {
+                                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                                            @Icons.Spinner("h-3.5 w-3.5")
+                                            <span>Checking...</span>
+                                        </div>
+                                    }
+                                    else if (registrationChecks.TryGetValue(bypass.Id, out var regCheck))
+                                    {
+                                        @if (regCheck.HasRegistration)
+                                        {
+                                            <div>
+                                                <span class="text-xs font-medium text-emerald-700">@regCheck.Cid</span>
+                                                <span class="text-xs text-slate-400 mx-1">·</span>
+                                                <span class="text-xs text-slate-600">@regCheck.Status</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-400">No registration found</span>
+                                        }
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.LocalDateTime.ToString("MMM d, h:mm tt")</p>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-400">—</span>
                                     }
                                 </td>
                                 <td class="px-4 py-3 text-slate-600">
                                     @bypass.CreatedAt.LocalDateTime.ToString("MMM d, yyyy")
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <div class="flex items-center justify-end gap-2">
+                                    <div class="flex items-center justify-end gap-1">
                                         <button type="button"
                                                 @onclick="() => CopyLink(bypass.Code)"
-                                                class="text-slate-400 hover:text-cyan-600 p-1 rounded transition-colors"
+                                                class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer"
                                                 title="Copy link">
-                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            </svg>
+                                            @Icons.Clipboard("h-4 w-4")
+                                        </button>
+                                        <button type="button"
+                                                @onclick="() => CheckRegistration(bypass)"
+                                                disabled="@(checkingBypassId == bypass.Id)"
+                                                class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer disabled:opacity-50"
+                                                title="Check registration">
+                                            @Icons.Search("h-4 w-4")
                                         </button>
                                         @if (!bypass.IsUsed)
                                         {
                                             <button type="button"
+                                                    @onclick="() => ShowEmailModal(bypass)"
+                                                    class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer"
+                                                    title="Send instructions email">
+                                                @Icons.Envelope("h-4 w-4")
+                                            </button>
+                                            <button type="button"
                                                     @onclick="() => DeleteBypass(bypass)"
-                                                    class="text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
+                                                    class="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors cursor-pointer"
                                                     title="Delete">
-                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
+                                                @Icons.Trash("h-4 w-4")
                                             </button>
                                         }
                                     </div>
@@ -154,6 +210,113 @@
                         }
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="md:hidden divide-y divide-slate-100">
+                @foreach (var bypass in bypasses)
+                {
+                    <div class="p-4 space-y-3">
+                        <!-- Card Header -->
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-medium text-slate-900 truncate">@bypass.FirstName @bypass.LastName</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <code class="bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded font-mono text-xs">@bypass.Code</code>
+                                    <span class="text-xs text-slate-400">@bypass.DateOfBirth.ToString("MMM d, yyyy")</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                @if (bypass.IsUsed && registrationChecks.TryGetValue(bypass.Id, out var mCheck) && mCheck.HasRegistration)
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                        @Icons.CheckCircle("h-3 w-3")
+                                        Registered
+                                    </span>
+                                }
+                                else if (bypass.IsUsed)
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                        @Icons.CheckCircle("h-3 w-3")
+                                        Claimed
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                        @Icons.Clock("h-3 w-3")
+                                        Pending
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Registration Check Result -->
+                        @if (checkingBypassId == bypass.Id)
+                        {
+                            <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Checking registration...</span>
+                            </div>
+                        }
+                        else if (registrationChecks.TryGetValue(bypass.Id, out var regCheck))
+                        {
+                            <div class="bg-slate-50 rounded-lg px-3 py-2">
+                                @if (regCheck.HasRegistration)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        @Icons.CheckCircle("h-3.5 w-3.5 text-emerald-500")
+                                        <span class="text-xs font-medium text-emerald-700">@regCheck.Cid</span>
+                                        <span class="text-xs text-slate-400">·</span>
+                                        <span class="text-xs text-slate-600">@regCheck.Status</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-slate-400">No registration found</span>
+                                }
+                                <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.LocalDateTime.ToString("MMM d, h:mm tt")</p>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(bypass.Notes))
+                        {
+                            <p class="text-xs text-slate-400 truncate" title="@bypass.Notes">@bypass.Notes</p>
+                        }
+
+                        <!-- Card Footer / Actions -->
+                        <div class="flex items-center gap-1 pt-1 border-t border-slate-100">
+                            <button type="button"
+                                    @onclick="() => CopyLink(bypass.Code)"
+                                    class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer">
+                                @Icons.Clipboard("h-3.5 w-3.5")
+                                Copy
+                            </button>
+                            <button type="button"
+                                    @onclick="() => CheckRegistration(bypass)"
+                                    disabled="@(checkingBypassId == bypass.Id)"
+                                    class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer disabled:opacity-50">
+                                @Icons.Search("h-3.5 w-3.5")
+                                Check
+                            </button>
+                            @if (!bypass.IsUsed)
+                            {
+                                <button type="button"
+                                        @onclick="() => ShowEmailModal(bypass)"
+                                        class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer">
+                                    @Icons.Envelope("h-3.5 w-3.5")
+                                    Email
+                                </button>
+                                <button type="button"
+                                        @onclick="() => DeleteBypass(bypass)"
+                                        class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 px-2 py-1.5 rounded transition-colors cursor-pointer ml-auto">
+                                    @Icons.Trash("h-3.5 w-3.5")
+                                    Delete
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -209,16 +372,16 @@
             <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
                 <button type="button"
                         @onclick="CloseCreateModal"
-                        class="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium transition-colors">
+                        class="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium transition-colors cursor-pointer">
                     Cancel
                 </button>
                 <button type="button"
                         @onclick="CreateBypass"
                         disabled="@isCreating"
-                        class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2">
+                        class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2 cursor-pointer">
                     @if (isCreating)
                     {
-                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        @Icons.Spinner("h-4 w-4")
                     }
                     Generate Code
                 </button>
@@ -236,9 +399,7 @@
         <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full text-center">
             <div class="p-8">
                 <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                    <svg class="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
+                    @Icons.CheckCircle("h-8 w-8 text-emerald-600")
                 </div>
 
                 <h2 class="text-xl font-semibold text-slate-800 mb-2">Code Generated!</h2>
@@ -257,15 +418,91 @@
                 <div class="flex gap-3">
                     <button type="button"
                             @onclick="() => CopyLink(createdBypass.Code)"
-                            class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-xl font-medium transition-colors">
+                            class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-xl font-medium transition-colors cursor-pointer">
                         Copy Link
                     </button>
                     <button type="button"
                             @onclick="CloseCodeModal"
-                            class="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl font-medium transition-colors">
+                            class="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl font-medium transition-colors cursor-pointer">
                         Done
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Send Email Modal -->
+@if (showEmailModal && emailBypass != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/50" @onclick="CloseEmailModal"></div>
+
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-800">Send Instructions Email</h2>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <!-- Bypass info summary -->
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                            @Icons.Document("h-4 w-4 text-violet-600")
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-slate-800">@emailBypass.FirstName @emailBypass.LastName</p>
+                            <p class="text-xs text-slate-500">Code: <code class="font-mono text-violet-700">@emailBypass.Code</code></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Recipient Email</label>
+                    <input type="email" @bind="emailRecipient" @bind:event="oninput"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                           placeholder="Enter email address..." />
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-500">
+                    <p class="font-medium text-slate-600 mb-1">Email will include:</p>
+                    <ul class="space-y-0.5 ml-3 list-disc">
+                        <li>Niqab exception approval notification</li>
+                        <li>Bypass link: <code class="text-violet-600 font-mono">@GetBypassUrl(emailBypass.Code)</code></li>
+                        <li>Step-by-step registration instructions</li>
+                        <li>In-person verification requirement</li>
+                    </ul>
+                </div>
+
+                @if (!string.IsNullOrEmpty(emailError))
+                {
+                    <div class="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-sm text-red-700">
+                        @emailError
+                    </div>
+                }
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button"
+                        @onclick="CloseEmailModal"
+                        class="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium transition-colors cursor-pointer">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="SendInstructionsEmail"
+                        disabled="@(isSendingEmail || string.IsNullOrWhiteSpace(emailRecipient))"
+                        class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2 cursor-pointer">
+                    @if (isSendingEmail)
+                    {
+                        @Icons.Spinner("h-4 w-4")
+                        <span>Sending...</span>
+                    }
+                    else
+                    {
+                        @Icons.Envelope("h-4 w-4")
+                        <span>Send Email</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
@@ -289,6 +526,17 @@
     // Code display modal
     private bool showCodeModal = false;
     private NiqabBypass? createdBypass;
+
+    // Registration check
+    private Dictionary<string, (bool HasRegistration, string? Status, string? Cid, DateTimeOffset? CheckedAt)> registrationChecks = new();
+    private string? checkingBypassId;
+
+    // Send email modal
+    private bool showEmailModal = false;
+    private NiqabBypass? emailBypass;
+    private string emailRecipient = string.Empty;
+    private bool isSendingEmail = false;
+    private string? emailError;
 
     private int competitionYear;
 
@@ -316,6 +564,10 @@
             isLoading = false;
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CREATE BYPASS
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     private void ShowCreateModal()
     {
@@ -374,6 +626,13 @@
             showCreateModal = false;
             showCodeModal = true;
 
+            // Audit log creation
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogNiqabBypassCreatedAsync(
+                createdBypass.Id,
+                $"{createdBypass.FirstName} {createdBypass.LastName}",
+                createdBypass.Code);
+
             await LoadBypasses();
         }
         catch (InvalidOperationException ex)
@@ -390,11 +649,23 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // DELETE BYPASS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     private async Task DeleteBypass(NiqabBypass bypass)
     {
         try
         {
             await BypassService.DeleteBypassAsync(bypass.Id);
+
+            // Audit log deletion
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogNiqabBypassDeletedAsync(
+                bypass.Id,
+                $"{bypass.FirstName} {bypass.LastName}",
+                bypass.Code);
+
             successMessage = $"Bypass code for {bypass.FirstName} {bypass.LastName} deleted.";
             await LoadBypasses();
         }
@@ -403,6 +674,169 @@
             errorMessage = $"Failed to delete: {ex.Message}";
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CHECK REGISTRATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private async Task CheckRegistration(NiqabBypass bypass)
+    {
+        checkingBypassId = bypass.Id;
+        StateHasChanged();
+
+        try
+        {
+            var matches = await RegistrationService.FindDuplicatesAsync(
+                bypass.FirstName,
+                bypass.LastName,
+                bypass.DateOfBirth,
+                competitionYear);
+
+            if (matches.Count > 0)
+            {
+                var reg = matches[0]; // Take the first match
+                registrationChecks[bypass.Id] = (true, reg.Status.ToString(), reg.Cid, DateTimeOffset.Now);
+            }
+            else
+            {
+                registrationChecks[bypass.Id] = (false, null, null, DateTimeOffset.Now);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to check registration: {ex.Message}";
+        }
+        finally
+        {
+            checkingBypassId = null;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // SEND EMAIL
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private void ShowEmailModal(NiqabBypass bypass)
+    {
+        emailBypass = bypass;
+        emailRecipient = string.Empty;
+        emailError = null;
+        showEmailModal = true;
+    }
+
+    private void CloseEmailModal()
+    {
+        showEmailModal = false;
+        emailBypass = null;
+    }
+
+    private async Task SendInstructionsEmail()
+    {
+        if (emailBypass == null || string.IsNullOrWhiteSpace(emailRecipient)) return;
+
+        emailError = null;
+        isSendingEmail = true;
+        StateHasChanged();
+
+        try
+        {
+            var bypassUrl = GetBypassUrl(emailBypass.Code);
+            var competitorName = $"{emailBypass.FirstName} {emailBypass.LastName}";
+
+            var subject = "Niqab Exception — Registration Instructions";
+
+            var plainText = $@"Assalamu Alaikum {competitorName},
+
+You have been approved for a niqab exception for the {competitionYear} competition. This means face detection verification will be bypassed during your registration process.
+
+To activate your exception, please follow these steps:
+
+1. Visit the following link: {bypassUrl}
+2. Enter your name and date of birth to verify your identity
+3. Once verified, proceed to register for the competition
+4. Upload your ID document and photo as usual — face detection will be skipped
+
+Important: In-person verification will be required on competition day. A female volunteer will verify your identity in a private setting. Please bring your government-issued ID document.
+
+If you have any questions, please contact the competition organizers.
+
+JazakAllahu Khairan";
+
+            var html = $@"<div style=""font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
+    <div style=""background: linear-gradient(135deg, #7c3aed, #6d28d9); border-radius: 12px; padding: 32px; text-align: center; margin-bottom: 24px;"">
+        <h1 style=""color: white; margin: 0; font-size: 24px;"">Niqab Exception Approved</h1>
+    </div>
+
+    <p style=""color: #334155; font-size: 15px; line-height: 1.6;"">Assalamu Alaikum <strong>{System.Net.WebUtility.HtmlEncode(competitorName)}</strong>,</p>
+
+    <p style=""color: #334155; font-size: 15px; line-height: 1.6;"">You have been approved for a niqab exception for the <strong>{competitionYear}</strong> competition. Face detection verification will be bypassed during your registration.</p>
+
+    <div style=""background: #f8fafc; border-radius: 12px; padding: 24px; margin: 24px 0;"">
+        <h3 style=""color: #1e293b; margin: 0 0 16px 0; font-size: 16px;"">Follow these steps:</h3>
+        <ol style=""color: #475569; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;"">
+            <li>Click the button below to activate your exception</li>
+            <li>Enter your name and date of birth to verify your identity</li>
+            <li>Once verified, proceed to register for the competition</li>
+            <li>Upload your ID and photo as usual — face detection will be skipped</li>
+        </ol>
+    </div>
+
+    <div style=""text-align: center; margin: 32px 0;"">
+        <a href=""{bypassUrl}"" style=""background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; display: inline-block;"">Activate Exception</a>
+    </div>
+
+    <div style=""background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 20px; margin: 24px 0;"">
+        <p style=""color: #92400e; font-size: 14px; margin: 0; line-height: 1.6;"">
+            <strong>In-Person Verification Required:</strong> A female volunteer will verify your identity in a private setting on competition day. Please bring your government-issued ID document.
+        </p>
+    </div>
+
+    <p style=""color: #64748b; font-size: 13px; margin-top: 32px;"">If you have any questions, please contact the competition organizers.</p>
+    <p style=""color: #334155; font-size: 15px;"">JazakAllahu Khairan</p>
+</div>";
+
+            var sent = await EmailService.SendEmailAsync(
+                emailRecipient.Trim(),
+                competitorName,
+                subject,
+                plainText,
+                html);
+
+            if (sent)
+            {
+                // Audit log email sent
+                await AuditContextProvider.SetCurrentUserContextAsync();
+                await AuditService.LogAsync(
+                    AuditAction.EmailSent,
+                    "NiqabBypass",
+                    emailBypass.Id,
+                    summary: $"Instructions email sent to {emailRecipient.Trim()}",
+                    entityDescription: competitorName);
+
+                showEmailModal = false;
+                emailBypass = null;
+                successMessage = $"Instructions email sent to {emailRecipient.Trim()}.";
+            }
+            else
+            {
+                emailError = "Failed to send email. Please check the email address and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            emailError = $"Failed to send email: {ex.Message}";
+        }
+        finally
+        {
+            isSendingEmail = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     private string GetBypassUrl(string code)
     {

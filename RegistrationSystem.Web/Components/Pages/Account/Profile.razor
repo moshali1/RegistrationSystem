@@ -6,7 +6,7 @@
 
 <PageTitle>Profile</PageTitle>
 
-<div class="space-y-4">
+<div class="space-y-6">
     <!-- Page header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
@@ -218,48 +218,32 @@
 </div>
 
 @* Logout Warning Modal *@
-@if (showLogoutWarning)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto">
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @onclick="CancelLogoutWarning"></div>
-
-        <!-- Modal -->
-        <div class="flex min-h-full items-center justify-center p-4">
-            <div class="relative w-full max-w-md rounded-xl bg-white shadow-2xl">
-                <!-- Header -->
-                <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
-                    <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                        @Icons.Warning("h-5 w-5 text-amber-600")
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-slate-800">Display Name Change</h3>
-                        <p class="text-sm text-slate-500">This requires re-authentication</p>
-                    </div>
-                </div>
-
-                <!-- Body -->
-                <div class="px-5 py-4">
-                    <p class="text-sm text-slate-600">
-                        Changing your display name will update it in Azure. To see the changes reflected in the app,
-                        you will need to <span class="font-semibold text-slate-800">sign out and sign back in</span>.
-                    </p>
-                </div>
-
-                <!-- Footer -->
-                <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-                    <button type="button"
-                            class="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                            @onclick="CancelLogoutWarning">
-                        Cancel
-                    </button>
-                    <button type="button"
-                            class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-2 text-sm font-semibold transition-all shadow-sm"
-                            @onclick="ConfirmSaveWithLogout">
-                        Continue & Save
-                    </button>
-                </div>
-            </div>
+<Modal Visible="showLogoutWarning"
+       Title="Display Name Change"
+       IconBgClass="bg-amber-100"
+       OnBackdropClick="CancelLogoutWarning">
+    <Icon>
+        @Icons.Warning("h-5 w-5 text-amber-600")
+    </Icon>
+    <ChildContent>
+        <p class="text-sm text-slate-500 -mt-1 mb-2">This requires re-authentication</p>
+        <p class="text-sm text-slate-600">
+            Changing your display name will update it in Azure. To see the changes reflected in the app,
+            you will need to <span class="font-semibold text-slate-800">sign out and sign back in</span>.
+        </p>
+    </ChildContent>
+    <Footer>
+        <div class="flex items-center justify-end gap-2">
+            <button type="button"
+                    class="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                    @onclick="CancelLogoutWarning">
+                Cancel
+            </button>
+            <button type="button"
+                    class="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-2 text-sm font-semibold transition-all shadow-sm"
+                    @onclick="ConfirmSaveWithLogout">
+                Continue & Save
+            </button>
         </div>
-    </div>
-}
+    </Footer>
+</Modal>

@@ -18,7 +18,7 @@
 {
     <div class="flex items-center justify-center py-16">
         <div class="flex flex-col items-center gap-3">
-            <div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-700 border-t-transparent"></div>
+            @Icons.Spinner("h-8 w-8 text-cyan-700 animate-spin")
             <span class="text-sm text-slate-500">Loading registration...</span>
         </div>
     </div>
@@ -28,9 +28,7 @@ else if (registration == null || !canEdit)
     <div class="max-w-lg mx-auto">
         <div class="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <div class="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <svg class="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                @Icons.Lock("h-7 w-7 text-slate-400")
             </div>
             <h2 class="text-lg font-semibold text-slate-800 mb-2">Cannot Edit Registration</h2>
             <p class="text-sm text-slate-600 mb-6">
@@ -45,9 +43,7 @@ else if (registration == null || !canEdit)
             </p>
             <a href="@(isAdmin ? "/admin/registrations" : "/registrations")"
                class="inline-flex items-center gap-2 rounded-xl bg-slate-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-slate-700 transition-all">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                </svg>
+                @Icons.ArrowLeft("h-4 w-4")
                 Back to Registrations
             </a>
         </div>
@@ -77,9 +73,7 @@ else
             <div class="mb-4 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-white px-4 py-3 shadow-sm">
                 <div class="flex items-start gap-3">
                     <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <svg class="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.XCircle("h-4 w-4 text-red-600")
                     </div>
                     <div class="text-sm">
                         <p class="font-medium text-red-800">Please fix the following:</p>
@@ -142,14 +136,12 @@ else
                         class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:opacity-50 text-white text-sm font-semibold transition-all shadow-lg active:scale-[0.98] flex items-center gap-2">
                     @if (isSaving)
                     {
-                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        @Icons.Spinner("animate-spin h-4 w-4")
                         <span>Saving...</span>
                     }
                     else
                     {
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                        @Icons.Check("h-4 w-4")
                         <span>Save Changes</span>
                     }
                 </button>
@@ -302,9 +294,7 @@ else
             {
                 <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
                     <div class="flex items-start gap-2">
-                        <svg class="h-5 w-5 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.Warning("h-5 w-5 text-amber-500 mt-0.5")
                         <div class="text-sm">
                             <p class="font-medium text-amber-800">Division Changed</p>
                             <p class="text-amber-700 mt-0.5">A new Competitor ID (CID) will be generated when you save.</p>
@@ -380,9 +370,7 @@ else
                 var hasVideo = registration!.FileUploadInfo.Video != null || newVideoUploaded;
                 <div class="rounded-lg border @(hasVideo ? "border-cyan-200 bg-cyan-50" : "border-red-200 bg-red-50") px-4 py-3">
                     <div class="flex items-start gap-2">
-                        <svg class="h-5 w-5 @(hasVideo ? "text-cyan-500" : "text-red-500") mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        @Icons.Video("h-5 w-5 " + (hasVideo ? "text-cyan-500" : "text-red-500") + " mt-0.5")
                         <div class="text-sm">
                             <p class="font-medium @(hasVideo ? "text-cyan-800" : "text-red-800")">Video Required</p>
                             <p class="@(hasVideo ? "text-cyan-700" : "text-red-700") mt-0.5">
@@ -483,9 +471,7 @@ else
             {
                 <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                     <div class="flex items-start gap-2">
-                        <svg class="h-5 w-5 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.Warning("h-5 w-5 text-red-500 mt-0.5")
                         <div class="text-sm">
                             <p class="font-medium text-red-800">Video Required</p>
                             <p class="text-red-700 mt-0.5">
@@ -501,9 +487,7 @@ else
             {
                 <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                     <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
+                        @Icons.Shield("h-5 w-5 text-slate-500")
                         <span class="text-sm font-medium text-slate-700">Niqab Exception Approved</span>
                     </div>
                 </div>
@@ -527,18 +511,14 @@ else
                 @if (!string.IsNullOrEmpty(idValidationError))
                 {
                     <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.XCircle("h-4 w-4")
                         @idValidationError
                     </div>
                 }
                 @if (!string.IsNullOrEmpty(idValidationSuccess))
                 {
                     <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.CheckCircle("h-4 w-4")
                         @idValidationSuccess
                     </div>
                 }
@@ -552,7 +532,7 @@ else
                                 @if (isValidatingId)
                                 {
                                     <span class="flex items-center justify-center gap-2">
-                                        <span class="animate-spin rounded-full h-4 w-4 border-2 border-cyan-600 border-t-transparent"></span>
+                                        @Icons.Spinner("animate-spin h-4 w-4 text-cyan-600")
                                         Validating...
                                     </span>
                                 }
@@ -570,9 +550,7 @@ else
                     @if (newIdFileName != null)
                     {
                         <button type="button" @onclick="ClearNewIdFile" class="text-slate-400 hover:text-red-500">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            @Icons.XMark("h-5 w-5")
                         </button>
                     }
                 </div>
@@ -597,18 +575,14 @@ else
                 @if (!string.IsNullOrEmpty(photoValidationError))
                 {
                     <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.XCircle("h-4 w-4")
                         @photoValidationError
                     </div>
                 }
                 @if (!string.IsNullOrEmpty(photoValidationSuccess))
                 {
                     <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
+                        @Icons.CheckCircle("h-4 w-4")
                         @photoValidationSuccess
                     </div>
                 }
@@ -622,7 +596,7 @@ else
                                 @if (isValidatingPhoto)
                                 {
                                     <span class="flex items-center justify-center gap-2">
-                                        <span class="animate-spin rounded-full h-4 w-4 border-2 border-cyan-600 border-t-transparent"></span>
+                                        @Icons.Spinner("animate-spin h-4 w-4 text-cyan-600")
                                         Validating...
                                     </span>
                                 }
@@ -640,9 +614,7 @@ else
                     @if (newPhotoFileName != null)
                     {
                         <button type="button" @onclick="ClearNewPhotoFile" class="text-slate-400 hover:text-red-500">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            @Icons.XMark("h-5 w-5")
                         </button>
                     }
                 </div>
@@ -668,18 +640,14 @@ else
                     @if (!string.IsNullOrEmpty(videoValidationError))
                     {
                         <div class="mb-2 text-sm text-red-600 flex items-center gap-1">
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                            </svg>
+                            @Icons.XCircle("h-4 w-4")
                             @videoValidationError
                         </div>
                     }
                     @if (!string.IsNullOrEmpty(videoUploadSuccess))
                     {
                         <div class="mb-2 text-sm text-cyan-600 flex items-center gap-1">
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
+                            @Icons.CheckCircle("h-4 w-4")
                             @videoUploadSuccess
                         </div>
                     }
@@ -721,9 +689,7 @@ else
                             @if (newVideoFileName != null)
                             {
                                 <button type="button" @onclick="ClearNewVideoFile" class="text-slate-400 hover:text-red-500">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
+                                    @Icons.XMark("h-5 w-5")
                                 </button>
                             }
                         </div>

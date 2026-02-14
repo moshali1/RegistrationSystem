@@ -19,16 +19,12 @@
                 class="cursor-pointer mt-2 text-sm text-cyan-700 hover:text-cyan-800 font-medium flex items-center gap-1">
             @if (isExpanded)
             {
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                </svg>
+                @Icons.ChevronUp("h-4 w-4")
                 <span>Show less</span>
             }
             else
             {
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                @Icons.ChevronDown("h-4 w-4")
                 <span>Read more</span>
             }
         </button>

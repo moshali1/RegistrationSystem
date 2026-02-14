@@ -23,16 +23,21 @@
             var role = context.User.FindFirst(ClaimTypes.Role)?.Value;
         }
 
-        <div class="space-y-4">
+        <div class="space-y-6">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <a href="admin/tools" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+                <span>/</span>
+                <span class="text-slate-700 font-medium">Claims Debug</span>
+            </div>
+
             <!-- Header Card -->
             <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-sm overflow-hidden">
                 <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-5 py-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center shadow-lg">
-                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                </svg>
+                                @Icons.Key("h-6 w-6 text-white")
                             </div>
                             <div>
                                 <h1 class="text-lg font-semibold text-white">JWT Claims Inspector</h1>
@@ -63,18 +68,14 @@
                                 @if (!string.IsNullOrEmpty(role))
                                 {
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-xs font-medium border border-violet-200">
-                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                                        </svg>
+                                        @Icons.User("h-3 w-3")
                                         @role
                                     </span>
                                 }
                                 @if (!string.IsNullOrEmpty(userType))
                                 {
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-medium border border-amber-200">
-                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                                        </svg>
+                                        @Icons.Users("h-3 w-3")
                                         @userType
                                     </span>
                                 }
@@ -138,7 +139,7 @@
 
             <!-- All Claims List -->
             <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
+                <div class="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-slate-700">All Claims</h2>
                     <span class="text-xs text-slate-400">@claims.Count total</span>
                 </div>

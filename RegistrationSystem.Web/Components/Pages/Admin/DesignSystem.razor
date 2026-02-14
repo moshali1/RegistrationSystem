@@ -1,0 +1,928 @@
+@page "/admin/design-system"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using RegistrationSystem.Core.Domain.Registrations
+
+<PageTitle>Design System</PageTitle>
+
+<div class="space-y-8">
+    <!-- Header + Breadcrumb -->
+    <div>
+        <div class="flex items-center gap-2 text-sm text-slate-500 mb-2">
+            <a href="admin/tools" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+            <span>/</span>
+            <span class="text-slate-700 font-medium">Design System</span>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-800">Design System</h1>
+        <p class="text-sm text-slate-500 mt-1">Living style guide — colors, badges, buttons, icons, and patterns used across the portal</p>
+    </div>
+
+    <!-- Quick Nav -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div class="flex flex-wrap gap-2">
+            @foreach (var s in sections)
+            {
+                <a href="#@s.Id"
+                   class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 transition-colors">
+                    @s.Label
+                </a>
+            }
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Brand Colors                                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="colors">
+        <SectionHeader Title="Brand Colors" Subtitle="Core palette defined in input.css @@theme block" />
+
+        <!-- Primary -->
+        <div class="mt-4 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-700">Primary (Cyan)</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                <ColorSwatch Color="bg-cyan-50" Label="cyan-50" Hex="#ecfeff" />
+                <ColorSwatch Color="bg-cyan-100" Label="cyan-100" Hex="#cffafe" />
+                <ColorSwatch Color="bg-cyan-200" Label="cyan-200" Hex="#a5f3fc" />
+                <ColorSwatch Color="bg-cyan-300" Label="cyan-300" Hex="#67e8f9" />
+                <ColorSwatch Color="bg-cyan-400" Label="cyan-400" Hex="#22d3ee" />
+                <ColorSwatch Color="bg-cyan-500" Label="cyan-500" Hex="#06b6d4" />
+                <ColorSwatch Color="bg-cyan-600" Label="cyan-600" Hex="#0891b2" TextLight="true" />
+                <ColorSwatch Color="bg-cyan-700" Label="cyan-700" Hex="#0e7490" TextLight="true" />
+                <ColorSwatch Color="bg-cyan-800" Label="cyan-800" Hex="#155e75" TextLight="true" />
+                <ColorSwatch Color="bg-cyan-900" Label="cyan-900" Hex="#164e63" TextLight="true" />
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                <span class="font-medium text-slate-800">Usage:</span>
+                Primary buttons, links, active nav, table headers, focus rings. Brand primary is <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">cyan-800 (#155e75)</code>.
+            </div>
+        </div>
+
+        <!-- Semantic Status Colors -->
+        <div class="mt-6 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-700">Semantic Status Colors</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                <ColorSwatch Color="bg-emerald-600" Label="Success" Hex="#059669" TextLight="true" />
+                <ColorSwatch Color="bg-amber-500" Label="Warning" Hex="#f59e0b" TextLight="true" />
+                <ColorSwatch Color="bg-red-600" Label="Error" Hex="#dc2626" TextLight="true" />
+                <ColorSwatch Color="bg-cyan-600" Label="Info" Hex="#0891b2" TextLight="true" />
+                <ColorSwatch Color="bg-violet-600" Label="Accent" Hex="#7c3aed" TextLight="true" />
+                <ColorSwatch Color="bg-slate-600" Label="Neutral" Hex="#475569" TextLight="true" />
+            </div>
+        </div>
+
+        <!-- Brand Custom -->
+        <div class="mt-6 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-700">Custom Brand Tokens</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <ColorSwatch Color="bg-brand-primary" Label="brand-primary" Hex="#155e75" TextLight="true" />
+                <ColorSwatch Color="bg-brand-primary-dark" Label="brand-primary-dark" Hex="#164e63" TextLight="true" />
+                <ColorSwatch Color="bg-brand-accent" Label="brand-accent" Hex="#fbbf24" />
+                <ColorSwatch Color="bg-brand-surface" Label="brand-surface" Hex="#f1f5f9" />
+                <ColorSwatch Color="bg-brand-surface-dark" Label="brand-surface-dark" Hex="#334155" TextLight="true" />
+                <ColorSwatch Color="bg-brand-nav-hover" Label="brand-nav-hover" Hex="#277E8D" TextLight="true" />
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Status Badges                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="badges">
+        <SectionHeader Title="Status Badges" Subtitle="Registration status badges used in tables and cards" />
+
+        <!-- Registration Status Badges -->
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <h3 class="text-sm font-semibold text-slate-700">Registration Status — Default Size</h3>
+            <div class="flex flex-wrap gap-3">
+                <StatusBadge Status="RegistrationStatus.AwaitingReview" />
+                <StatusBadge Status="RegistrationStatus.Pending" />
+                <StatusBadge Status="RegistrationStatus.Reviewed" />
+                <StatusBadge Status="RegistrationStatus.Verified" />
+                <StatusBadge Status="RegistrationStatus.Withdrawn" />
+                <StatusBadge Status="RegistrationStatus.Disqualified" />
+            </div>
+
+            <h3 class="text-sm font-semibold text-slate-700 pt-2">Registration Status — Large Size</h3>
+            <div class="flex flex-wrap gap-3">
+                <StatusBadge Status="RegistrationStatus.AwaitingReview" Size="StatusBadge.StatusBadgeSize.Large" />
+                <StatusBadge Status="RegistrationStatus.Pending" Size="StatusBadge.StatusBadgeSize.Large" />
+                <StatusBadge Status="RegistrationStatus.Reviewed" Size="StatusBadge.StatusBadgeSize.Large" />
+                <StatusBadge Status="RegistrationStatus.Verified" Size="StatusBadge.StatusBadgeSize.Large" />
+                <StatusBadge Status="RegistrationStatus.Withdrawn" Size="StatusBadge.StatusBadgeSize.Large" />
+                <StatusBadge Status="RegistrationStatus.Disqualified" Size="StatusBadge.StatusBadgeSize.Large" />
+            </div>
+
+            <h3 class="text-sm font-semibold text-slate-700 pt-2">Registration Status — Mini Size</h3>
+            <div class="flex flex-wrap gap-3">
+                <StatusBadge Status="RegistrationStatus.AwaitingReview" Size="StatusBadge.StatusBadgeSize.Mini" />
+                <StatusBadge Status="RegistrationStatus.Pending" Size="StatusBadge.StatusBadgeSize.Mini" />
+                <StatusBadge Status="RegistrationStatus.Reviewed" Size="StatusBadge.StatusBadgeSize.Mini" />
+                <StatusBadge Status="RegistrationStatus.Verified" Size="StatusBadge.StatusBadgeSize.Mini" />
+                <StatusBadge Status="RegistrationStatus.Withdrawn" Size="StatusBadge.StatusBadgeSize.Mini" />
+                <StatusBadge Status="RegistrationStatus.Disqualified" Size="StatusBadge.StatusBadgeSize.Mini" />
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600 mt-4">
+                <span class="font-medium text-slate-800">Color mapping:</span>
+                Awaiting Review → <code class="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-xs">emerald-600</code>,
+                Pending → <code class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs">amber-500</code>,
+                Reviewed → <code class="bg-cyan-100 text-cyan-800 px-1.5 py-0.5 rounded text-xs">cyan-600</code>,
+                Verified → <code class="bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded text-xs">violet-600</code>,
+                Withdrawn → <code class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs">amber-700</code>,
+                Disqualified → <code class="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs">gray-600</code>
+            </div>
+        </div>
+
+        <!-- Inline Badges -->
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <h3 class="text-sm font-semibold text-slate-700">Inline / Soft Badges</h3>
+            <p class="text-sm text-slate-500">Used in tables and cards for non-status labels (e.g., niqab bypass states, tags).</p>
+            <div class="flex flex-wrap gap-3">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Registered</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Claimed</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pending</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Expired</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">Override</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">Default</span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-700">Info</span>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                <span class="font-medium text-slate-800">Pattern:</span>
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">bg-{color}-100 text-{color}-700</code> for soft badges on white backgrounds.
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Buttons                                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="buttons">
+        <SectionHeader Title="Buttons" Subtitle="Button variants used across the portal" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <!-- Primary Buttons -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Primary (Gradient)</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-cyan-700 hover:to-cyan-800 transition-all duration-200">
+                        @Icons.Plus("w-4 h-4")
+                        Create New
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-emerald-700 hover:to-emerald-800 transition-all duration-200">
+                        @Icons.CheckCircle("w-4 h-4")
+                        Approve
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-violet-700 hover:to-violet-800 transition-all duration-200">
+                        @Icons.BadgeCheckFilled("w-4 h-4")
+                        Verify
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-red-700 hover:to-red-800 transition-all duration-200">
+                        @Icons.Trash("w-4 h-4")
+                        Delete
+                    </button>
+                </div>
+                <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                    <span class="font-medium text-slate-800">Pattern:</span>
+                    <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">bg-gradient-to-r from-{color}-600 to-{color}-700</code> with rounded-xl and shadow-sm.
+                </div>
+            </div>
+
+            <!-- Secondary / Outline Buttons -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Secondary / Outline</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
+                        @Icons.XMark("w-4 h-4")
+                        Cancel
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-cyan-300 text-cyan-700 text-sm font-medium rounded-xl hover:bg-cyan-50 transition-colors">
+                        @Icons.Eye("w-4 h-4")
+                        View Details
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-red-300 text-red-700 text-sm font-medium rounded-xl hover:bg-red-50 transition-colors">
+                        @Icons.Warning("w-4 h-4")
+                        Reject
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ghost / Minimal Buttons -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Ghost / Minimal</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-cyan-700 hover:bg-cyan-50 rounded-lg transition-colors">
+                        @Icons.Edit("w-4 h-4")
+                        Edit
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        @Icons.Trash("w-4 h-4")
+                        Delete
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                        @Icons.Refresh("w-4 h-4")
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Icon-Only Buttons -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Icon-Only (Table Actions)</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors" title="View">
+                        @Icons.Eye("w-4 h-4")
+                    </button>
+                    <button type="button" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
+                        @Icons.Edit("w-4 h-4")
+                    </button>
+                    <button type="button" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        @Icons.Trash("w-4 h-4")
+                    </button>
+                    <button type="button" class="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Download">
+                        @Icons.Download("w-4 h-4")
+                    </button>
+                    <button type="button" class="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="Copy">
+                        @Icons.Clipboard("w-4 h-4")
+                    </button>
+                </div>
+            </div>
+
+            <!-- Disabled State -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Disabled State</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" disabled class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm opacity-50 cursor-not-allowed">
+                        @Icons.Spinner("w-4 h-4 animate-spin")
+                        Loading...
+                    </button>
+                    <button type="button" disabled class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-400 text-sm font-medium rounded-xl cursor-not-allowed">
+                        Disabled
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Alerts & Notifications                                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="alerts">
+        <SectionHeader Title="Alerts & Notifications" Subtitle="Inline feedback messages and notification patterns" />
+
+        <div class="mt-4 space-y-3">
+            <!-- Success -->
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    @Icons.CheckCircle("h-4 w-4")
+                    <span>Operation completed successfully.</span>
+                </div>
+                <button type="button" class="text-emerald-600 hover:text-emerald-800">
+                    @Icons.XMark("h-4 w-4")
+                </button>
+            </div>
+
+            <!-- Error -->
+            <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    @Icons.XCircle("h-4 w-4")
+                    <span>An error occurred while processing your request.</span>
+                </div>
+                <button type="button" class="text-red-600 hover:text-red-800">
+                    @Icons.XMark("h-4 w-4")
+                </button>
+            </div>
+
+            <!-- Warning -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    @Icons.Warning("h-4 w-4")
+                    <span>This action cannot be undone. Please confirm before proceeding.</span>
+                </div>
+                <button type="button" class="text-amber-600 hover:text-amber-800">
+                    @Icons.XMark("h-4 w-4")
+                </button>
+            </div>
+
+            <!-- Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800 flex items-center gap-2">
+                @Icons.Info("h-4 w-4")
+                <span>Registration for the 2025 competition is currently open.</span>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600 mt-2">
+                <span class="font-medium text-slate-800">Pattern:</span>
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">bg-{color}-50 border-{color}-200 text-{color}-800</code> with rounded-xl.
+                Dismissible alerts add a close button on the right.
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Cards & Surfaces                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="cards">
+        <SectionHeader Title="Cards & Surfaces" Subtitle="Container patterns for content grouping" />
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Standard Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-sm font-semibold text-slate-800 mb-2">Standard Card</h3>
+                <p class="text-sm text-slate-500">White background, shadow-sm, border-slate-200, rounded-xl, p-6. Used for most content sections.</p>
+            </div>
+
+            <!-- Hoverable Card -->
+            <a href="#cards" class="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="p-2.5 bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                        @Icons.Lightning("w-6 h-6 text-white")
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-slate-800 group-hover:text-cyan-700 transition-colors">Hoverable Card</h3>
+                        <p class="text-sm text-slate-500 mt-1">Used for Admin Tools links. Hover lifts shadow and shifts title color.</p>
+                    </div>
+                    @Icons.Chevron("w-5 h-5 text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1")
+                </div>
+            </a>
+
+            <!-- Dark Card / Header -->
+            <div class="bg-slate-800 rounded-xl p-6 text-white">
+                <h3 class="text-sm font-semibold mb-2">Dark Surface</h3>
+                <p class="text-sm text-slate-300">Used for filter bars and control sections. bg-slate-800 with white text.</p>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                <h3 class="text-sm font-semibold text-slate-800 mb-2">Info Panel</h3>
+                <p class="text-sm text-slate-500">Used for explanatory sidebars and metadata. bg-slate-50 with subtle border.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Typography                                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="typography">
+        <SectionHeader Title="Typography" Subtitle="Font sizes and text styles — Inter font family via system stack" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+            <div class="space-y-4">
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Page Title</span>
+                    <h1 class="text-2xl font-bold text-slate-800">Competition Dashboard</h1>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Section Head</span>
+                    <h2 class="text-lg font-semibold text-slate-800">Registration Overview</h2>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Card Title</span>
+                    <h3 class="font-semibold text-slate-800">Competitor Details</h3>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Subtitle</span>
+                    <p class="text-sm text-slate-500">Additional context and descriptions below headings</p>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Body</span>
+                    <p class="text-sm text-slate-600">Standard body text for content paragraphs and table cells</p>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Label</span>
+                    <span class="text-xs font-semibold tracking-wide uppercase text-slate-400">Section Label</span>
+                </div>
+                <div class="flex items-baseline gap-4 border-b border-slate-100 pb-3">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Caption</span>
+                    <span class="text-xs text-slate-400">Last updated 2 hours ago</span>
+                </div>
+                <div class="flex items-baseline gap-4">
+                    <span class="text-xs text-slate-400 w-24 shrink-0">Code</span>
+                    <code class="bg-slate-100 px-2 py-1 rounded text-xs text-slate-700 font-mono">CID: M3001</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Form Controls                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="forms">
+        <SectionHeader Title="Form Controls" Subtitle="Input fields, selects, and toggles" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Text Input -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Text Input</label>
+                    <input type="text" value="John Doe"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                </div>
+
+                <!-- Select -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Select</label>
+                    <select class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white transition-shadow">
+                        <option>Option 1</option>
+                        <option>Option 2</option>
+                        <option>Option 3</option>
+                    </select>
+                </div>
+
+                <!-- Date Input -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Date Input</label>
+                    <input type="date"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                </div>
+
+                <!-- Search Input -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Search Input</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            @Icons.Search("h-4 w-4 text-slate-400")
+                        </div>
+                        <input type="text" placeholder="Search competitors..."
+                               class="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow" />
+                    </div>
+                </div>
+
+                <!-- Textarea -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Textarea</label>
+                    <textarea rows="3" placeholder="Enter notes..."
+                              class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-shadow resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600 mt-6">
+                <span class="font-medium text-slate-800">Conventions:</span>
+                All inputs use <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">rounded-xl border-slate-300</code> with
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">focus:ring-2 focus:ring-cyan-500</code> focus ring.
+                Labels are <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">text-sm font-medium text-slate-700</code>.
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Table Patterns                                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="tables">
+        <SectionHeader Title="Tables" Subtitle="Data table styling with responsive mobile card fallback" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">CID</th>
+                        <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Competitor</th>
+                        <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
+                        <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Division</th>
+                        <th class="text-right px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-xs text-slate-500">M3001</td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-slate-800">Ahmad Ibrahim</div>
+                            <div class="text-xs text-slate-400">DOB: Jan 15, 2010</div>
+                        </td>
+                        <td class="px-4 py-3"><StatusBadge Status="RegistrationStatus.Verified" Size="StatusBadge.StatusBadgeSize.Mini" /></td>
+                        <td class="px-4 py-3 text-slate-600">Memorization</td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button type="button" class="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors" title="View">
+                                    @Icons.Eye("w-4 h-4")
+                                </button>
+                                <button type="button" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
+                                    @Icons.Edit("w-4 h-4")
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-xs text-slate-500">M3002</td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-slate-800">Fatima Hassan</div>
+                            <div class="text-xs text-slate-400">DOB: Mar 22, 2012</div>
+                        </td>
+                        <td class="px-4 py-3"><StatusBadge Status="RegistrationStatus.AwaitingReview" Size="StatusBadge.StatusBadgeSize.Mini" /></td>
+                        <td class="px-4 py-3 text-slate-600">Recitation</td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button type="button" class="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors" title="View">
+                                    @Icons.Eye("w-4 h-4")
+                                </button>
+                                <button type="button" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
+                                    @Icons.Edit("w-4 h-4")
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 font-mono text-xs text-slate-500">M3003</td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-slate-800">Omar Khalid</div>
+                            <div class="text-xs text-slate-400">DOB: Jul 8, 2011</div>
+                        </td>
+                        <td class="px-4 py-3"><StatusBadge Status="RegistrationStatus.Pending" Size="StatusBadge.StatusBadgeSize.Mini" /></td>
+                        <td class="px-4 py-3 text-slate-600">Memorization</td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button type="button" class="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors" title="View">
+                                    @Icons.Eye("w-4 h-4")
+                                </button>
+                                <button type="button" class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
+                                    @Icons.Edit("w-4 h-4")
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600 mt-3">
+            <span class="font-medium text-slate-800">Responsive pattern:</span>
+            Tables use <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">hidden md:block</code> on desktop.
+            Below <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">md:</code> (768px), data displays as stacked cards with <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">md:hidden</code>.
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Modal                                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="modal">
+        <SectionHeader Title="Modal" Subtitle="Confirmation and input dialogs" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <p class="text-sm text-slate-600">Click the buttons below to preview modal variants.</p>
+            <div class="flex flex-wrap gap-3">
+                <button type="button" @onclick="() => showDemoModal = true"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-cyan-700 hover:to-cyan-800 transition-all duration-200">
+                    Open Confirm Modal
+                </button>
+                <button type="button" @onclick="() => showDangerModal = true"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-red-700 hover:to-red-800 transition-all duration-200">
+                    Open Danger Modal
+                </button>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                <span class="font-medium text-slate-800">Component:</span>
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">&lt;Modal&gt;</code> — accepts Visible, Title, IconBgClass, Icon, ChildContent, Footer, AllowBackdropClose.
+                Backdrop uses <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">bg-slate-900/60 backdrop-blur-sm</code>.
+            </div>
+        </div>
+
+        <!-- Demo Modals -->
+        <Modal Visible="showDemoModal" Title="Confirm Action" OnBackdropClick="() => showDemoModal = false">
+            <Icon>
+                @Icons.Info("w-6 h-6 text-white")
+            </Icon>
+            <ChildContent>
+                Are you sure you want to proceed with this action? This is a preview of the standard confirmation modal.
+            </ChildContent>
+            <Footer>
+                <button type="button" @onclick="() => showDemoModal = false"
+                        class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button type="button" @onclick="() => showDemoModal = false"
+                        class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-cyan-700 hover:to-cyan-800 transition-all">
+                    Confirm
+                </button>
+            </Footer>
+        </Modal>
+
+        <Modal Visible="showDangerModal" Title="Delete Item" IconBgClass="bg-red-600" OnBackdropClick="() => showDangerModal = false">
+            <Icon>
+                @Icons.Trash("w-6 h-6 text-white")
+            </Icon>
+            <ChildContent>
+                This will permanently delete the selected item. This action cannot be undone.
+            </ChildContent>
+            <Footer>
+                <button type="button" @onclick="() => showDangerModal = false"
+                        class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button type="button" @onclick="() => showDangerModal = false"
+                        class="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-red-700 hover:to-red-800 transition-all">
+                    Delete
+                </button>
+            </Footer>
+        </Modal>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Loading States                                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="loading">
+        <SectionHeader Title="Loading States" Subtitle="Spinners, skeletons, and progress indicators" />
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Full-page loader -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Page Loader</h4>
+                <div class="flex flex-col items-center gap-3">
+                    @Icons.Spinner("h-8 w-8 text-cyan-600 animate-spin")
+                    <span class="text-sm text-slate-500">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Inline spinner -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Inline Spinner</h4>
+                <button type="button" disabled class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm opacity-50 cursor-not-allowed">
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Saving...
+                </button>
+            </div>
+
+            <!-- Skeleton -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 text-center">Skeleton</h4>
+                <div class="space-y-3">
+                    <div class="h-4 bg-slate-200 rounded-lg animate-pulse w-3/4"></div>
+                    <div class="h-4 bg-slate-200 rounded-lg animate-pulse w-full"></div>
+                    <div class="h-4 bg-slate-200 rounded-lg animate-pulse w-5/6"></div>
+                    <div class="h-8 bg-slate-200 rounded-xl animate-pulse w-1/2 mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Empty States                                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="empty">
+        <SectionHeader Title="Empty States" Subtitle="Placeholder content when no data is available" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+            <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                @Icons.Document("h-8 w-8 text-slate-400")
+            </div>
+            <p class="text-slate-600 font-medium">No registrations found</p>
+            <p class="text-sm text-slate-400 mt-1">Create a new registration to get started.</p>
+            <button type="button" class="mt-4 inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:from-cyan-700 hover:to-cyan-800 transition-all duration-200">
+                @Icons.Plus("w-4 h-4")
+                New Registration
+            </button>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Icons                                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="icons">
+        <SectionHeader Title="Icon Library" Subtitle="All available icons from the Icons.razor component" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                <IconPreview Name="CheckCircle">@Icons.CheckCircle("w-6 h-6")</IconPreview>
+                <IconPreview Name="XCircle">@Icons.XCircle("w-6 h-6")</IconPreview>
+                <IconPreview Name="XMark">@Icons.XMark("w-6 h-6")</IconPreview>
+                <IconPreview Name="Warning">@Icons.Warning("w-6 h-6")</IconPreview>
+                <IconPreview Name="Info">@Icons.Info("w-6 h-6")</IconPreview>
+                <IconPreview Name="Edit">@Icons.Edit("w-6 h-6")</IconPreview>
+                <IconPreview Name="EditSquare">@Icons.EditSquare("w-6 h-6")</IconPreview>
+                <IconPreview Name="Trash">@Icons.Trash("w-6 h-6")</IconPreview>
+                <IconPreview Name="TrashFilled">@Icons.TrashFilled("w-6 h-6")</IconPreview>
+                <IconPreview Name="Plus">@Icons.Plus("w-6 h-6")</IconPreview>
+                <IconPreview Name="Chevron">@Icons.Chevron("w-6 h-6")</IconPreview>
+                <IconPreview Name="ChevronDown">@Icons.ChevronDown("w-6 h-6")</IconPreview>
+                <IconPreview Name="Calendar">@Icons.Calendar("w-6 h-6")</IconPreview>
+                <IconPreview Name="Spinner">@Icons.Spinner("w-6 h-6 animate-spin")</IconPreview>
+                <IconPreview Name="ChartBar">@Icons.ChartBar("w-6 h-6")</IconPreview>
+                <IconPreview Name="Boxes">@Icons.Boxes("w-6 h-6")</IconPreview>
+                <IconPreview Name="InfoOutline">@Icons.InfoCircleOutline("w-6 h-6")</IconPreview>
+                <IconPreview Name="Lightning">@Icons.Lightning("w-6 h-6")</IconPreview>
+                <IconPreview Name="User">@Icons.User("w-6 h-6")</IconPreview>
+                <IconPreview Name="Users">@Icons.Users("w-6 h-6")</IconPreview>
+                <IconPreview Name="Building">@Icons.Building("w-6 h-6")</IconPreview>
+                <IconPreview Name="Document">@Icons.Document("w-6 h-6")</IconPreview>
+                <IconPreview Name="ExternalLink">@Icons.ExternalLink("w-6 h-6")</IconPreview>
+                <IconPreview Name="Eye">@Icons.Eye("w-6 h-6")</IconPreview>
+                <IconPreview Name="Video">@Icons.Video("w-6 h-6")</IconPreview>
+                <IconPreview Name="Clipboard">@Icons.Clipboard("w-6 h-6")</IconPreview>
+                <IconPreview Name="ClipCheck">@Icons.ClipboardCheck("w-6 h-6")</IconPreview>
+                <IconPreview Name="Shield">@Icons.Shield("w-6 h-6")</IconPreview>
+                <IconPreview Name="Ban">@Icons.Ban("w-6 h-6")</IconPreview>
+                <IconPreview Name="Cog">@Icons.Cog("w-6 h-6")</IconPreview>
+                <IconPreview Name="Home">@Icons.Home("w-6 h-6")</IconPreview>
+                <IconPreview Name="ListBullet">@Icons.ListBullet("w-6 h-6")</IconPreview>
+                <IconPreview Name="Trophy">@Icons.Trophy("w-6 h-6")</IconPreview>
+                <IconPreview Name="ChatBubble">@Icons.ChatBubble("w-6 h-6")</IconPreview>
+                <IconPreview Name="Clock">@Icons.Clock("w-6 h-6")</IconPreview>
+                <IconPreview Name="IdCard">@Icons.IdCard("w-6 h-6")</IconPreview>
+                <IconPreview Name="Refresh">@Icons.Refresh("w-6 h-6")</IconPreview>
+                <IconPreview Name="Phone">@Icons.Phone("w-6 h-6")</IconPreview>
+                <IconPreview Name="Photo">@Icons.Photo("w-6 h-6")</IconPreview>
+                <IconPreview Name="Award">@Icons.Award("w-6 h-6")</IconPreview>
+                <IconPreview Name="Download">@Icons.Download("w-6 h-6")</IconPreview>
+                <IconPreview Name="ZoomIn">@Icons.ZoomIn("w-6 h-6")</IconPreview>
+                <IconPreview Name="Cursor">@Icons.Cursor("w-6 h-6")</IconPreview>
+                <IconPreview Name="Monitor">@Icons.Monitor("w-6 h-6")</IconPreview>
+                <IconPreview Name="FilePdf">@Icons.FilePdf("w-6 h-6")</IconPreview>
+                <IconPreview Name="Envelope">@Icons.Envelope("w-6 h-6")</IconPreview>
+                <IconPreview Name="Search">@Icons.Search("w-6 h-6")</IconPreview>
+                <IconPreview Name="ArrowsRL">@Icons.ArrowsRightLeft("w-6 h-6")</IconPreview>
+                <IconPreview Name="Beaker">@Icons.Beaker("w-6 h-6")</IconPreview>
+                <IconPreview Name="ClockFill">@Icons.ClockFilled("w-6 h-6")</IconPreview>
+                <IconPreview Name="ShieldFill">@Icons.ShieldCheckFilled("w-6 h-6")</IconPreview>
+                <IconPreview Name="BanFill">@Icons.BanFilled("w-6 h-6")</IconPreview>
+                <IconPreview Name="BadgeCheck">@Icons.BadgeCheckFilled("w-6 h-6")</IconPreview>
+                <IconPreview Name="Swatch">@Icons.Swatch("w-6 h-6")</IconPreview>
+                <IconPreview Name="Copy">@Icons.Copy("w-6 h-6")</IconPreview>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600 mt-6">
+                <span class="font-medium text-slate-800">Usage:</span>
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">@@Icons.CheckCircle("h-4 w-4 text-white")</code>
+                — Pass Tailwind classes for sizing and color.
+                Icons use <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">currentColor</code> so text color classes control fill/stroke.
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Spacing & Layout                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="spacing">
+        <SectionHeader Title="Spacing & Layout" Subtitle="Consistent spacing patterns and responsive breakpoints" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <!-- Spacing Scale -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Common Spacing Scale</h3>
+                <div class="space-y-2">
+                    @foreach (var (name, rem, desc) in spacingScale)
+                    {
+                        <div class="flex items-center gap-4">
+                            <span class="text-xs text-slate-400 w-12 shrink-0 text-right font-mono">@name</span>
+                            <div class="h-3 bg-cyan-500 rounded" style="width: @rem"></div>
+                            <span class="text-xs text-slate-500">@desc</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Breakpoints -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Responsive Breakpoints</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200">
+                                <th class="text-left py-2 pr-4 font-semibold text-slate-600 text-xs uppercase">Prefix</th>
+                                <th class="text-left py-2 pr-4 font-semibold text-slate-600 text-xs uppercase">Min-Width</th>
+                                <th class="text-left py-2 font-semibold text-slate-600 text-xs uppercase">Usage</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="py-2 pr-4 font-mono text-xs text-cyan-700">(default)</td>
+                                <td class="py-2 pr-4 text-slate-600">0px</td>
+                                <td class="py-2 text-slate-500">Mobile-first base styles</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-mono text-xs text-cyan-700">sm:</td>
+                                <td class="py-2 pr-4 text-slate-600">640px</td>
+                                <td class="py-2 text-slate-500">Rarely used — small tablets</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-mono text-xs text-cyan-700 font-bold">md:</td>
+                                <td class="py-2 pr-4 text-slate-600 font-medium">768px</td>
+                                <td class="py-2 text-slate-500 font-medium">Primary breakpoint — table ↔ card, sidebar toggle</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-mono text-xs text-cyan-700">lg:</td>
+                                <td class="py-2 pr-4 text-slate-600">1024px</td>
+                                <td class="py-2 text-slate-500">Large padding <code class="bg-slate-100 px-1 py-0.5 rounded text-xs">lg:p-8</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Page Wrapper -->
+            <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-slate-700">Page Wrapper Pattern</h3>
+                <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                    All pages wrap content in <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">&lt;div class="space-y-6"&gt;</code>.
+                    Main layout provides <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">p-4 md:p-6 lg:p-8</code> padding.
+                    Never use <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs line-through">max-w-* mx-auto</code> — let content fill the container.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION: Breadcrumbs                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <section id="breadcrumbs">
+        <SectionHeader Title="Breadcrumbs" Subtitle="Navigation breadcrumb pattern for sub-pages" />
+
+        <div class="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <!-- Example -->
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <a href="#breadcrumbs" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+                <span>/</span>
+                <span class="text-slate-700 font-medium">Email Templates</span>
+            </div>
+
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <a href="#breadcrumbs" class="hover:text-cyan-600 transition-colors">Admin Tools</a>
+                <span>/</span>
+                <a href="#breadcrumbs" class="hover:text-cyan-600 transition-colors">Email Templates</a>
+                <span>/</span>
+                <span class="text-slate-700 font-medium">Edit Template</span>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-600">
+                <span class="font-medium text-slate-800">Pattern:</span>
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">text-sm text-slate-500</code> with
+                <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">hover:text-cyan-600</code> on links.
+                Current page uses <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">text-slate-700 font-medium</code>.
+                Placed at the top of the page, above the h1 title.
+            </div>
+        </div>
+    </section>
+</div>
+
+@* ──────────────────────────────────────────────────────────────────────── *@
+@* Helper sub-components (render fragments)                                  *@
+@* ──────────────────────────────────────────────────────────────────────── *@
+
+@code {
+    private bool showDemoModal = false;
+    private bool showDangerModal = false;
+
+    // Quick-nav sections
+    private record NavSection(string Id, string Label);
+    private static NavSection[] sections = new[]
+    {
+        new NavSection("colors", "Colors"),
+        new NavSection("badges", "Badges"),
+        new NavSection("buttons", "Buttons"),
+        new NavSection("alerts", "Alerts"),
+        new NavSection("cards", "Cards"),
+        new NavSection("typography", "Typography"),
+        new NavSection("forms", "Forms"),
+        new NavSection("tables", "Tables"),
+        new NavSection("modal", "Modal"),
+        new NavSection("loading", "Loading"),
+        new NavSection("empty", "Empty States"),
+        new NavSection("icons", "Icons"),
+        new NavSection("spacing", "Spacing"),
+        new NavSection("breadcrumbs", "Breadcrumbs"),
+    };
+
+    // Spacing scale for visualization
+    private static (string Name, string Rem, string Desc)[] spacingScale = new[]
+    {
+        ("1", "0.25rem", "4px — tight gaps"),
+        ("2", "0.5rem", "8px — icon padding"),
+        ("3", "0.75rem", "12px — small gaps"),
+        ("4", "1rem", "16px — mobile padding, form gaps"),
+        ("5", "1.25rem", "20px — card inner spacing"),
+        ("6", "1.5rem", "24px — section gaps, page spacing"),
+        ("8", "2rem", "32px — large section gaps"),
+    };
+
+    // ─── Color Swatch ────────────────────────────────────────────────────
+    private RenderFragment ColorSwatch(string Color, string Label, string Hex, bool TextLight = false) => __builder =>
+    {
+        <div class="space-y-1.5">
+            <div class="@Color h-14 rounded-lg shadow-sm border border-black/5 flex items-end p-2">
+                <span class="@(TextLight ? "text-white/80" : "text-black/40") text-xs font-mono">@Hex</span>
+            </div>
+            <span class="text-xs text-slate-600 font-medium">@Label</span>
+        </div>
+    };
+
+    // ─── Section Header ──────────────────────────────────────────────────
+    private RenderFragment SectionHeader(string Title, string Subtitle) => __builder =>
+    {
+        <div class="flex items-center gap-3 pb-3 border-b border-slate-200">
+            <div class="w-1 h-8 bg-cyan-600 rounded-full"></div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-800">@Title</h2>
+                <p class="text-xs text-slate-500 mt-0.5">@Subtitle</p>
+            </div>
+        </div>
+    };
+
+    // ─── Icon Preview ────────────────────────────────────────────────────
+    private RenderFragment IconPreview(string Name, RenderFragment ChildContent) => __builder =>
+    {
+        <div class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
+            <div class="text-slate-600 group-hover:text-cyan-600 transition-colors">
+                @ChildContent
+            </div>
+            <span class="text-[10px] text-slate-400 group-hover:text-slate-600 text-center leading-tight">@Name</span>
+        </div>
+    };
+}
