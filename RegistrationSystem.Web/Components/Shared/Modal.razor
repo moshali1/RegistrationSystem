@@ -1,10 +1,14 @@
-@if (Visible)
+@implements IDisposable
+
+@if (_shouldRender)
 {
     <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
         <div class="flex min-h-screen items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            <!-- Backdrop -->
+            <div class="fixed inset-0 backdrop-blur-sm transition-all duration-200 @(_isVisible ? "bg-slate-900/60" : "bg-slate-900/0")"
                  @onclick="HandleBackdropClick"></div>
-            <div class="relative bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
+            <!-- Panel -->
+            <div class="relative bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 transition-all duration-200 ease-out @(_isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95")">
                 <div class="px-6 pt-6 pb-4">
                     <div class="flex items-start gap-4">
                         <div class="flex-shrink-0 w-12 h-12 rounded-xl @IconBgClass flex items-center justify-center shadow-lg">
@@ -25,6 +29,11 @@
 }
 
 @code {
+    private bool _shouldRender;
+    private bool _isVisible;
+    private System.Threading.Timer? _showTimer;
+    private System.Threading.Timer? _hideTimer;
+
     [Parameter] public bool Visible { get; set; }
     [Parameter] public string Title { get; set; } = string.Empty;
     [Parameter] public string IconBgClass { get; set; } = "bg-cyan-600";
@@ -36,9 +45,47 @@
 
     private string FooterAlignClass => Footer is not null ? "" : "justify-end";
 
+    protected override void OnParametersSet()
+    {
+        if (Visible && !_shouldRender)
+        {
+            // Phase 1: render the element (invisible, scaled down)
+            _shouldRender = true;
+            _hideTimer?.Dispose();
+
+            // Phase 2: on next frame, trigger CSS transition to visible
+            _showTimer?.Dispose();
+            _showTimer = new System.Threading.Timer(_ =>
+            {
+                _isVisible = true;
+                InvokeAsync(StateHasChanged);
+            }, null, 20, Timeout.Infinite);
+        }
+        else if (!Visible && _shouldRender)
+        {
+            // Phase 1: trigger exit transition
+            _isVisible = false;
+            _showTimer?.Dispose();
+
+            // Phase 2: after transition, remove from DOM
+            _hideTimer?.Dispose();
+            _hideTimer = new System.Threading.Timer(_ =>
+            {
+                _shouldRender = false;
+                InvokeAsync(StateHasChanged);
+            }, null, 220, Timeout.Infinite);
+        }
+    }
+
     private async Task HandleBackdropClick()
     {
         if (AllowBackdropClose && OnBackdropClick.HasDelegate)
             await OnBackdropClick.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _showTimer?.Dispose();
+        _hideTimer?.Dispose();
     }
 }
