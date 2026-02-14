@@ -438,37 +438,15 @@
     }
 </div>
 
-<!-- Admin Redirect Modal -->
-@if (showAdminRedirect)
-{
-    <div class="fixed inset-0 z-50 overflow-y-auto">
-        <div class="flex min-h-full items-center justify-center p-4">
-            <div class="fixed inset-0 bg-slate-900/50"></div>
-            <div class="relative w-full max-w-sm rounded-xl bg-white shadow-2xl">
-                <div class="px-6 py-5 text-center">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        @Icons.ArrowRight("h-6 w-6 text-white")
-                    </div>
-                    <h3 class="text-lg font-semibold text-slate-800 mb-1">Admin Registration List</h3>
-                    <p class="text-sm text-slate-500 mb-4">
-                        Use <strong>Admin Registrations</strong> for bulk actions, filters, and more.
-                    </p>
-                    <p class="text-xs text-slate-400 mb-5">Redirecting in <span class="font-bold text-slate-600">@redirectCountdown</span>s...</p>
-                    <div class="flex gap-3">
-                        <button type="button" @onclick="CancelAdminRedirect"
-                                class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
-                            Stay Here
-                        </button>
-                        <a href="/admin/registrations"
-                           class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 text-white text-sm font-semibold text-center hover:from-cyan-700 hover:to-cyan-800 transition-all">
-                            Go Now
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<!-- Admin Toast Notification -->
+<Toast Visible="@showAdminToast" DurationMs="3000" OnDismissed="() => showAdminToast = false">
+    <a href="/admin/registrations"
+       class="flex items-center gap-3 rounded-xl bg-slate-800 text-white pl-4 pr-5 py-3 shadow-xl hover:bg-slate-700 transition-colors">
+        @Icons.InfoCircleOutline("h-5 w-5 text-cyan-400 flex-shrink-0")
+        <span class="text-sm font-medium">Check out <strong>Admin Registration List</strong> for more functionality</span>
+        @Icons.Chevron("h-4 w-4 text-slate-400 flex-shrink-0")
+    </a>
+</Toast>
 
 <!-- Withdraw Confirmation Modal -->
 @if (showWithdrawModal && withdrawingRegistration != null)
@@ -569,14 +547,11 @@
     private IReadOnlyList<Registration> registrations = Array.Empty<Registration>();
     private IReadOnlyDictionary<string, CompetitionRound> competitionRounds = new Dictionary<string, CompetitionRound>();
     private bool isAdmin;
-    private bool showAllRegistrations = true;
+    private bool showAllRegistrations = false;
     private string? currentUserId;
 
-    // Admin redirect
-    private bool showAdminRedirect;
-    private bool adminRedirectDismissed;
-    private int redirectCountdown = 3;
-    private System.Threading.Timer? redirectTimer;
+    // Admin toast
+    private bool showAdminToast;
 
     // Filters
     private string searchQuery = string.Empty;
@@ -662,28 +637,6 @@
             currentUserId = user.ObjectIdentifier;
             isAdmin = user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
 
-            // Show redirect modal for admins
-            if (isAdmin && !showAdminRedirect && !adminRedirectDismissed)
-            {
-                showAdminRedirect = true;
-                redirectCountdown = 3;
-                redirectTimer = new System.Threading.Timer(async _ =>
-                {
-                    redirectCountdown--;
-                    if (redirectCountdown <= 0)
-                    {
-                        redirectTimer?.Dispose();
-                        await InvokeAsync(() => NavigationManager.NavigateTo("/admin/registrations"));
-                    }
-                    else
-                    {
-                        await InvokeAsync(StateHasChanged);
-                    }
-                }, null, 1000, 1000);
-                isLoading = false;
-                return;
-            }
-
             settings = await SettingsService.GetSettingsAsync();
             competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
 
@@ -707,18 +660,8 @@
         }
     }
 
-    private async Task CancelAdminRedirect()
-    {
-        redirectTimer?.Dispose();
-        redirectTimer = null;
-        showAdminRedirect = false;
-        adminRedirectDismissed = true;
-        await LoadDataAsync();
-    }
-
     public void Dispose()
     {
-        redirectTimer?.Dispose();
     }
 
     // Client-side permission checks - no async calls needed
@@ -751,6 +694,13 @@
         if (showAllRegistrations != viewAll)
         {
             showAllRegistrations = viewAll;
+
+            // Show toast when admin switches to "All" view
+            if (viewAll && isAdmin)
+            {
+                showAdminToast = true;
+            }
+
             await LoadDataAsync();
         }
     }

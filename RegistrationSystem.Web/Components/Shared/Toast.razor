@@ -1,0 +1,77 @@
+@implements IDisposable
+
+@if (_shouldRender)
+{
+    <div class="fixed bottom-6 left-1/2 z-50 pointer-events-none" style="transform: translateX(-50%)">
+        <div class="pointer-events-auto transition-all duration-300 ease-out @(_isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")">
+            @ChildContent
+        </div>
+    </div>
+}
+
+@code {
+    private bool _shouldRender;
+    private bool _isVisible;
+    private System.Threading.Timer? _showTimer;
+    private System.Threading.Timer? _hideTimer;
+
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public int DurationMs { get; set; } = 3000;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnDismissed { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && !_shouldRender)
+        {
+            // Phase 1: render the element (invisible)
+            _shouldRender = true;
+            StateHasChanged();
+
+            // Phase 2: on next frame, trigger the transition to visible
+            _showTimer?.Dispose();
+            _showTimer = new System.Threading.Timer(async _ =>
+            {
+                _isVisible = true;
+                await InvokeAsync(StateHasChanged);
+            }, null, 30, Timeout.Infinite);
+
+            // Phase 3: auto-dismiss after duration
+            _hideTimer?.Dispose();
+            _hideTimer = new System.Threading.Timer(async _ =>
+            {
+                await DismissAsync();
+            }, null, DurationMs + 30, Timeout.Infinite);
+        }
+        else if (!Visible && _shouldRender)
+        {
+            await DismissAsync();
+        }
+    }
+
+    private async Task DismissAsync()
+    {
+        if (!_isVisible && !_shouldRender) return;
+
+        // Fade out
+        _isVisible = false;
+        await InvokeAsync(StateHasChanged);
+
+        // Wait for transition to finish, then remove from DOM
+        _hideTimer?.Dispose();
+        _hideTimer = new System.Threading.Timer(async _ =>
+        {
+            _shouldRender = false;
+            await InvokeAsync(StateHasChanged);
+
+            if (OnDismissed.HasDelegate)
+                await InvokeAsync(() => OnDismissed.InvokeAsync());
+        }, null, 350, Timeout.Infinite);
+    }
+
+    public void Dispose()
+    {
+        _showTimer?.Dispose();
+        _hideTimer?.Dispose();
+    }
+}
