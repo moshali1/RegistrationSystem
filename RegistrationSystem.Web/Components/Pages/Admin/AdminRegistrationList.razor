@@ -497,11 +497,21 @@
                                     Audit
                                 </a>
                             </div>
-                            <button type="button" @onclick="() => OpenDeleteModal(reg)"
-                                    class="inline-flex items-center gap-1 text-xs text-red-500 font-medium hover:text-red-600 cursor-pointer">
-                                @Icons.Trash("h-3.5 w-3.5")
-                                Delete
-                            </button>
+                            <div class="flex items-center gap-3">
+                                @if (reg.Status == RegistrationStatus.Withdrawn || reg.Status == RegistrationStatus.Disqualified)
+                                {
+                                    <button type="button" @onclick="() => OpenRevertModal(reg)"
+                                            class="inline-flex items-center gap-1 text-xs text-amber-600 font-medium hover:text-amber-700 cursor-pointer">
+                                        @Icons.ArrowUturnLeft("h-3.5 w-3.5")
+                                        Revert
+                                    </button>
+                                }
+                                <button type="button" @onclick="() => OpenDeleteModal(reg)"
+                                        class="inline-flex items-center gap-1 text-xs text-red-500 font-medium hover:text-red-600 cursor-pointer">
+                                    @Icons.Trash("h-3.5 w-3.5")
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 }
@@ -700,6 +710,14 @@
                                            title="Audit Trail">
                                             @Icons.Clock("h-4 w-4")
                                         </a>
+                                        @if (reg.Status == RegistrationStatus.Withdrawn || reg.Status == RegistrationStatus.Disqualified)
+                                        {
+                                            <button type="button" @onclick="() => OpenRevertModal(reg)"
+                                                    class="p-2 text-slate-400 hover:text-amber-600 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200 cursor-pointer"
+                                                    title="Revert Status">
+                                                @Icons.ArrowUturnLeft("h-4 w-4")
+                                            </button>
+                                        }
                                         <button type="button" @onclick="() => OpenDeleteModal(reg)"
                                                 class="p-2 text-slate-400 hover:text-red-500 hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 rounded-full transition-all duration-200 cursor-pointer"
                                                 title="Delete Registration">
@@ -872,6 +890,131 @@
                         {
                             @Icons.Trash("h-4 w-4")
                             <span>Delete Registration</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     REVERT STATUS MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (revertTarget != null)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-slate-900/50 transition-opacity" @onclick="CloseRevertModal"></div>
+
+            <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" @onclick:stopPropagation>
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow">
+                            @Icons.ArrowUturnLeft("h-5 w-5 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">Revert Status</h3>
+                            <p class="text-sm text-slate-500">Restore this registration to an active status</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-5 space-y-4">
+                    <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-slate-500">Competitor</span>
+                            <span class="text-sm font-medium text-slate-800">@revertTarget.PersonalInfo.FullName</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(revertTarget.Cid))
+                        {
+                            <div class="flex justify-between">
+                                <span class="text-sm text-slate-500">CID</span>
+                                <span class="text-sm font-mono text-cyan-700">@revertTarget.Cid</span>
+                            </div>
+                        }
+                        <div class="flex justify-between">
+                            <span class="text-sm text-slate-500">Division / Category</span>
+                            <span class="text-sm font-medium text-slate-800">@GetDivisionName(revertTarget) / @GetCategoryName(revertTarget)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-slate-500">Current Status</span>
+                            <StatusBadge Status="revertTarget.Status" />
+                        </div>
+                    </div>
+
+                    @if (isLoadingPreviousStatus)
+                    {
+                        <div class="flex items-center gap-2 py-2">
+                            @Icons.Spinner("h-4 w-4 text-amber-600")
+                            <span class="text-sm text-slate-600">Looking up previous status...</span>
+                        </div>
+                    }
+                    else if (!revertPreviousStatusFound)
+                    {
+                        <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+                            <div class="flex items-start gap-3">
+                                @Icons.Warning("h-5 w-5 text-red-500 flex-shrink-0 mt-0.5")
+                                <p class="text-sm text-red-700">
+                                    Could not determine the previous status from the audit trail.
+                                    This registration cannot be reverted automatically.
+                                </p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-amber-800">Will revert to</span>
+                                <StatusBadge Status="revertTargetStatus" />
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide">Quick reasons</label>
+                            @foreach (var preset in revertPresets)
+                            {
+                                <button type="button" @onclick="() => revertReason = preset"
+                                        class="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-left text-[11px] leading-tight text-amber-800 transition-colors cursor-pointer">
+                                    @preset
+                                </button>
+                            }
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                Reason for reverting <span class="text-red-500">*</span>
+                            </label>
+                            <textarea @bind="revertReason" @bind:event="oninput"
+                                      rows="3"
+                                      placeholder="Select a quick reason above or type your own..."
+                                      class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm resize-none"></textarea>
+                            @if (string.IsNullOrWhiteSpace(revertReason))
+                            {
+                                <p class="text-xs text-slate-400 mt-1">A reason is required for the audit trail.</p>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-2xl">
+                    <button type="button" @onclick="CloseRevertModal"
+                            class="cursor-pointer rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteRevert"
+                            disabled="@(!revertPreviousStatusFound || string.IsNullOrWhiteSpace(revertReason) || isReverting || isLoadingPreviousStatus)"
+                            class="cursor-pointer rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white px-5 py-2.5 text-sm font-semibold hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 transition-all flex items-center gap-2">
+                        @if (isReverting)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>Reverting...</span>
+                        }
+                        else
+                        {
+                            @Icons.ArrowUturnLeft("h-4 w-4")
+                            <span>Revert to @StatusBadge.GetDisplayName(revertTargetStatus)</span>
                         }
                     </button>
                 </div>
@@ -1236,6 +1379,21 @@
     private bool isDeleting = false;
     private bool isLoadingAuditCount = false;
     private int auditEntryCount = 0;
+
+    // Revert status modal
+    private static readonly string[] revertPresets = new[]
+    {
+        "Withdrawn by mistake",
+        "Reverting after admin review",
+        "Disqualification reversed after appeal",
+        "Re-entered into competition"
+    };
+    private Registration? revertTarget;
+    private RegistrationStatus revertTargetStatus;
+    private bool revertPreviousStatusFound;
+    private bool isLoadingPreviousStatus;
+    private string revertReason = string.Empty;
+    private bool isReverting;
 
     // Selection state
     private HashSet<string> selectedIds = new();
@@ -1637,6 +1795,157 @@
         finally
         {
             isDeleting = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REVERT STATUS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task OpenRevertModal(Registration reg)
+    {
+        revertTarget = reg;
+        revertTargetStatus = default;
+        revertPreviousStatusFound = false;
+        isLoadingPreviousStatus = true;
+        revertReason = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Look up the previous status from the audit trail (ordered newest-first)
+            var auditEntries = await AuditService.GetEntityHistoryAsync("Registration", reg.Id);
+            RegistrationStatus? previousStatus = null;
+
+            // Strategy 1: Find the most recent StatusChanged entry that transitioned TO the current status
+            // This covers admin-initiated status changes (review page, bulk verify)
+            var statusChangedEntry = auditEntries
+                .Where(e => e.Action == AuditAction.StatusChanged)
+                .FirstOrDefault(e =>
+                {
+                    // Check metadata (bulk verify, revert)
+                    if (e.Metadata?.TryGetValue("NewStatus", out var ns) == true
+                        && ns == reg.Status.ToString())
+                        return true;
+                    // Check summary text (review page: "Status changed from X to Y")
+                    var currentDisplayName = StatusBadge.GetDisplayName(reg.Status);
+                    return e.Summary?.Contains($"to {currentDisplayName}") == true;
+                });
+
+            if (statusChangedEntry != null)
+            {
+                // Try metadata OldStatus
+                if (statusChangedEntry.Metadata?.TryGetValue("OldStatus", out var oldStr) == true
+                    && Enum.TryParse<RegistrationStatus>(oldStr, out var parsed))
+                    previousStatus = parsed;
+                // Try Changes list
+                else if (statusChangedEntry.Changes?.FirstOrDefault(c => c.FieldName == "Status") is { } fc
+                    && Enum.TryParse<RegistrationStatus>(fc.OldValue, out var parsedFromChanges))
+                    previousStatus = parsedFromChanges;
+                // Try parsing summary
+                else if (statusChangedEntry.Summary != null)
+                    previousStatus = ParseOldStatusFromSummary(statusChangedEntry.Summary);
+            }
+
+            // Strategy 2: Find a Withdrawn/Disqualified audit entry with Changes list
+            // This covers user-initiated withdrawals (logged via LogFieldChangesAsync with AuditAction.Withdrawn)
+            if (previousStatus == null)
+            {
+                var targetAction = reg.Status == RegistrationStatus.Withdrawn
+                    ? AuditAction.Withdrawn
+                    : AuditAction.Disqualified;
+
+                var actionEntry = auditEntries
+                    .FirstOrDefault(e => e.Action == targetAction
+                        && e.Changes?.Any(c => c.FieldName == "Status") == true);
+
+                if (actionEntry != null)
+                {
+                    var statusChange = actionEntry.Changes!.First(c => c.FieldName == "Status");
+                    if (Enum.TryParse<RegistrationStatus>(statusChange.OldValue, out var parsedOld))
+                        previousStatus = parsedOld;
+                }
+            }
+
+            // Strategy 3: If no audit trail found at all, default to AwaitingReview
+            // This handles edge cases like data imports or missing audit history
+            previousStatus ??= RegistrationStatus.AwaitingReview;
+
+            revertTargetStatus = previousStatus.Value;
+            revertPreviousStatusFound = true;
+        }
+        catch
+        {
+            // Best-effort — if audit lookup fails completely, admin can't revert
+        }
+        finally
+        {
+            isLoadingPreviousStatus = false;
+            StateHasChanged();
+        }
+    }
+
+    private static RegistrationStatus? ParseOldStatusFromSummary(string summary)
+    {
+        foreach (RegistrationStatus s in Enum.GetValues<RegistrationStatus>())
+        {
+            if (summary.Contains($"from {StatusBadge.GetDisplayName(s)} to"))
+                return s;
+        }
+        return null;
+    }
+
+    private void CloseRevertModal()
+    {
+        revertTarget = null;
+        revertReason = string.Empty;
+    }
+
+    private async Task ExecuteRevert()
+    {
+        if (revertTarget == null || string.IsNullOrWhiteSpace(revertReason)) return;
+
+        isReverting = true;
+        StateHasChanged();
+
+        try
+        {
+            var oldStatus = revertTarget.Status;
+            var name = revertTarget.PersonalInfo.FullName;
+            var cid = revertTarget.Cid ?? "N/A";
+
+            revertTarget.Status = revertTargetStatus;
+            revertTarget.StatusComment = revertReason;
+            revertTarget.WithdrawComment = null;
+
+            await RegistrationService.AdminUpdateStatusAsync(revertTarget);
+
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogAsync(
+                AuditAction.StatusChanged,
+                "Registration",
+                revertTarget.Id,
+                summary: $"Status reverted from {StatusBadge.GetDisplayName(oldStatus)} to {StatusBadge.GetDisplayName(revertTargetStatus)} ({revertReason})",
+                entityDescription: $"{name} ({cid})",
+                metadata: new Dictionary<string, string>
+                {
+                    ["OldStatus"] = oldStatus.ToString(),
+                    ["NewStatus"] = revertTargetStatus.ToString(),
+                    ["RevertReason"] = revertReason
+                });
+
+            RebuildFilteredData();
+            successMessage = $"Registration for {name} ({cid}) reverted to {StatusBadge.GetDisplayName(revertTargetStatus)}.";
+            CloseRevertModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to revert registration: {ex.Message}";
+        }
+        finally
+        {
+            isReverting = false;
             StateHasChanged();
         }
     }
