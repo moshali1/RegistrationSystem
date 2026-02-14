@@ -21,7 +21,7 @@ else
         @switch (Status)
         {
             case RegistrationStatus.AwaitingReview:
-                @Icons.Clock("h-3.5 w-3.5")
+                @Icons.ClockFilled("h-3.5 w-3.5")
                 break;
             case RegistrationStatus.Pending:
                 @Icons.Warning("h-3.5 w-3.5")
@@ -30,10 +30,10 @@ else
                 @Icons.CheckCircle("h-3.5 w-3.5")
                 break;
             case RegistrationStatus.Verified:
-                @Icons.Shield("h-3.5 w-3.5")
+                @Icons.BadgeCheckFilled("h-3.5 w-3.5")
                 break;
             case RegistrationStatus.Withdrawn:
-                @Icons.Ban("h-3.5 w-3.5")
+                @Icons.BanFilled("h-3.5 w-3.5")
                 break;
             case RegistrationStatus.Disqualified:
                 @Icons.XCircle("h-3.5 w-3.5")
@@ -79,7 +79,7 @@ else
         RegistrationStatus.Reviewed => "Reviewed",
         RegistrationStatus.Verified => "Verified",
         RegistrationStatus.Withdrawn => "Withdrawn",
-        RegistrationStatus.Disqualified => "DQ",
+        RegistrationStatus.Disqualified => "Disqualified",
         _ => status.ToString()
     };
 

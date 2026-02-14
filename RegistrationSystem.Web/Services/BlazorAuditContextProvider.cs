@@ -147,6 +147,23 @@ public static class AuditServiceExtensions
     }
 
     /// <summary>
+    /// Logs a niqab bypass creation.
+    /// </summary>
+    public static async Task LogNiqabBypassCreatedAsync(
+        this IAuditService auditService,
+        string bypassId,
+        string competitorName,
+        string code)
+    {
+        await auditService.LogAsync(
+            AuditAction.NiqabBypassCreated,
+            "NiqabBypass",
+            bypassId,
+            summary: $"Bypass code {code} created",
+            entityDescription: competitorName);
+    }
+
+    /// <summary>
     /// Logs a niqab bypass claim.
     /// </summary>
     public static async Task LogNiqabBypassClaimedAsync(
@@ -159,6 +176,23 @@ public static class AuditServiceExtensions
             "NiqabBypass",
             bypassId,
             summary: "Bypass code claimed",
+            entityDescription: competitorName);
+    }
+
+    /// <summary>
+    /// Logs a niqab bypass deletion.
+    /// </summary>
+    public static async Task LogNiqabBypassDeletedAsync(
+        this IAuditService auditService,
+        string bypassId,
+        string competitorName,
+        string code)
+    {
+        await auditService.LogAsync(
+            AuditAction.NiqabBypassDeleted,
+            "NiqabBypass",
+            bypassId,
+            summary: $"Bypass code {code} deleted",
             entityDescription: competitorName);
     }
 

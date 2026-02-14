@@ -21,17 +21,15 @@
     @if (isLoading)
     {
         <div class="flex flex-col items-center justify-center h-96 gap-4">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-cyan-700"></div>
+            @Icons.Spinner("h-10 w-10 text-cyan-700 animate-spin")
             <p class="text-slate-400 text-sm font-medium animate-pulse">Loading messages...</p>
         </div>
     }
     else if (registration == null)
     {
-        <div class="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-lg border border-slate-200 shadow-sm">
+        <div class="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-xl border border-slate-200 shadow-sm">
             <div class="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                @Icons.FaceSmile("h-8 w-8 text-slate-300")
             </div>
             <h3 class="text-lg font-semibold text-slate-900">Registration Not Found</h3>
             <button @onclick="GoBack" class="mt-6 inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 transition-colors">
@@ -46,9 +44,7 @@
              ═══════════════════════════════════════════════════════════════ -->
         <div class="max-w-7xl mx-auto px-6 pt-6 pb-2">
             <button @onclick="GoBack" class="group flex items-center text-sm text-slate-500 hover:text-cyan-700 transition-colors mb-4">
-                <svg class="mr-2 h-4 w-4 text-slate-400 group-hover:text-cyan-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                @Icons.ArrowLeft("mr-2 h-4 w-4 text-slate-400 group-hover:text-cyan-700 transition-colors")
                 Back to Registrations
             </button>
 
@@ -84,9 +80,7 @@
 
                         <div class="px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center gap-3">
                             <div class="w-7 h-7 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                                @Icons.Calendar("h-3.5 w-3.5 text-white")
                             </div>
                             <h2 class="font-semibold text-white">Competition Progress</h2>
                         </div>
@@ -94,10 +88,8 @@
                         <div class="p-6 md:p-8">
                             @if (timelineSteps.Count == 0)
                             {
-                                <div class="text-center py-10 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                    <svg class="h-10 w-10 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                <div class="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                    @Icons.Clock("h-10 w-10 text-slate-300 mx-auto mb-3")
                                     <p class="text-sm font-medium text-slate-600">Schedule Pending</p>
                                     <p class="text-xs text-slate-400 mt-1">Round assignments will appear here after review.</p>
                                 </div>
@@ -139,9 +131,7 @@
                                             @if (!string.IsNullOrEmpty(step.AcknowledgedDetail))
                                             {
                                                 <div class="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                                                    <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                                    </svg>
+                                                    @Icons.CheckCircle("h-3.5 w-3.5")
                                                     @step.AcknowledgedDetail
                                                 </div>
                                             }
@@ -153,17 +143,12 @@
                                                         class="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-teal-600 rounded-lg shadow-sm hover:from-cyan-700 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all">
                                                     @if (isAcknowledging)
                                                     {
-                                                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
+                                                        @Icons.Spinner("animate-spin h-4 w-4")
                                                         <p>Processing...</p>
                                                     }
                                                     else
                                                     {
-                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                                        </svg>
+                                                        @Icons.Check("h-4 w-4")
                                                         <p>Confirm &amp; Acknowledge</p>
                                                     }
                                                 </button>
@@ -183,9 +168,7 @@
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div class="px-5 py-3.5 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center gap-3">
                             <div class="w-7 h-7 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm">
-                                <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                @Icons.CheckCircle("h-3.5 w-3.5 text-white")
                             </div>
                             <h3 class="text-sm font-semibold text-white">Status History</h3>
                         </div>
@@ -229,9 +212,7 @@
                         <div class="px-5 py-3.5 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="w-7 h-7 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                                    <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
+                                @Icons.Envelope("h-3.5 w-3.5 text-white")
                                 </div>
                                 <h3 class="text-sm font-semibold text-white">Communications</h3>
                             </div>
@@ -254,17 +235,13 @@
                                                 @if (entry.Action == AuditAction.SmsSent)
                                                 {
                                                     <div class="w-8 h-8 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm">
-                                                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                                        </svg>
+                                                        @Icons.ChatBubble("h-4 w-4 text-white")
                                                     </div>
                                                 }
                                                 else
                                                 {
                                                     <div class="w-8 h-8 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                                                        <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                        </svg>
+                                                        @Icons.Envelope("h-4 w-4 text-white")
                                                     </div>
                                                 }
                                             </div>

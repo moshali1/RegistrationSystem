@@ -38,87 +38,114 @@
 
     <!-- Filters Bar -->
     <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-6 overflow-hidden">
-        <div class="bg-slate-800 px-5 py-3">
-            <div class="flex flex-wrap items-center gap-4">
-                <!-- Status Filter -->
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Status</span>
-                    <div class="flex rounded-lg overflow-hidden border border-slate-600 divide-x divide-slate-500">
-                        @foreach (var status in allStatuses)
+        <div class="bg-slate-800 px-3 md:px-5 py-3 space-y-3 md:space-y-0">
+            <div class="flex flex-wrap items-center gap-2 md:gap-4">
+                <!-- Status Filter: two groups — active pipeline statuses and "not continuing".
+                     On mobile each group stretches full-width with evenly distributed buttons. -->
+                <div class="flex flex-wrap items-center gap-1.5 md:gap-2 w-full md:w-auto">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide hidden md:inline">Status</span>
+                    <!-- Active pipeline: Awaiting → Pending → Reviewed → Verified -->
+                    <div class="flex w-full md:w-auto rounded-lg overflow-hidden border border-slate-600 divide-x divide-slate-500">
+                        @foreach (var status in activeStatuses)
                         {
                             <button type="button"
                                     @onclick="() => ToggleStatusFilter(status)"
-                                    class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer @(selectedStatuses.Contains(status) ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
-                                @StatusBadge.GetDisplayName(status)
+                                    class="flex-1 md:flex-none px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-medium whitespace-nowrap transition-colors cursor-pointer text-center @(selectedStatuses.Contains(status) ? "bg-cyan-600 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
+                                @StatusBadge.GetShortName(status)
+                            </button>
+                        }
+                    </div>
+                    <!-- Not continuing: Withdrawn, Disqualified -->
+                    <div class="flex w-full md:w-auto rounded-lg overflow-hidden border border-slate-600 divide-x divide-slate-500">
+                        @foreach (var status in inactiveStatuses)
+                        {
+                            <button type="button"
+                                    @onclick="() => ToggleStatusFilter(status)"
+                                    class="flex-1 md:flex-none px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-medium whitespace-nowrap transition-colors cursor-pointer text-center @(selectedStatuses.Contains(status) ? "bg-amber-700 text-white" : "bg-slate-600 text-slate-300 hover:bg-slate-500")">
+                                @StatusBadge.GetShortName(status)
                             </button>
                         }
                     </div>
                 </div>
 
-                <!-- Division Filter -->
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Division</span>
-                    <select @bind="selectedDivisionId" @bind:after="OnDivisionChanged"
-                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
-                        <option value="">All Divisions</option>
-                        @foreach (var division in divisions)
-                        {
-                            <option value="@division.Id">@division.Name</option>
-                        }
-                    </select>
-                </div>
-
-                <!-- Category Filter -->
-                @if (!string.IsNullOrEmpty(selectedDivisionId))
-                {
+                <!-- Desktop Dropdown Filters (hidden on mobile, display:contents on desktop) -->
+                <div class="hidden md:contents">
+                    <!-- Division Filter -->
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Category</span>
-                        <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Division</span>
+                        <select @bind="selectedDivisionId" @bind:after="OnDivisionChanged"
                                 class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
-                            <option value="">All Categories</option>
-                            @foreach (var category in availableCategories)
+                            <option value="">All Divisions</option>
+                            @foreach (var division in divisions)
                             {
-                                <option value="@category.Id">@category.Name</option>
+                                <option value="@division.Id">@division.Name</option>
                             }
                         </select>
                     </div>
-                }
 
-                <!-- Region Filter -->
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Region</span>
-                    <select @bind="selectedRegion" @bind:after="OnFilterChanged"
-                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
-                        <option value="">All Regions</option>
-                        <option value="MN">Minnesota</option>
-                        <option value="OutOfState">Out of State</option>
-                    </select>
+                    <!-- Category Filter -->
+                    @if (!string.IsNullOrEmpty(selectedDivisionId))
+                    {
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Category</span>
+                            <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
+                                    class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                                <option value="">All Categories</option>
+                                @foreach (var category in availableCategories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <!-- Region Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Region</span>
+                        <select @bind="selectedRegion" @bind:after="OnFilterChanged"
+                                class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All Regions</option>
+                            <option value="MN">Minnesota</option>
+                            <option value="OutOfState">Out of State</option>
+                        </select>
+                    </div>
+
+                    <!-- Gender Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Gender</span>
+                        <select @bind="selectedGender" @bind:after="OnFilterChanged"
+                                class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+
+                    <!-- Niqab Bypass Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Niqab</span>
+                        <select @bind="selectedNiqabFilter" @bind:after="OnFilterChanged"
+                                class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            <option value="Yes">Bypass Enabled</option>
+                            <option value="No">No Bypass</option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Gender Filter -->
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Gender</span>
-                    <select @bind="selectedGender" @bind:after="OnFilterChanged"
-                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
-                        <option value="">All</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-
-                <!-- Niqab Bypass Filter -->
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Niqab</span>
-                    <select @bind="selectedNiqabFilter" @bind:after="OnFilterChanged"
-                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
-                        <option value="">All</option>
-                        <option value="Yes">Bypass Enabled</option>
-                        <option value="No">No Bypass</option>
-                    </select>
-                </div>
+                <!-- Mobile Filter Toggle Button -->
+                <button type="button" @onclick="() => showMobileFilters = !showMobileFilters"
+                        class="md:hidden px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 hover:bg-slate-500">
+                    @Icons.Filter("h-4 w-4")
+                    Filters
+                    @if (!string.IsNullOrEmpty(selectedDivisionId) || !string.IsNullOrEmpty(selectedRegion) || !string.IsNullOrEmpty(selectedGender) || !string.IsNullOrEmpty(selectedNiqabFilter))
+                    {
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    }
+                </button>
 
                 <!-- Search -->
-                <div class="flex-1 min-w-[200px]">
+                <div class="flex-1 min-w-[140px] md:min-w-[200px]">
                     <input type="text" @bind="searchQuery" @bind:event="oninput" @bind:after="OnFilterChanged"
                            placeholder="Search by name or CID..."
                            class="w-full px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
@@ -135,26 +162,90 @@
                     {
                         @Icons.Refresh("h-4 w-4")
                     }
-                    Fetch
+                    <span class="hidden md:inline">Fetch</span>
                 </button>
             </div>
+
+            <!-- Mobile Collapsible Filter Dropdowns -->
+            @if (showMobileFilters)
+            {
+                <div class="md:hidden grid grid-cols-2 gap-2 pt-3 border-t border-slate-700">
+                    <!-- Division -->
+                    <div>
+                        <label class="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1 block">Division</label>
+                        <select @bind="selectedDivisionId" @bind:after="OnDivisionChanged"
+                                class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            @foreach (var division in divisions)
+                            {
+                                <option value="@division.Id">@division.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <!-- Region -->
+                    <div>
+                        <label class="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1 block">Region</label>
+                        <select @bind="selectedRegion" @bind:after="OnFilterChanged"
+                                class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            <option value="MN">Minnesota</option>
+                            <option value="OutOfState">Out of State</option>
+                        </select>
+                    </div>
+                    <!-- Gender -->
+                    <div>
+                        <label class="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1 block">Gender</label>
+                        <select @bind="selectedGender" @bind:after="OnFilterChanged"
+                                class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <!-- Niqab -->
+                    <div>
+                        <label class="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1 block">Niqab</label>
+                        <select @bind="selectedNiqabFilter" @bind:after="OnFilterChanged"
+                                class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">All</option>
+                            <option value="Yes">Bypass</option>
+                            <option value="No">No Bypass</option>
+                        </select>
+                    </div>
+                    <!-- Category (conditional, full width) -->
+                    @if (!string.IsNullOrEmpty(selectedDivisionId))
+                    {
+                        <div class="col-span-2">
+                            <label class="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1 block">Category</label>
+                            <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
+                                    class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                                <option value="">All Categories</option>
+                                @foreach (var category in availableCategories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+            }
         </div>
 
         <!-- Results Count Bar -->
-        <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
+        <div class="px-3 md:px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm">
             <span class="text-slate-600">
                 Showing <span class="font-semibold text-slate-800">@filteredRegistrations.Count</span> of <span class="font-semibold text-slate-800">@registrations.Count</span> registrations
             </span>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 md:gap-3 flex-wrap">
                 <!-- Status counts -->
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
                     @foreach (var status in allStatuses)
                     {
                         var count = filteredRegistrations.Count(r => r.Status == status);
                         if (count > 0)
                         {
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium @StatusBadge.GetBgColor(status) text-white">
-                                @count @StatusBadge.GetDisplayName(status)
+                            <span class="inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 rounded-md text-[10px] md:text-xs font-medium @StatusBadge.GetBgColor(status) text-white">
+                                @count @StatusBadge.GetShortName(status)
                             </span>
                         }
                     }
@@ -205,13 +296,13 @@
         <!-- Bulk Action Bar (appears when items selected) -->
         @if (selectedIds.Count > 0)
         {
-            <div class="mb-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg px-5 py-3 sticky top-2 z-30">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+            <div class="mb-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg px-3 md:px-5 py-3 sticky top-2 z-30">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+                    <div class="flex items-center gap-2 md:gap-3 flex-wrap">
                         <span class="text-sm font-semibold text-slate-800">
                             @if (allFilteredSelected)
                             {
-                                @:All @filteredRegistrations.Count filtered registrations selected
+                                @:All @filteredRegistrations.Count selected
                             }
                             else
                             {
@@ -222,56 +313,234 @@
                         {
                             <button type="button" @onclick="SelectAllFiltered"
                                     class="text-xs text-cyan-600 hover:text-cyan-700 font-medium cursor-pointer">
-                                Select all @filteredRegistrations.Count filtered registrations
+                                Select all @filteredRegistrations.Count
                             </button>
                         }
                         <button type="button" @onclick="ClearSelection"
                                 class="text-xs text-slate-500 hover:text-slate-700 underline decoration-slate-300 cursor-pointer">
-                            Clear selection
+                            Clear
                         </button>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 md:gap-2">
                         <!-- Bulk Verify -->
                         <button type="button" @onclick="OpenBulkVerifyModal"
                                 disabled="@(!AllSelectedAreReviewed)"
-                                title="@(AllSelectedAreReviewed ? "Verify selected registrations" : "All selected must be in Reviewed status")"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700
+                                title="@(AllSelectedAreReviewed ? "Verify selected" : "All selected must be Reviewed")"
+                                class="inline-flex items-center gap-1.5 px-2.5 md:px-3.5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700
                                        text-white text-xs font-semibold shadow-sm hover:from-cyan-700 hover:to-cyan-800
                                        disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
                             @Icons.CheckCircle("h-4 w-4")
-                            Verify
+                            <span class="hidden md:inline">Verify</span>
                         </button>
 
                         <!-- Bulk Send Email -->
                         <button type="button" @onclick="OpenBulkEmailModal"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700
+                                class="inline-flex items-center gap-1.5 px-2.5 md:px-3.5 py-2 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700
                                        text-white text-xs font-semibold shadow-sm hover:from-slate-700 hover:to-slate-800 transition-all cursor-pointer">
                             @Icons.Envelope("h-4 w-4")
-                            Send Email
+                            <span class="hidden md:inline">Send Email</span>
                         </button>
 
                         <!-- Export Selected -->
                         <button type="button" @onclick="ExportSelected"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white
+                                class="inline-flex items-center gap-1.5 px-2.5 md:px-3.5 py-2 rounded-lg border border-slate-300 bg-white
                                        text-slate-700 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer">
                             @Icons.Download("h-4 w-4")
-                            Export
+                            <span class="hidden md:inline">Export</span>
                         </button>
 
                         <!-- Bulk Delete -->
                         <button type="button" @onclick="OpenBulkDeleteModal"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white
+                                class="inline-flex items-center gap-1.5 px-2.5 md:px-3.5 py-2 rounded-lg border border-slate-300 bg-white
                                        text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer">
                             @Icons.Trash("h-4 w-4")
-                            Delete
+                            <span class="hidden md:inline">Delete</span>
                         </button>
                     </div>
                 </div>
             </div>
         }
 
+        <!-- ═══════════════════════════════════════════════════════════════
+             MOBILE CARD LIST (shown on mobile, hidden on md+)
+             ═══════════════════════════════════════════════════════════════ -->
+        <div class="md:hidden">
+            <!-- Mobile Select All Bar -->
+            <div class="flex items-center justify-between mb-2 px-1">
+                <button type="button" @onclick="ToggleSelectAllPage"
+                        class="flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer hover:text-slate-800">
+                    <span class="flex items-center justify-center w-5 h-5 rounded transition-all duration-150
+                                 @(IsAllPageSelected
+                                     ? "bg-cyan-500 border-cyan-500 shadow-sm shadow-cyan-500/30"
+                                     : selectedIds.Count > 0
+                                         ? "bg-transparent border-2 border-slate-300"
+                                         : "bg-transparent border-2 border-slate-300 hover:border-slate-400")">
+                        @if (IsAllPageSelected)
+                        {
+                            @Icons.Check("w-3.5 h-3.5 text-white")
+                        }
+                        else if (selectedIds.Count > 0)
+                        {
+                            <span class="w-2.5 h-0.5 bg-slate-400 rounded-full"></span>
+                        }
+                    </span>
+                    Select all on page
+                </button>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="space-y-2">
+                @foreach (var reg in pagedRegistrations)
+                {
+                    <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden @(selectedIds.Contains(reg.Id) ? "ring-2 ring-cyan-500/40" : "")">
+                        <!-- Card Header: Checkbox + Name + CID + Status -->
+                        <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-3 py-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <!-- Selection checkbox -->
+                                <button type="button" @onclick="() => ToggleSelection(reg.Id)"
+                                        class="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded transition-all duration-150 cursor-pointer
+                                               @(selectedIds.Contains(reg.Id)
+                                                   ? "bg-cyan-500 border-cyan-500 shadow-sm shadow-cyan-500/25"
+                                                   : "bg-transparent border-2 border-slate-400 hover:border-slate-300")">
+                                    @if (selectedIds.Contains(reg.Id))
+                                    {
+                                        @Icons.Check("w-3.5 h-3.5 text-white")
+                                    }
+                                </button>
+
+                                <!-- Gender bar -->
+                                <div class="w-1.5 h-8 rounded-full flex-shrink-0 @(reg.PersonalInfo.Gender == Gender.Male ? "bg-cyan-400" : "bg-pink-400")"></div>
+
+                                <!-- Name + CID + Status -->
+                                <div class="min-w-0 flex-1">
+                                    <span class="font-semibold text-white truncate block text-sm">@reg.PersonalInfo.FullName</span>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        @if (!string.IsNullOrEmpty(reg.Cid))
+                                        {
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-600 text-slate-300 text-[10px] font-mono">
+                                                @reg.Cid
+                                            </span>
+                                        }
+                                        <StatusBadge Status="reg.Status" Size="StatusBadge.StatusBadgeSize.Mini" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Body -->
+                        <div class="px-3 py-2.5 space-y-1.5 text-sm">
+                            <!-- Division / Category + Age -->
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <span class="font-medium text-slate-800">@GetDivisionName(reg)</span>
+                                    <span class="text-slate-400 mx-1">/</span>
+                                    <span class="text-slate-600">@GetCategoryName(reg)</span>
+                                    @if (reg.CompetitionSelection.PortionChoice.HasValue)
+                                    {
+                                        <span class="text-xs text-slate-500 ml-1">@(reg.CompetitionSelection.PortionChoice == PortionChoice.Top ? "▲" : "▼")</span>
+                                    }
+                                </div>
+                                <div class="text-xs text-slate-500 flex-shrink-0">
+                                    @reg.PersonalInfo.Gender
+                                    @if (settings != null)
+                                    {
+                                        <span class="text-slate-300 mx-0.5">·</span>
+                                        <span class="text-cyan-600 font-medium">@(reg.CalculateAgeAsOf(settings.AgeCutoffDate))y</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Location -->
+                            @if (!string.IsNullOrEmpty(reg.AddressInfo.City))
+                            {
+                                <div class="text-xs text-slate-500">
+                                    @reg.AddressInfo.City, @reg.AddressInfo.StateProvince
+                                </div>
+                            }
+
+                            <!-- Flags -->
+                            @if (reg.FileUploadInfo.NiqabBypassApproved || reg.FileUploadInfo.Video != null || !string.IsNullOrEmpty(reg.StatusComment))
+                            {
+                                <div class="flex items-center gap-1.5">
+                                    @if (reg.FileUploadInfo.NiqabBypassApproved)
+                                    {
+                                        <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-medium">Niqab</span>
+                                    }
+                                    @if (reg.FileUploadInfo.Video != null)
+                                    {
+                                        <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-medium">Video</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(reg.StatusComment))
+                                    {
+                                        <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium" title="@reg.StatusComment">Comment</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Card Footer: Actions -->
+                        <div class="px-3 py-2 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <a href="/admin/registration/@reg.Id" target="_blank"
+                                   class="inline-flex items-center gap-1 text-xs text-slate-600 font-medium hover:text-teal-600">
+                                    @Icons.Eye("h-3.5 w-3.5")
+                                    View
+                                </a>
+                                <a href="/admin/registration/@reg.Id/edit" target="_blank"
+                                   class="inline-flex items-center gap-1 text-xs text-slate-600 font-medium hover:text-teal-600">
+                                    @Icons.Edit("h-3.5 w-3.5")
+                                    Edit
+                                </a>
+                                <a href="/admin/audit/Registration/@reg.Id" target="_blank"
+                                   class="inline-flex items-center gap-1 text-xs text-slate-600 font-medium hover:text-teal-600">
+                                    @Icons.Clock("h-3.5 w-3.5")
+                                    Audit
+                                </a>
+                            </div>
+                            <button type="button" @onclick="() => OpenDeleteModal(reg)"
+                                    class="inline-flex items-center gap-1 text-xs text-red-500 font-medium hover:text-red-600 cursor-pointer">
+                                @Icons.Trash("h-3.5 w-3.5")
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Mobile Pagination -->
+            @if (totalPages > 1)
+            {
+                <div class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm px-3 py-2.5 flex items-center justify-between">
+                    <span class="text-xs text-slate-500">
+                        @((currentPage - 1) * pageSize + 1)–@(Math.Min(currentPage * pageSize, filteredRegistrations.Count)) of @filteredRegistrations.Count
+                    </span>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @onclick="() => GoToPage(currentPage - 1)" disabled="@(currentPage == 1)"
+                                class="p-1.5 rounded hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600 rotate-180")
+                        </button>
+                        @foreach (var pg in GetPageNumbers())
+                        {
+                            var pageNum = pg;
+                            <button type="button" @onclick="() => GoToPage(pageNum)"
+                                    class="px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer @(pageNum == currentPage ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-slate-100")">
+                                @pageNum
+                            </button>
+                        }
+                        <button type="button" @onclick="() => GoToPage(currentPage + 1)" disabled="@(currentPage == totalPages)"
+                                class="p-1.5 rounded hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             DESKTOP TABLE (hidden on mobile, shown on md+)
+             ═══════════════════════════════════════════════════════════════ -->
         <!-- Table -->
-        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
@@ -287,7 +556,7 @@
                                                        : "bg-transparent border-2 border-slate-400 hover:border-slate-300")">
                                     @if (IsAllPageSelected)
                                     {
-                                        <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                        @Icons.Check("w-3.5 h-3.5 text-white")
                                     }
                                     else if (selectedIds.Count > 0)
                                     {
@@ -318,7 +587,7 @@
                                                        : "bg-white border-2 border-slate-300 hover:border-cyan-400")">
                                         @if (selectedIds.Contains(reg.Id))
                                         {
-                                            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                            @Icons.Check("w-3.5 h-3.5 text-white")
                                         }
                                     </button>
                                 </td>
@@ -886,7 +1155,7 @@
 <!-- Success/Error Messages -->
 @if (!string.IsNullOrEmpty(successMessage))
 {
-    <div class="fixed bottom-6 right-6 z-40 max-w-sm">
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-40 max-w-sm">
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-lg p-4 flex items-start gap-3">
             @Icons.CheckCircle("h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5")
             <div class="flex-1">
@@ -902,7 +1171,7 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="fixed bottom-6 right-6 z-40 max-w-sm">
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-40 max-w-sm">
         <div class="rounded-xl border border-red-200 bg-red-50 shadow-lg p-4 flex items-start gap-3">
             @Icons.XCircle("h-5 w-5 text-red-600 flex-shrink-0 mt-0.5")
             <div class="flex-1">
@@ -926,16 +1195,22 @@
     private CompetitionSettings? settings;
     private int competitionYear;
 
-    // Filter state
-    private static readonly RegistrationStatus[] allStatuses = new[]
+    // Filter state — split into two groups so the UI can render them as separate
+    // button clusters: active pipeline statuses vs "not continuing" statuses.
+    private static readonly RegistrationStatus[] activeStatuses = new[]
     {
         RegistrationStatus.AwaitingReview,
         RegistrationStatus.Pending,
         RegistrationStatus.Reviewed,
-        RegistrationStatus.Verified,
+        RegistrationStatus.Verified
+    };
+    private static readonly RegistrationStatus[] inactiveStatuses = new[]
+    {
         RegistrationStatus.Withdrawn,
         RegistrationStatus.Disqualified
     };
+    private static readonly RegistrationStatus[] allStatuses =
+        activeStatuses.Concat(inactiveStatuses).ToArray();
 
     private HashSet<RegistrationStatus> selectedStatuses = new(allStatuses);
     private string selectedDivisionId = string.Empty;
@@ -965,6 +1240,9 @@
     // Selection state
     private HashSet<string> selectedIds = new();
     private bool allFilteredSelected;
+
+    // Mobile responsive state
+    private bool showMobileFilters;
 
     // Bulk modals
     private bool showBulkVerifyModal;

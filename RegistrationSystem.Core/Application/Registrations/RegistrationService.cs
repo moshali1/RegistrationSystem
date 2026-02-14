@@ -42,6 +42,11 @@ public class RegistrationService
         CancellationToken cancellationToken = default)
         => _repository.GetByCompetitionYearAsync(competitionYear, cancellationToken);
 
+    public Task<IReadOnlyList<Registration>> FindDuplicatesAsync(
+        string firstName, string lastName, DateOnly dateOfBirth, int competitionYear,
+        CancellationToken cancellationToken = default)
+        => _repository.FindDuplicatesAsync(firstName, lastName, dateOfBirth, competitionYear, cancellationToken);
+
     public async Task<RegistrationValidationResult> CreateAndSubmitAsync(
         Registration registration,
         CancellationToken cancellationToken = default)
