@@ -19,6 +19,7 @@ public class MongoRegistrationSystemContext
     public IMongoCollection<NiqabBypass> NiqabBypasses { get; }
     public IMongoCollection<CompetitionRound> CompetitionRounds { get; }
     public IMongoCollection<EmailTemplate> EmailTemplates { get; }
+    public IMongoCollection<CompetitionProgress> CompetitionProgress { get; }
 
     public MongoRegistrationSystemContext(MongoClient client, MongoOptions options)
     {
@@ -44,5 +45,8 @@ public class MongoRegistrationSystemContext
 
         EmailTemplates = Database.GetCollection<EmailTemplate>(
             options.EmailTemplatesCollectionName);
+
+        CompetitionProgress = Database.GetCollection<CompetitionProgress>(
+            options.CompetitionProgressCollectionName);
     }
 }

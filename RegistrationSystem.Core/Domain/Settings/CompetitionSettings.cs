@@ -9,11 +9,12 @@ public class CompetitionSettings
     public bool RegistrationEnabled { get; set; }
     public DateTimeOffset? RegistrationStart { get; set; }
     public DateTimeOffset? RegistrationEnd { get; set; }
-    public DateOnly AgeCutoffDate { get; set; }
+    public DateOnly AgeCutoffDate { get; set; } = new DateOnly(DateTime.UtcNow.Year, 1, 1);
 
     public List<Division> Divisions { get; set; } = new();
     public CompetitionInfo CompetitionInfo { get; set; } = new();
     public CidConfiguration CidConfiguration { get; set; } = new();
 
-    public Division? FindDivision(string divisionId) => Divisions.FirstOrDefault(d => d.Id == divisionId);
+    public Division? FindDivision(string divisionId) =>
+        Divisions.FirstOrDefault(d => d.Id == divisionId);
 }

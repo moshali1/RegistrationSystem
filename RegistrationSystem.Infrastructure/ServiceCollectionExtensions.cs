@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INiqabBypassRepository, MongoNiqabBypassRepository>();
         services.AddScoped<IAuditRepository, MongoAuditRepository>();
         services.AddScoped<ICompetitionRoundRepository, MongoCompetitionRoundRepository>();
+        services.AddScoped<ICompetitionProgressRepository, MongoCompetitionProgressRepository>();
         services.AddScoped<IEmailTemplateRepository, MongoEmailTemplateRepository>();
 
         // Application Services
@@ -86,6 +87,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NiqabBypassService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<CompetitionRoundService>();
+        services.AddScoped<CompetitionProgressService>();
         services.AddScoped<EmailTemplateService>();
 
         return services;
@@ -100,6 +102,18 @@ public static class ServiceCollectionExtensions
         if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionRound)))
         {
             BsonClassMap.RegisterClassMap<CompetitionRound>(cm =>
+            {
+                cm.AutoMap();
+                cm.MapIdProperty(c => c.Id)
+                    .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance)
+                    .SetSerializer(new StringSerializer(BsonType.ObjectId));
+            });
+        }
+
+        // CompetitionProgress - Map ObjectId to string for Id property
+        if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionProgress)))
+        {
+            BsonClassMap.RegisterClassMap<CompetitionProgress>(cm =>
             {
                 cm.AutoMap();
                 cm.MapIdProperty(c => c.Id)

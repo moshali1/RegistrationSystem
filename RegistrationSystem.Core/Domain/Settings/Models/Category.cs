@@ -21,6 +21,12 @@ public class Category
     public bool AllowMultipleInDivision { get; set; }
     public bool AllowEdit { get; set; } = true;
     public bool AllowWithdraw { get; set; } = true;
+
+    /// <summary>
+    /// Ordered list of round definitions for this category's competition pipeline.
+    /// Each entry defines a round's name, type, result mode, and messaging.
+    /// </summary>
+    public List<RoundDefinition> Rounds { get; set; } = new();
 }
 
 public enum PortionOption
