@@ -828,7 +828,7 @@
                     }
                 },
                 action: AuditAction.Withdrawn,
-                summary: $"Registration withdrawn. Reason: {reasonText}",
+                summary: $"{previousStatus} → Withdrawn (Reason: {reasonText})",
                 entityDescription: $"{withdrawingRegistration.PersonalInfo.FullName} - {division?.Name ?? "Unknown"} / {category?.Name ?? "Unknown"}");
 
             CloseWithdrawModal();

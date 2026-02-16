@@ -88,7 +88,7 @@ public static class AuditServiceExtensions
     }
 
     /// <summary>
-    /// Logs a registration status change.
+    /// Logs a registration status change with unified "OldStatus → NewStatus" format.
     /// </summary>
     public static async Task LogStatusChangeAsync(
         this IAuditService auditService,
@@ -96,35 +96,28 @@ public static class AuditServiceExtensions
         string competitorName,
         string oldStatus,
         string newStatus,
-        string? reason = null)
+        string? reason = null,
+        string? method = null)
     {
-        var summary = $"Status changed from {oldStatus} to {newStatus}";
+        var summary = $"{oldStatus} → {newStatus}";
         if (!string.IsNullOrEmpty(reason))
             summary += $" ({reason})";
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["OldStatus"] = oldStatus,
+            ["NewStatus"] = newStatus
+        };
+        if (!string.IsNullOrEmpty(method))
+            metadata["Method"] = method;
 
         await auditService.LogAsync(
             AuditAction.StatusChanged,
             "Registration",
             registrationId,
             summary: summary,
-            entityDescription: competitorName);
-    }
-
-    /// <summary>
-    /// Logs a registration withdrawal request.
-    /// </summary>
-    public static async Task LogWithdrawalRequestedAsync(
-        this IAuditService auditService,
-        string registrationId,
-        string competitorName,
-        string reason)
-    {
-        await auditService.LogAsync(
-            AuditAction.WithdrawalRequested,
-            "Registration",
-            registrationId,
-            summary: $"Withdrawal requested: {reason}",
-            entityDescription: competitorName);
+            entityDescription: competitorName,
+            metadata: metadata);
     }
 
     /// <summary>

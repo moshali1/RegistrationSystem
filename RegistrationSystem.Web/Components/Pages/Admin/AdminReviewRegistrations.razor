@@ -1285,12 +1285,12 @@
 
             // Log audit
             await AuditContextProvider.SetCurrentUserContextAsync();
-            await AuditService.LogAsync(
-                AuditAction.StatusChanged,
-                "Registration",
+            await AuditService.LogStatusChangeAsync(
                 selectedRegistration.Id,
-                summary: $"Status changed from {StatusBadge.GetDisplayName(oldStatus)} to {StatusBadge.GetDisplayName(newStatusEnum)}",
-                entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
+                $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})",
+                StatusBadge.GetDisplayName(oldStatus),
+                StatusBadge.GetDisplayName(newStatusEnum),
+                method: "Manual");
 
             // Send status email notification
             string? emailTemplateKeyword = newStatusEnum switch

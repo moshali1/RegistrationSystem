@@ -233,7 +233,13 @@ else
                             <!-- Summary -->
                             @if (!string.IsNullOrEmpty(entry.Summary))
                             {
-                                <p class="text-sm text-slate-700 mb-3">@entry.Summary</p>
+                                <p class="text-sm text-slate-700 mb-3">
+                                    @entry.Summary
+                                    @if (entry.Metadata?.TryGetValue("Method", out var method) == true)
+                                    {
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 ml-1.5">@method</span>
+                                    }
+                                </p>
                             }
 
                             <!-- Field Changes -->
@@ -576,32 +582,26 @@ else
 
     private (string bg, string badge) GetActionStyles(AuditAction action) => action switch
     {
-        AuditAction.Created or AuditAction.Submitted =>
+        AuditAction.Submitted =>
             ("bg-gradient-to-br from-cyan-500 to-cyan-600", "bg-cyan-100 text-cyan-700"),
         AuditAction.Updated =>
             ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
-        AuditAction.Deleted =>
+        AuditAction.Deleted or AuditAction.Disqualified =>
             ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
-        AuditAction.Approved =>
-            ("bg-gradient-to-br from-cyan-600 to-cyan-700", "bg-cyan-100 text-cyan-700"),
-        AuditAction.Rejected =>
-            ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
-        AuditAction.Withdrawn or AuditAction.WithdrawalRequested =>
-            ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
         AuditAction.StatusChanged =>
+            ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
+        AuditAction.Withdrawn =>
             ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
         AuditAction.EmailSent or AuditAction.SmsSent =>
             ("bg-gradient-to-br from-slate-600 to-slate-700", "bg-slate-100 text-slate-700"),
-        AuditAction.FileUploaded =>
-            ("bg-gradient-to-br from-cyan-500 to-cyan-600", "bg-cyan-100 text-cyan-700"),
-        AuditAction.FileDeleted =>
-            ("bg-gradient-to-br from-red-500 to-red-600", "bg-red-100 text-red-700"),
-        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed =>
+        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed or AuditAction.NiqabBypassDeleted =>
             ("bg-gradient-to-br from-slate-600 to-slate-700", "bg-slate-100 text-slate-700"),
-        AuditAction.SettingsUpdated or AuditAction.DivisionUpdated or AuditAction.CategoryUpdated =>
+        AuditAction.SettingsUpdated =>
             ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
-        AuditAction.AdminOverride or AuditAction.ManualCorrection =>
+        AuditAction.ManualCorrection =>
             ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
+        AuditAction.DataImport or AuditAction.DataExport =>
+            ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
         _ => ("bg-gradient-to-br from-slate-400 to-slate-500", "bg-slate-100 text-slate-600")
     };
 
@@ -609,31 +609,22 @@ else
     {
         @switch (action)
         {
-            case AuditAction.Created:
             case AuditAction.Submitted:
                 @Icons.Plus("h-5 w-5 text-white")
                 break;
 
             case AuditAction.Updated:
+            case AuditAction.ManualCorrection:
                 @Icons.EditSquare("h-5 w-5 text-white")
                 break;
 
             case AuditAction.Deleted:
-            case AuditAction.FileDeleted:
+            case AuditAction.Disqualified:
                 @Icons.Trash("h-5 w-5 text-white")
-                break;
-
-            case AuditAction.Approved:
-                @Icons.Check("h-5 w-5 text-white")
-                break;
-
-            case AuditAction.Rejected:
-                @Icons.XMark("h-5 w-5 text-white")
                 break;
 
             case AuditAction.StatusChanged:
             case AuditAction.Withdrawn:
-            case AuditAction.WithdrawalRequested:
                 @Icons.ArrowsRightLeft("h-5 w-5 text-white")
                 break;
 
@@ -642,13 +633,13 @@ else
                 @Icons.Envelope("h-5 w-5 text-white")
                 break;
 
-            case AuditAction.FileUploaded:
-                @Icons.Download("h-5 w-5 text-white")
+            case AuditAction.NiqabBypassCreated:
+            case AuditAction.NiqabBypassClaimed:
+            case AuditAction.NiqabBypassDeleted:
+                @Icons.Shield("h-5 w-5 text-white")
                 break;
 
             case AuditAction.SettingsUpdated:
-            case AuditAction.DivisionUpdated:
-            case AuditAction.CategoryUpdated:
                 @Icons.Cog("h-5 w-5 text-white")
                 break;
 

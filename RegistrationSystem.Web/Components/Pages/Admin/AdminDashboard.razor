@@ -953,8 +953,8 @@ else
                                 <p class="text-xs text-slate-500 mt-1">Withdrawals</p>
                             </div>
                             <div class="bg-slate-50 rounded-lg p-4 text-center">
-                                <p class="text-2xl font-bold text-emerald-600">@actionBreakdown.GetValueOrDefault(AuditAction.Verified)</p>
-                                <p class="text-xs text-slate-500 mt-1">Verifications</p>
+                                <p class="text-2xl font-bold text-blue-600">@actionBreakdown.GetValueOrDefault(AuditAction.EmailSent)</p>
+                                <p class="text-xs text-slate-500 mt-1">Emails Sent</p>
                             </div>
                         </div>
                     </div>
@@ -1005,36 +1005,7 @@ else
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    private static string GetActionDisplayName(AuditAction action) => action switch
-    {
-        AuditAction.Created => "Created",
-        AuditAction.Updated => "Updated",
-        AuditAction.Deleted => "Deleted",
-        AuditAction.Submitted => "Submitted",
-        AuditAction.StatusChanged => "Status Changed",
-        AuditAction.Approved => "Approved",
-        AuditAction.Rejected => "Rejected",
-        AuditAction.Withdrawn => "Withdrawn",
-        AuditAction.WithdrawalRequested => "Withdrawal Requested",
-        AuditAction.Verified => "Verified",
-        AuditAction.Disqualified => "Disqualified",
-        AuditAction.FileUploaded => "File Uploaded",
-        AuditAction.FileDeleted => "File Deleted",
-        AuditAction.EmailSent => "Email Sent",
-        AuditAction.SmsSent => "SMS Sent",
-        AuditAction.NiqabBypassCreated => "Niqab Bypass Created",
-        AuditAction.NiqabBypassClaimed => "Niqab Bypass Claimed",
-        AuditAction.NiqabBypassDeleted => "Niqab Bypass Deleted",
-        AuditAction.SettingsUpdated => "Settings Updated",
-        AuditAction.DivisionUpdated => "Division Updated",
-        AuditAction.CategoryUpdated => "Category Updated",
-        AuditAction.AdminOverride => "Admin Override",
-        AuditAction.ManualCorrection => "Manual Correction",
-        AuditAction.SystemMigration => "System Migration",
-        AuditAction.DataImport => "Data Import",
-        AuditAction.DataExport => "Data Export",
-        _ => action.ToString()
-    };
+    private static string GetActionDisplayName(AuditAction action) => action.GetDisplayName();
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // VIEW MODELS

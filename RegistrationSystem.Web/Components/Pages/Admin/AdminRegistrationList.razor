@@ -1859,9 +1859,10 @@
                     if (e.Metadata?.TryGetValue("NewStatus", out var ns) == true
                         && ns == reg.Status.ToString())
                         return true;
-                    // Check summary text (review page: "Status changed from X to Y")
+                    // Check summary text (both old "Status changed from X to Y" and new "X → Y" format)
                     var currentDisplayName = StatusBadge.GetDisplayName(reg.Status);
-                    return e.Summary?.Contains($"to {currentDisplayName}") == true;
+                    return e.Summary?.Contains($"to {currentDisplayName}") == true
+                        || e.Summary?.Contains($"→ {currentDisplayName}") == true;
                 });
 
             if (statusChangedEntry != null)
@@ -1921,7 +1922,9 @@
     {
         foreach (RegistrationStatus s in Enum.GetValues<RegistrationStatus>())
         {
-            if (summary.Contains($"from {StatusBadge.GetDisplayName(s)} to"))
+            var displayName = StatusBadge.GetDisplayName(s);
+            // Support both old format "from X to Y" and new format "X → Y"
+            if (summary.Contains($"from {displayName} to") || summary.Contains($"{displayName} →"))
                 return s;
         }
         return null;
@@ -1953,18 +1956,13 @@
             await RegistrationService.AdminUpdateStatusAsync(revertTarget);
 
             await AuditContextProvider.SetCurrentUserContextAsync();
-            await AuditService.LogAsync(
-                AuditAction.StatusChanged,
-                "Registration",
+            await AuditService.LogStatusChangeAsync(
                 revertTarget.Id,
-                summary: $"Status reverted from {StatusBadge.GetDisplayName(oldStatus)} to {StatusBadge.GetDisplayName(revertTargetStatus)} ({revertReason})",
-                entityDescription: $"{name} ({cid})",
-                metadata: new Dictionary<string, string>
-                {
-                    ["OldStatus"] = oldStatus.ToString(),
-                    ["NewStatus"] = revertTargetStatus.ToString(),
-                    ["RevertReason"] = revertReason
-                });
+                $"{name} ({cid})",
+                StatusBadge.GetDisplayName(oldStatus),
+                StatusBadge.GetDisplayName(revertTargetStatus),
+                reason: $"Reverted: {revertReason}",
+                method: "Manual");
 
             RebuildFilteredData();
             successMessage = $"Registration for {name} ({cid}) reverted to {StatusBadge.GetDisplayName(revertTargetStatus)}.";
@@ -2024,17 +2022,12 @@
                 reg.Status = RegistrationStatus.Verified;
                 await RegistrationService.AdminUpdateStatusAsync(reg);
 
-                await AuditService.LogAsync(
-                    AuditAction.StatusChanged,
-                    "Registration",
+                await AuditService.LogStatusChangeAsync(
                     reg.Id,
-                    summary: $"Bulk status change: {oldStatus} → Verified",
-                    entityDescription: $"{reg.PersonalInfo.FullName} ({reg.Cid})",
-                    metadata: new Dictionary<string, string>
-                    {
-                        ["OldStatus"] = oldStatus,
-                        ["NewStatus"] = "Verified"
-                    });
+                    $"{reg.PersonalInfo.FullName} ({reg.Cid})",
+                    oldStatus,
+                    "Verified",
+                    method: "Manual");
 
                 verified++;
                 verifiedRegs.Add(reg);

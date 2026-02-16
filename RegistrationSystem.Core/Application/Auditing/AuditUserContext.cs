@@ -281,7 +281,7 @@ public class AuditService : IAuditService
         if (changes.Count == 0)
             return; // No changes detected
 
-        var action = oldValue == null ? AuditAction.Created : AuditAction.Updated;
+        var action = oldValue == null ? AuditAction.Submitted : AuditAction.Updated;
         var entry = CreateEntry(action, entityType, entityId, entityDescription);
         entry.Changes = changes;
         entry.Summary = BuildChangeSummary(changes, action);

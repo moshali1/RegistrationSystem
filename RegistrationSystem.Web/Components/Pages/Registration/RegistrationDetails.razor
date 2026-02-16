@@ -675,7 +675,7 @@ else
             auditEntries = (await AuditService.GetEntityHistoryAsync("Registration", registration.Id)).ToList();
 
             submittedAt = auditEntries
-                .Where(e => e.Action == AuditAction.Submitted || e.Action == AuditAction.Created)
+                .Where(e => e.Action == AuditAction.Submitted)
                 .OrderBy(e => e.Timestamp)
                 .FirstOrDefault()?.Timestamp;
 
@@ -899,12 +899,13 @@ else
 
     private string GetAuditActionStyle(AuditAction action) => action switch
     {
-        AuditAction.Created or AuditAction.Submitted => "bg-cyan-100 text-cyan-700",
+        AuditAction.Submitted => "bg-cyan-100 text-cyan-700",
         AuditAction.Updated => "bg-slate-100 text-slate-600",
-        AuditAction.Approved or AuditAction.Verified => "bg-emerald-100 text-emerald-700",
-        AuditAction.Rejected or AuditAction.Deleted => "bg-red-100 text-red-600",
+        AuditAction.Deleted or AuditAction.Disqualified => "bg-red-100 text-red-600",
         AuditAction.StatusChanged => "bg-amber-100 text-amber-700",
+        AuditAction.Withdrawn => "bg-amber-100 text-amber-700",
         AuditAction.EmailSent => "bg-blue-100 text-blue-700",
+        AuditAction.ManualCorrection => "bg-amber-100 text-amber-700",
         _ => "bg-slate-100 text-slate-600"
     };
 
@@ -912,19 +913,15 @@ else
     {
         @switch (action)
         {
-            case AuditAction.Created:
             case AuditAction.Submitted:
                 @Icons.Plus("h-3.5 w-3.5")
                 break;
             case AuditAction.Updated:
+            case AuditAction.ManualCorrection:
                 @Icons.EditSquare("h-3.5 w-3.5")
                 break;
-            case AuditAction.Approved:
-            case AuditAction.Verified:
-                @Icons.Check("h-3.5 w-3.5")
-                break;
-            case AuditAction.Rejected:
             case AuditAction.Deleted:
+            case AuditAction.Disqualified:
                 @Icons.XMark("h-3.5 w-3.5")
                 break;
             case AuditAction.EmailSent:

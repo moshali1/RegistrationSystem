@@ -563,12 +563,13 @@
 
                     await RegistrationService.AdminUpdateStatusAsync(reg);
 
-                    await AuditService.LogAsync(
-                        AuditAction.StatusChanged,
-                        "Registration",
+                    await AuditService.LogStatusChangeAsync(
                         reg.Id,
-                        summary: $"Status changed from {StatusBadge.GetDisplayName(oldStatus)} to Reviewed (AI ID Verification: Pass)",
-                        entityDescription: $"{reg.PersonalInfo.FullName} ({reg.Cid})");
+                        $"{reg.PersonalInfo.FullName} ({reg.Cid})",
+                        StatusBadge.GetDisplayName(oldStatus),
+                        "Reviewed",
+                        reason: "Auto verification: Pass",
+                        method: "Auto verification");
 
                     updated++;
                 }
