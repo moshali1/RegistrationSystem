@@ -65,6 +65,20 @@ public static class ServiceCollectionExtensions
         // File Validation (orchestrates Azure services)
         services.AddScoped<FileValidationService>();
 
+        // Azure OpenAI (used for AI-powered ID verification)
+        var openAIOptions = new AzureOpenAIOptions();
+        configuration.GetSection(AzureOpenAIOptions.SectionName).Bind(openAIOptions);
+        services.AddSingleton(openAIOptions);
+        services.AddScoped<OpenAI.Chat.ChatClient>(sp =>
+        {
+            var opts = sp.GetRequiredService<AzureOpenAIOptions>();
+            var azureClient = new Azure.AI.OpenAI.AzureOpenAIClient(
+                new Uri(opts.Endpoint),
+                new Azure.AzureKeyCredential(opts.Key));
+            return azureClient.GetChatClient(opts.DeploymentName);
+        });
+        services.AddScoped<IdVerificationService>();
+
         // Email (SendGrid)
         var emailOptions = new EmailOptions();
         configuration.GetSection(EmailOptions.SectionName).Bind(emailOptions);
@@ -78,7 +92,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRegistrationRepository, MongoRegistrationRepository>();
         services.AddScoped<INiqabBypassRepository, MongoNiqabBypassRepository>();
         services.AddScoped<IAuditRepository, MongoAuditRepository>();
-        services.AddScoped<ICompetitionRoundRepository, MongoCompetitionRoundRepository>();
         services.AddScoped<ICompetitionProgressRepository, MongoCompetitionProgressRepository>();
         services.AddScoped<IEmailTemplateRepository, MongoEmailTemplateRepository>();
 
@@ -86,7 +99,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RegistrationService>();
         services.AddScoped<NiqabBypassService>();
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<CompetitionRoundService>();
         services.AddScoped<CompetitionProgressService>();
         services.AddScoped<EmailTemplateService>();
 
@@ -97,18 +109,6 @@ public static class ServiceCollectionExtensions
     {
         // These calls are safe to make once per app start
         BsonSerializer.RegisterSerializer(new DateOnlySerializer());
-
-        // CompetitionRound - Map ObjectId to string for Id property
-        if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionRound)))
-        {
-            BsonClassMap.RegisterClassMap<CompetitionRound>(cm =>
-            {
-                cm.AutoMap();
-                cm.MapIdProperty(c => c.Id)
-                    .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance)
-                    .SetSerializer(new StringSerializer(BsonType.ObjectId));
-            });
-        }
 
         // CompetitionProgress - Map ObjectId to string for Id property
         if (!BsonClassMap.IsClassMapRegistered(typeof(CompetitionProgress)))

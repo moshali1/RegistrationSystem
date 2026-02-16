@@ -7,14 +7,17 @@
 @using RegistrationSystem.Core.Application.Messaging
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Application.CompetitionRounds
 @using RegistrationSystem.Core.Application.Users
 @using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.CompetitionRounds
 @using RegistrationSystem.Core.Domain.Messaging
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.Settings
 @using RegistrationSystem.Web.Services
 
 @inject RegistrationService RegistrationService
+@inject CompetitionProgressService CompetitionProgressService
 @inject IRegistrationRepository RegistrationRepository
 @inject SettingsService SettingsService
 @inject IAuditService AuditService
@@ -581,6 +584,7 @@
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Location</th>
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Status</th>
                             <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Flags</th>
+                            <th class="text-left px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">Round</th>
                             <th class="text-center px-4 py-3.5 text-xs font-semibold text-slate-300 uppercase tracking-wider w-32">Actions</th>
                         </tr>
                     </thead>
@@ -690,6 +694,27 @@
                                             <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium" title="@reg.StatusComment">Comment</span>
                                         }
                                     </div>
+                                </td>
+
+                                <!-- Round -->
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    @if (GetRoundDisplay(reg.Id) is var rd && rd.HasProgress)
+                                    {
+                                        <a href="/registrations/@reg.Id/messages" target="_blank"
+                                           class="group inline-flex items-center gap-1.5 text-sm transition-colors @rd.TextClass"
+                                           title="View competition progress">
+                                            <span class="w-2 h-2 rounded-full shrink-0 @rd.DotClass"></span>
+                                            <span class="group-hover:underline">@rd.Label</span>
+                                            @if (rd.ShowAlert)
+                                            {
+                                                <span class="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Unacknowledged"></span>
+                                            }
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300">—</span>
+                                    }
                                 </td>
 
                                 <!-- Actions -->
@@ -1367,6 +1392,7 @@
     private List<Division> divisions = new();
     private List<Category> availableCategories = new();
     private List<Registration> registrations = new();
+    private Dictionary<string, CompetitionProgress> competitionProgress = new();
 
     // Pagination
     private int currentPage = 1;
@@ -1506,6 +1532,11 @@
         {
             var allRegistrations = await RegistrationService.GetAllByYearAsync(competitionYear);
             registrations = allRegistrations.ToList();
+
+            // Batch load competition progress for round column
+            var registrationIds = registrations.Select(r => r.Id).ToList();
+            competitionProgress = await CompetitionProgressService.GetByRegistrationIdsAsync(registrationIds);
+
             currentPage = 1;
             selectedIds.Clear();
             allFilteredSelected = false;
@@ -1956,8 +1987,7 @@
 
     private void OpenBulkVerifyModal()
     {
-        var filtered = GetFilteredEmailTemplates();
-        bulkVerifyTemplateId = filtered.FirstOrDefault(t => t.Name.Contains("Verified", StringComparison.OrdinalIgnoreCase))?.Id ?? "";
+        bulkVerifyTemplateId = "";
         showBulkVerifyModal = true;
     }
 
@@ -2388,6 +2418,36 @@
         var division = divisions.FirstOrDefault(d => d.Id == template.DivisionId);
         var catName = division?.Categories.FirstOrDefault(c => c.Id == template.CategoryId)?.Name ?? "?";
         return $"{divName} / {catName}";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUND DISPLAY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private record RoundDisplayInfo(bool HasProgress, string Label, string DotClass, string TextClass, bool ShowAlert);
+
+    private RoundDisplayInfo GetRoundDisplay(string registrationId)
+    {
+        if (!competitionProgress.TryGetValue(registrationId, out var progress))
+            return new(false, "", "", "", false);
+
+        var activeRound = progress.GetActiveRound();
+        if (activeRound != null)
+            return new(true, activeRound.Name, "bg-cyan-500", "text-slate-700 hover:text-cyan-700", progress.HasPendingAcknowledgment);
+
+        var lastRound = progress.Rounds
+            .OrderByDescending(r => r.Order)
+            .FirstOrDefault(r => r.Status != RoundEntryStatus.Pending);
+
+        if (lastRound == null)
+            return new(false, "", "", "", false);
+
+        var eliminated = lastRound.Status == RoundEntryStatus.Eliminated;
+        return new(true,
+            eliminated ? "Eliminated" : "Complete",
+            eliminated ? "bg-red-500" : "bg-emerald-500",
+            eliminated ? "text-red-600 hover:text-red-700" : "text-emerald-600 hover:text-emerald-700",
+            false);
     }
 
 }

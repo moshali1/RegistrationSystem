@@ -57,6 +57,8 @@ public interface IAuditRepository
     Task<AuditDailyStats> GetDailyStatsAsync(DateOnly date, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AuditDailyStats>> GetStatsRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
     Task<long> DeleteByEntityAsync(string entityType, string entityId, CancellationToken cancellationToken = default);
+    Task UpdateSummaryAsync(string id, string newSummary, CancellationToken cancellationToken = default);
+    Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -160,6 +162,21 @@ public interface IAuditService
     Task<long> DeleteEntityAuditTrailAsync(
         string entityType,
         string entityId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the summary of a specific audit entry.
+    /// </summary>
+    Task UpdateEntrySummaryAsync(
+        string entryId,
+        string newSummary,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a specific audit entry by ID.
+    /// </summary>
+    Task DeleteEntryAsync(
+        string entryId,
         CancellationToken cancellationToken = default);
 }
 
@@ -336,6 +353,21 @@ public class AuditService : IAuditService
         CancellationToken cancellationToken = default)
     {
         return await _repository.DeleteByEntityAsync(entityType, entityId, cancellationToken);
+    }
+
+    public async Task UpdateEntrySummaryAsync(
+        string entryId,
+        string newSummary,
+        CancellationToken cancellationToken = default)
+    {
+        await _repository.UpdateSummaryAsync(entryId, newSummary, cancellationToken);
+    }
+
+    public async Task DeleteEntryAsync(
+        string entryId,
+        CancellationToken cancellationToken = default)
+    {
+        await _repository.DeleteByIdAsync(entryId, cancellationToken);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

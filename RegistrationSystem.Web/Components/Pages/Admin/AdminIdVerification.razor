@@ -1,0 +1,644 @@
+@page "/admin/id-verification"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Azure
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
+
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject IdVerificationService IdVerificationService
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
+@inject BlobSasService BlobSasService
+
+<PageTitle>ID Verification</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 md:px-6">
+
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="text-2xl font-bold text-slate-800">ID Verification</h1>
+        <p class="text-sm text-slate-500 mt-1">AI-powered identity document verification for competition registrations</p>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm mb-6 overflow-hidden">
+        <div class="bg-slate-800 px-5 py-3">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Division Filter -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Division</span>
+                    <select @bind="selectedDivisionId" @bind:after="OnDivisionChanged"
+                            class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                        <option value="">Select Division</option>
+                        @foreach (var division in divisions)
+                        {
+                            <option value="@division.Id">@division.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Category Filter -->
+                @if (!string.IsNullOrEmpty(selectedDivisionId))
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Category</span>
+                        <select @bind="selectedCategoryId"
+                                class="px-3 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
+                            <option value="">Select Category</option>
+                            @foreach (var category in availableCategories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <!-- Run Button -->
+                <button type="button" @onclick="RunVerification"
+                        disabled="@(!CanRun)"
+                        class="ml-auto px-5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 disabled:from-slate-500 disabled:to-slate-600 text-white text-sm font-medium transition-all cursor-pointer flex items-center gap-2 shadow-sm">
+                    @if (isProcessing)
+                    {
+                        @Icons.Spinner("h-4 w-4")
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        @Icons.ShieldCheckFilled("h-4 w-4")
+                        <span>Run Verification</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    @if (isProcessing)
+    {
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-6 mb-6">
+            <div class="flex items-center gap-3 mb-3">
+                @Icons.Spinner("h-5 w-5 text-cyan-600")
+                <span class="text-sm font-medium text-slate-700">
+                    Processing @processProgress of @processTotal...
+                </span>
+            </div>
+            @if (!string.IsNullOrEmpty(currentProcessingName))
+            {
+                <p class="text-xs text-slate-500 mb-3">Current: @currentProcessingName</p>
+            }
+            <div class="w-full bg-slate-200 rounded-full h-2">
+                <div class="bg-gradient-to-r from-cyan-500 to-cyan-600 h-2 rounded-full transition-all duration-300"
+                     style="width: @(processTotal > 0 ? (processProgress * 100 / processTotal) : 0)%"></div>
+            </div>
+        </div>
+    }
+
+    <!-- Results -->
+    @if (hasResults)
+    {
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                <p class="text-2xl font-bold text-emerald-700">@passCount</p>
+                <p class="text-xs font-medium text-emerald-600 uppercase tracking-wide mt-1">Passed</p>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+                <p class="text-2xl font-bold text-red-700">@flagCount</p>
+                <p class="text-xs font-medium text-red-600 uppercase tracking-wide mt-1">Flagged</p>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+                <p class="text-2xl font-bold text-amber-700">@questionCount</p>
+                <p class="text-xs font-medium text-amber-600 uppercase tracking-wide mt-1">Needs Review</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p class="text-2xl font-bold text-slate-600">@skippedCount</p>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">Skipped</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p class="text-2xl font-bold text-slate-600">@errorCount</p>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">Errors</p>
+            </div>
+        </div>
+
+        <!-- Bulk Action -->
+        @if (passableCount > 0 && !isProcessing)
+        {
+            <div class="rounded-xl border border-cyan-200 bg-cyan-50 p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-cyan-800">
+                    <span class="font-semibold">@passableCount</span> passed registrations can be moved to Reviewed status.
+                </p>
+                <button type="button" @onclick="() => showBulkReviewModal = true"
+                        class="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-sm font-medium transition-all cursor-pointer flex items-center gap-2 shadow-sm">
+                    @Icons.CheckCircle("h-4 w-4")
+                    <span>Mark Passed as Reviewed</span>
+                </button>
+            </div>
+        }
+
+        <!-- Results Table -->
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">CID</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Name</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden md:table-cell">Doc Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden md:table-cell">Country</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden lg:table-cell">Name on ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Result</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden lg:table-cell">Reasoning</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">ID</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach (var r in sortedResults)
+                        {
+                            <tr class="hover:bg-slate-50/50 transition-colors @GetRowClass(r)">
+                                <td class="px-4 py-3 font-mono text-xs text-slate-500">@(r.Cid ?? "—")</td>
+                                <td class="px-4 py-3 font-medium text-slate-800">@r.CompetitorName</td>
+
+                                @if (r.IsSkipped)
+                                {
+                                    <td class="px-4 py-3 text-slate-400 hidden md:table-cell" colspan="1">—</td>
+                                    <td class="px-4 py-3 text-slate-400 hidden md:table-cell">—</td>
+                                    <td class="px-4 py-3 text-slate-400 hidden lg:table-cell">—</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                            Skipped
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-xs text-slate-400 hidden lg:table-cell">@r.SkipReason</td>
+                                }
+                                else if (r.HasError)
+                                {
+                                    <td class="px-4 py-3 text-red-400 hidden md:table-cell">—</td>
+                                    <td class="px-4 py-3 text-red-400 hidden md:table-cell">—</td>
+                                    <td class="px-4 py-3 text-red-400 hidden lg:table-cell">—</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
+                                            Error
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-xs text-red-500 hidden lg:table-cell">@r.ErrorMessage</td>
+                                }
+                                else
+                                {
+                                    <td class="px-4 py-3 text-slate-600 hidden md:table-cell">@FormatDocType(r.DocumentType)</td>
+                                    <td class="px-4 py-3 hidden md:table-cell">
+                                        <span class="@(r.IsAllowedRegion ? "text-slate-600" : "text-red-600 font-medium")">
+                                            @r.IssuingCountry
+                                        </span>
+                                        @if (!r.IsAllowedRegion)
+                                        {
+                                            <span class="ml-1 text-xs text-red-400">(not allowed)</span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-3 hidden lg:table-cell">
+                                        <div class="flex items-center gap-2">
+                                            <span class="@GetNameMatchClass(r.FirstNameMatch)">@r.ExtractedFirstName</span>
+                                            <span class="@GetNameMatchClass(r.LastNameMatch)">@r.ExtractedLastName</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @switch (r.Outcome)
+                                        {
+                                            case IdVerificationOutcome.Pass:
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                                    @Icons.CheckCircle("h-3 w-3")
+                                                    Pass
+                                                </span>
+                                                break;
+                                            case IdVerificationOutcome.Flag:
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                    @Icons.XCircle("h-3 w-3")
+                                                    Flag
+                                                </span>
+                                                break;
+                                            case IdVerificationOutcome.Question:
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                    @Icons.Warning("h-3 w-3")
+                                                    Review
+                                                </span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="px-4 py-3 text-xs text-slate-500 max-w-xs truncate hidden lg:table-cell" title="@r.Reasoning">@r.Reasoning</td>
+                                }
+
+                                <td class="px-4 py-3">
+                                    @{ var idUrl = GetIdUrl(r.RegistrationId); }
+                                    @if (idUrl != null)
+                                    {
+                                        <a href="@idUrl" target="_blank"
+                                           class="text-cyan-600 hover:text-cyan-700 text-xs font-medium hover:underline">
+                                            View
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300 text-xs">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- Empty State -->
+    @if (!isProcessing && !hasResults && !isLoading)
+    {
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-12 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                @Icons.ShieldCheckFilled("h-8 w-8 text-slate-400")
+            </div>
+            <h3 class="text-lg font-semibold text-slate-700 mb-2">Ready to Verify</h3>
+            <p class="text-sm text-slate-500 max-w-md mx-auto">
+                Select a division and category, then click "Run Verification" to analyze ID documents using AI.
+            </p>
+        </div>
+    }
+
+    <!-- Loading State -->
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-12">
+            @Icons.Spinner("h-8 w-8 text-cyan-600")
+        </div>
+    }
+</div>
+
+<!-- Bulk Review Confirmation Modal -->
+@if (showBulkReviewModal)
+{
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4">
+                <h3 class="text-lg font-semibold text-white">Confirm Bulk Review</h3>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-slate-600 mb-4">
+                    This will change <span class="font-semibold">@passableCount</span> registration(s) from
+                    <span class="font-medium text-slate-800">Awaiting Review / Pending</span> to
+                    <span class="font-medium text-emerald-700">Reviewed</span>.
+                </p>
+                <p class="text-xs text-slate-500 mb-6">
+                    Each status change will be logged in the audit trail as "AI ID Verification: Pass".
+                </p>
+                <div class="flex justify-end gap-3">
+                    <button type="button" @onclick="() => showBulkReviewModal = false"
+                            class="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="ExecuteBulkReview" disabled="@isBulkProcessing"
+                            class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-sm font-medium transition-colors cursor-pointer flex items-center gap-2">
+                        @if (isBulkProcessing)
+                        {
+                            @Icons.Spinner("h-4 w-4")
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>Confirm</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Success Toast -->
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:right-6 md:left-auto z-40 max-w-sm">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.CheckCircle("h-5 w-5 text-emerald-600 shrink-0 mt-0.5")
+            <p class="text-sm font-medium text-emerald-800">@successMessage</p>
+            <button type="button" @onclick='() => successMessage = ""'
+                    class="ml-auto shrink-0 text-emerald-400 hover:text-emerald-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+
+<!-- Error Toast -->
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:right-6 md:left-auto z-40 max-w-sm">
+        <div class="rounded-xl border border-red-200 bg-red-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.XCircle("h-5 w-5 text-red-600 shrink-0 mt-0.5")
+            <p class="text-sm font-medium text-red-800">@errorMessage</p>
+            <button type="button" @onclick='() => errorMessage = ""'
+                    class="ml-auto shrink-0 text-red-400 hover:text-red-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool isLoading = true;
+    private CompetitionSettings? settings;
+    private int competitionYear;
+
+    // Filters
+    private List<Division> divisions = new();
+    private List<Category> availableCategories = new();
+    private string selectedDivisionId = string.Empty;
+    private string selectedCategoryId = string.Empty;
+
+    // Processing
+    private bool isProcessing;
+    private int processProgress;
+    private int processTotal;
+    private string currentProcessingName = string.Empty;
+
+    // Results
+    private List<IdVerificationResult> results = new();
+    private List<Registration> processedRegistrations = new();
+    private bool hasResults;
+
+    // Bulk action
+    private bool showBulkReviewModal;
+    private bool isBulkProcessing;
+
+    // Messages
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMPUTED
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool CanRun => !isProcessing
+        && !string.IsNullOrEmpty(selectedDivisionId)
+        && !string.IsNullOrEmpty(selectedCategoryId);
+
+    private int passCount => results.Count(r => !r.IsSkipped && !r.HasError && r.Outcome == IdVerificationOutcome.Pass);
+    private int flagCount => results.Count(r => !r.IsSkipped && !r.HasError && r.Outcome == IdVerificationOutcome.Flag);
+    private int questionCount => results.Count(r => !r.IsSkipped && !r.HasError && r.Outcome == IdVerificationOutcome.Question);
+    private int skippedCount => results.Count(r => r.IsSkipped);
+    private int errorCount => results.Count(r => r.HasError);
+
+    // Passable = passed AND status is AwaitingReview or Pending (not already Reviewed/Verified)
+    private int passableCount => results
+        .Where(r => !r.IsSkipped && !r.HasError && r.Outcome == IdVerificationOutcome.Pass)
+        .Count(r =>
+        {
+            var reg = processedRegistrations.FirstOrDefault(x => x.Id == r.RegistrationId);
+            return reg != null && (reg.Status == RegistrationStatus.AwaitingReview || reg.Status == RegistrationStatus.Pending);
+        });
+
+    private List<IdVerificationResult> sortedResults => results
+        .OrderBy(r => r.IsSkipped || r.HasError ? 3 : r.Outcome switch
+        {
+            IdVerificationOutcome.Flag => 0,
+            IdVerificationOutcome.Question => 1,
+            IdVerificationOutcome.Pass => 2,
+            _ => 2
+        })
+        .ThenBy(r => r.CompetitorName)
+        .ToList();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+        competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+
+        if (settings != null)
+        {
+            divisions = settings.Divisions.Where(d => d.IsEnabled).ToList();
+        }
+
+        isLoading = false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILTERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OnDivisionChanged()
+    {
+        selectedCategoryId = string.Empty;
+        results.Clear();
+        hasResults = false;
+
+        if (!string.IsNullOrEmpty(selectedDivisionId))
+        {
+            var division = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+            availableCategories = division?.Categories.Where(c => c.IsEnabled).ToList() ?? new();
+        }
+        else
+        {
+            availableCategories = new();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VERIFICATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunVerification()
+    {
+        if (!CanRun) return;
+
+        isProcessing = true;
+        results.Clear();
+        processedRegistrations.Clear();
+        hasResults = false;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        // Yield to let Blazor render the processing state
+        await Task.Yield();
+        StateHasChanged();
+
+        try
+        {
+            var allRegistrations = await RegistrationService.GetAllByYearAsync(competitionYear);
+            var targetRegistrations = allRegistrations
+                .Where(r => r.CompetitionSelection.DivisionId == selectedDivisionId)
+                .Where(r => r.CompetitionSelection.CategoryId == selectedCategoryId)
+                .Where(r => r.Status == RegistrationStatus.AwaitingReview
+                          || r.Status == RegistrationStatus.Pending
+                          || r.Status == RegistrationStatus.Reviewed)
+                .ToList();
+
+            processedRegistrations = targetRegistrations;
+            processTotal = targetRegistrations.Count;
+            processProgress = 0;
+
+            if (processTotal == 0)
+            {
+                isProcessing = false;
+                hasResults = true;
+                errorMessage = "No registrations found for the selected division and category.";
+                StateHasChanged();
+                return;
+            }
+
+            var division = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+            var divisionName = division?.Name ?? "Unknown";
+
+            // Show results table immediately (starts empty, fills live)
+            hasResults = true;
+
+            foreach (var registration in targetRegistrations)
+            {
+                processProgress++;
+                currentProcessingName = registration.PersonalInfo.FullName;
+                StateHasChanged();
+                await Task.Delay(50); // Yield to Blazor render pipeline
+
+                var result = await IdVerificationService.VerifyRegistrationIdAsync(
+                    registration, divisionName, competitionYear);
+
+                results.Add(result);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Verification failed: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            currentProcessingName = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BULK REVIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ExecuteBulkReview()
+    {
+        isBulkProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            await AuditContextProvider.SetCurrentUserContextAsync();
+
+            var passedResults = results
+                .Where(r => !r.IsSkipped && !r.HasError && r.Outcome == IdVerificationOutcome.Pass)
+                .ToList();
+
+            int updated = 0;
+            int failed = 0;
+
+            foreach (var result in passedResults)
+            {
+                var reg = processedRegistrations.FirstOrDefault(r => r.Id == result.RegistrationId);
+                if (reg == null) continue;
+                if (reg.Status != RegistrationStatus.AwaitingReview && reg.Status != RegistrationStatus.Pending) continue;
+
+                try
+                {
+                    var oldStatus = reg.Status;
+                    reg.Status = RegistrationStatus.Reviewed;
+
+                    await RegistrationService.AdminUpdateStatusAsync(reg);
+
+                    await AuditService.LogAsync(
+                        AuditAction.StatusChanged,
+                        "Registration",
+                        reg.Id,
+                        summary: $"Status changed from {StatusBadge.GetDisplayName(oldStatus)} to Reviewed (AI ID Verification: Pass)",
+                        entityDescription: $"{reg.PersonalInfo.FullName} ({reg.Cid})");
+
+                    updated++;
+                }
+                catch
+                {
+                    failed++;
+                }
+            }
+
+            showBulkReviewModal = false;
+
+            if (failed > 0)
+            {
+                successMessage = $"Updated {updated} registrations to Reviewed. {failed} failed.";
+            }
+            else
+            {
+                successMessage = $"Successfully updated {updated} registrations to Reviewed status.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Bulk review failed: {ex.Message}";
+            showBulkReviewModal = false;
+        }
+        finally
+        {
+            isBulkProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private string? GetIdUrl(string registrationId)
+    {
+        var reg = processedRegistrations.FirstOrDefault(r => r.Id == registrationId);
+        var storageRef = reg?.FileUploadInfo?.IdDocument?.StorageReference;
+        if (string.IsNullOrEmpty(storageRef)) return null;
+        return BlobSasService.GenerateSasUriFromReference(storageRef, competitionYear);
+    }
+
+    private static string FormatDocType(string docType) => docType switch
+    {
+        "drivers_license" => "Driver's License",
+        "state_id" => "State ID",
+        "passport" => "Passport",
+        "birth_certificate" => "Birth Certificate",
+        "other" => "Other",
+        _ => docType
+    };
+
+    private static string GetNameMatchClass(NameMatchResult match) => match switch
+    {
+        NameMatchResult.Match => "text-emerald-700 font-medium",
+        NameMatchResult.NoMatch => "text-red-600 font-medium",
+        _ => "text-amber-600"
+    };
+
+    private static string GetRowClass(IdVerificationResult r)
+    {
+        if (r.IsSkipped) return "bg-slate-50/30";
+        if (r.HasError) return "bg-red-50/30";
+        return r.Outcome switch
+        {
+            IdVerificationOutcome.Flag => "bg-red-50/20",
+            IdVerificationOutcome.Question => "bg-amber-50/20",
+            _ => ""
+        };
+    }
+}

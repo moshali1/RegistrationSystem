@@ -1,13 +1,11 @@
-﻿@page "/admin/competition-tracking"
+@page "/admin/competition-tracking"
 @attribute [Authorize(Roles = "Admin")]
-@using RegistrationSystem.Core.Domain.Registrations
-@using RegistrationSystem.Core.Domain.CompetitionRounds
 @using RegistrationSystem.Core.Domain.Settings
-@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.CompetitionRounds
 
-@inject RegistrationService RegistrationService
-@inject CompetitionRoundService CompetitionRoundService
+@inject CompetitionProgressService CompetitionProgressService
 @inject SettingsService SettingsService
+@inject RegistrationService RegistrationService
 
 <PageTitle>Competition Tracking</PageTitle>
 
@@ -25,24 +23,30 @@
     {
         <!-- Page Header -->
         <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Competition Tracking</h1>
-                <p class="text-sm text-slate-500 mt-1">Monitor progress across all divisions and categories</p>
+            <div class="flex items-center gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">Competition Tracking</h1>
+                    <p class="text-sm text-slate-500 mt-1">Monitor progress across all divisions and categories</p>
+                </div>
+                <button @onclick="() => showGuideModal = true"
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all cursor-pointer"
+                        title="How competition tracking works">
+                    @Icons.InfoCircleOutline("h-5 w-5")
+                </button>
             </div>
             <div class="flex items-center gap-6 text-sm">
                 <div class="flex items-center gap-2">
-                    <span class="text-slate-500">Total:</span>
-                    <span class="font-semibold text-slate-900">@allRegistrations.Count</span>
+                    <span class="text-slate-500">Competitors:</span>
+                    <span class="font-semibold text-slate-900">@allProgress.Count</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-slate-500">Rounds:</span>
-                    <span class="font-semibold text-slate-900">@allRounds.Count</span>
-                </div>
-                @if (allRounds.Any(r => r.HasPendingAcknowledgment))
+                @{
+                    var pendingAckCount = allProgress.Count(p => p.HasPendingAcknowledgment);
+                }
+                @if (pendingAckCount > 0)
                 {
                     <div class="flex items-center gap-2">
                         <span class="text-slate-500">Pending:</span>
-                        <span class="font-semibold text-red-600">@allRounds.Count(r => r.HasPendingAcknowledgment)</span>
+                        <span class="font-semibold text-red-600">@pendingAckCount</span>
                         <span class="flex h-2 w-2">
                             <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
@@ -56,15 +60,14 @@
         <div class="space-y-3">
             @foreach (var division in settings.Divisions.Where(d => d.IsEnabled))
             {
-                var divisionRegs = allRegistrations.Where(r => r.CompetitionSelection.DivisionId == division.Id).ToList();
-                var divisionRounds = allRounds.Where(r => r.DivisionId == division.Id).ToList();
-                var hasStarted = divisionRounds.Count > 0;
-                
+                var divisionProgress = allProgress.Where(p => p.DivisionId == division.Id).ToList();
+                var hasStarted = divisionProgress.Count > 0;
+
                 <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    
+
                     <!-- Division Header -->
                     <button @onclick="() => ToggleDivisionExpanded(division.Id)"
-                            class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                            class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer">
                         <div class="flex items-center gap-3">
                             @Icons.Chevron($"h-4 w-4 text-slate-400 transition-transform group-hover:text-cyan-600 {(expandedDivisions.Contains(division.Id) ? "rotate-90" : "")}")
                             <div class="w-8 h-8 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
@@ -72,7 +75,7 @@
                             </div>
                             <div class="text-left">
                                 <h2 class="font-semibold text-slate-900">@division.Name</h2>
-                                <p class="text-xs text-slate-500">@divisionRegs.Count competitors</p>
+                                <p class="text-xs text-slate-500">@divisionProgress.Count competitors</p>
                             </div>
                         </div>
                         @if (!hasStarted)
@@ -85,354 +88,228 @@
                     @if (expandedDivisions.Contains(division.Id))
                     {
                         <div class="border-t border-slate-200 p-4 bg-slate-50">
-                            
-                            @if (!hasStarted)
-                            {
-                                <!-- Placeholder for division with no rounds -->
-                                <div class="text-center py-12">
-                                    <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-4">
-                                        @Icons.Clock("h-8 w-8 text-slate-400")
-                                    </div>
-                                    <p class="text-sm font-medium text-slate-600">Competition not yet started</p>
-                                    <p class="text-xs text-slate-500 mt-1">No rounds have been assigned for this division</p>
-                                </div>
-                            }
-                            else
-                            {
-                                <!-- Categories Grid - 2 per row -->
-                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    @foreach (var category in division.Categories.Where(c => c.IsEnabled))
-                                    {
-                                        var categoryRegs = divisionRegs.Where(r => r.CompetitionSelection.CategoryId == category.Id).ToList();
-                                        var categoryRounds = divisionRounds.Where(r => r.CategoryId == category.Id).ToList();
-                                        
-                                        @if (categoryRounds.Count > 0)
-                                        {
-                                            <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
 
-                                                <!-- Category Header -->
-                                                <div class="px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
-                                                    <div class="flex items-center justify-between">
-                                                        <div>
-                                                            <h3 class="font-semibold text-slate-900 text-sm">@category.Name</h3>
-                                                            @if (!string.IsNullOrEmpty(category.AlternateName))
-                                                            {
-                                                                <p class="text-xs text-slate-500">@category.AlternateName</p>
-                                                            }
-                                                        </div>
-                                                        <span class="text-xs text-slate-500">@categoryRegs.Count</span>
-                                                    </div>
-                                                </div>
+                            <!-- Categories Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                @foreach (var category in division.Categories.Where(c => c.IsEnabled))
+                                {
+                                    var categoryProgress = GetCategoryProgress(category.Id);
+                                    var hasRoundsConfigured = category.Rounds.Count > 0;
+                                    var categoryHasStarted = categoryProgress.Count > 0;
 
-                                                <!-- Category Content -->
-                                                <div class="p-4 space-y-4">
-                                                    
-                                                    <!-- Video Qualification -->
-                                                    @if (category.RequiresVideo)
+                                    <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+
+                                        <!-- Category Header -->
+                                        <div class="px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <h3 class="font-semibold text-slate-900 text-sm">@category.Name</h3>
+                                                    @if (!string.IsNullOrEmpty(category.AlternateName))
                                                     {
-                                                        var videoStats = GetVideoStats(categoryRounds);
-                                                        
-                                                        <div class="space-y-2">
-                                                            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Video Qualification</div>
-                                                            
-                                                            <!-- Pending Status -->
-                                                            @if (videoStats.Pending > 0)
-                                                            {
-                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
-                                                                     @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Pending)">
-                                                                    @Icons.InfoCircleOutline("h-4 w-4 flex-shrink-0")
-                                                                    <span class="text-sm font-medium">Pending Review</span>
-                                                                    <span class="ml-auto text-lg font-bold">@videoStats.Pending</span>
-                                                                </div>
-                                                            }
-                                                            
-                                                            <!-- Pass/Fail Progress Bar -->
-                                                            @if (videoStats.Pass > 0 || videoStats.Fail > 0)
-                                                            {
-                                                                var total = videoStats.Pass + videoStats.Fail;
-                                                                var passPercent = (int)((videoStats.Pass / (double)total) * 100);
-                                                                var failPercent = 100 - passPercent;
-                                                                
-                                                                <div class="space-y-1.5">
-                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
-                                                                        @if (videoStats.Pass > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(passPercent)%"
-                                                                                 @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Pass)">
-                                                                                <span class="text-sm font-bold">✓ @videoStats.Pass</span>
-                                                                            </div>
-                                                                        }
-                                                                        @if (videoStats.Fail > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(failPercent)%"
-                                                                                 @onclick="() => ShowVideoModal(category, VideoQualificationStatus.Fail)">
-                                                                                <span class="text-sm font-bold">✗ @videoStats.Fail</span>
-                                                                            </div>
-                                                                        }
-                                                                    </div>
-                                                                    <div class="flex justify-between text-xs text-slate-500">
-                                                                        <span>@passPercent% passed</span>
-                                                                        <span>@failPercent% failed</span>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                            
-                                                            <!-- Schedule Acknowledgment -->
-                                                            @if (videoStats.Pass > 0)
-                                                            {
-                                                                var prelimAssigned = categoryRounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundDateTime.HasValue);
-                                                                var prelimAcked = categoryRounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundAcknowledged);
-                                                                var prelimNotAcked = prelimAssigned - prelimAcked;
-                                                                
-                                                                @if (prelimAssigned > 0)
-                                                                {
-                                                                    var ackedPercent = (int)((prelimAcked / (double)prelimAssigned) * 100);
-                                                                    var notAckedPercent = 100 - ackedPercent;
-                                                                    
-                                                                    <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
-                                                                        <div class="text-xs text-slate-600">→ Preliminary Schedule</div>
-                                                                        <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
-                                                                            @if (prelimAcked > 0)
-                                                                            {
-                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                     style="width: @(ackedPercent)%"
-                                                                                     @onclick='() => ShowPrelimAckedModal(category, "video")'>
-                                                                                    <span class="text-xs font-bold">@prelimAcked</span>
-                                                                                </div>
-                                                                            }
-                                                                            @if (prelimNotAcked > 0)
-                                                                            {
-                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
-                                                                                     style="width: @(notAckedPercent)%"
-                                                                                     @onclick='() => ShowPrelimNotAckedModal(category, "video")'>
-                                                                                    <span class="text-xs font-bold">@prelimNotAcked</span>
-                                                                                    <span class="absolute -top-1 -right-1 flex h-2 w-2">
-                                                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                                                                                    </span>
-                                                                                </div>
-                                                                            }
-                                                                        </div>
-                                                                        <div class="flex justify-between text-xs text-slate-500">
-                                                                            <span>@ackedPercent% confirmed</span>
-                                                                            <span>@notAckedPercent% awaiting</span>
-                                                                        </div>
-                                                                    </div>
-                                                                }
-                                                            }
-                                                        </div>
+                                                        <p class="text-xs text-slate-500">@category.AlternateName</p>
                                                     }
-
-                                                    <!-- Screening Round -->
-                                                    @if (category.ScreeningRoundEnabled)
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    @if (categoryHasStarted)
                                                     {
-                                                        var screeningStats = GetScreeningStats(categoryRounds);
-                                                        
+                                                        <span class="text-xs text-slate-500 mr-1">@categoryProgress.Count</span>
+                                                        @if (hasRoundsConfigured)
+                                                        {
+                                                            <button @onclick="() => ShowInitModal(category)"
+                                                                    class="px-2 py-1 text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-lg hover:bg-cyan-100 transition-all cursor-pointer"
+                                                                    disabled="@isOperating"
+                                                                    title="Add new verified registrations">
+                                                                @Icons.Plus("h-3 w-3 inline")
+                                                            </button>
+                                                        }
+                                                    }
+                                                    else if (hasRoundsConfigured)
+                                                    {
+                                                        <button @onclick="() => ShowInitModal(category)"
+                                                                class="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-lg hover:from-cyan-700 hover:to-teal-700 transition-all shadow-sm cursor-pointer"
+                                                                disabled="@isOperating">
+                                                            @Icons.Play("h-3 w-3 inline mr-1")Initialize
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Category Body -->
+                                        <div class="p-4">
+                                            @if (!hasRoundsConfigured)
+                                            {
+                                                <div class="text-center py-6">
+                                                    <p class="text-xs text-slate-400 italic">No rounds configured</p>
+                                                </div>
+                                            }
+                                            else if (!categoryHasStarted)
+                                            {
+                                                <div class="text-center py-6">
+                                                    <p class="text-xs text-slate-400 italic">Competition not yet started</p>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <!-- Category Rounds -->
+                                                <div class="space-y-4">
+                                                    @foreach (var roundDef in category.Rounds.OrderBy(r => r.Order))
+                                                    {
+                                                        var stats = GetRoundStats(categoryProgress, roundDef.Id);
+                                                        var hasResults = stats.Completed > 0 || stats.Eliminated > 0;
+
                                                         <div class="space-y-2">
-                                                            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Screening Round</div>
-                                                            
-                                                            <!-- Bypassed -->
-                                                            @if (screeningStats.Bypassed > 0)
+                                                            <!-- Round Name Header -->
+                                                            <div class="flex items-center justify-between">
+                                                                <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">@roundDef.Name</div>
+                                                                @if (roundDef.HasSchedule && stats.Active > 0)
+                                                                {
+                                                                    <button @onclick='() => ShowScheduleModal(category, roundDef)'
+                                                                            class="px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
+                                                                            disabled="@isOperating">
+                                                                        @Icons.Calendar("h-3 w-3 inline mr-0.5")Schedule
+                                                                    </button>
+                                                                }
+                                                            </div>
+
+                                                            <!-- Bypassed Bar -->
+                                                            @if (roundDef.AllowBypass && stats.Bypassed > 0)
                                                             {
                                                                 <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 text-white cursor-pointer hover:shadow-md transition-shadow"
-                                                                     @onclick="() => ShowScreeningBypassedModal(category)">
+                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "bypassed", roundDef.Name)'>
                                                                     @Icons.Award("h-4 w-4 flex-shrink-0")
-                                                                    <span class="text-sm font-medium">Exempt (Previous Finalists)</span>
-                                                                    <span class="ml-auto text-lg font-bold">@screeningStats.Bypassed</span>
+                                                                    <span class="text-sm font-medium">Bypassed</span>
+                                                                    <span class="ml-auto text-lg font-bold">@stats.Bypassed</span>
                                                                 </div>
                                                             }
-                                                            
-                                                            <!-- Pending -->
-                                                            @if (screeningStats.Pending > 0)
+
+                                                            <!-- Active Bar (Awaiting Results) -->
+                                                            @if (stats.Active > 0)
                                                             {
                                                                 <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
-                                                                     @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Pending)">
+                                                                     @onclick='() => ShowActiveModal(category, roundDef)'>
                                                                     @Icons.Clock("h-4 w-4 flex-shrink-0")
                                                                     <span class="text-sm font-medium">Awaiting Results</span>
-                                                                    <span class="ml-auto text-lg font-bold">@screeningStats.Pending</span>
+                                                                    <span class="ml-auto text-lg font-bold">@stats.Active</span>
                                                                 </div>
                                                             }
-                                                            
-                                                            <!-- Pass/Fail/NoShow Progress -->
-                                                            @if (screeningStats.Pass > 0 || screeningStats.Fail > 0 || screeningStats.NoShow > 0)
+
+                                                            <!-- Results Progress Bar -->
+                                                            @if (hasResults)
                                                             {
-                                                                var total = screeningStats.Pass + screeningStats.Fail + screeningStats.NoShow;
-                                                                var passPercent = (int)((screeningStats.Pass / (double)total) * 100);
-                                                                var failPercent = (int)((screeningStats.Fail / (double)total) * 100);
-                                                                var noShowPercent = 100 - passPercent - failPercent;
-                                                                
-                                                                <div class="space-y-1.5">
-                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
-                                                                        @if (screeningStats.Pass > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(passPercent)%"
-                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Pass)">
-                                                                                <span class="text-sm font-bold">✓ @screeningStats.Pass</span>
-                                                                            </div>
-                                                                        }
-                                                                        @if (screeningStats.Fail > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(failPercent)%"
-                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.Fail)">
-                                                                                <span class="text-sm font-bold">✗ @screeningStats.Fail</span>
-                                                                            </div>
-                                                                        }
-                                                                        @if (screeningStats.NoShow > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(noShowPercent)%"
-                                                                                 @onclick="() => ShowScreeningModal(category, ScreeningRoundStatus.NoShow)">
-                                                                                <span class="text-sm font-bold">— @screeningStats.NoShow</span>
-                                                                            </div>
-                                                                        }
-                                                                    </div>
-                                                                    <div class="flex justify-between text-xs text-slate-500">
-                                                                        <span>@passPercent% passed</span>
-                                                                        <span>@failPercent% failed · @noShowPercent% no show</span>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                            
-                                                            <!-- Schedule Acknowledgment -->
-                                                            @if (screeningStats.Pass > 0 || screeningStats.Bypassed > 0)
-                                                            {
-                                                                var prelimAssigned = categoryRounds.Count(r => 
-                                                                    (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && 
-                                                                    r.PreliminaryRoundDateTime.HasValue);
-                                                                var prelimAcked = categoryRounds.Count(r => 
-                                                                    (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && 
-                                                                    r.PreliminaryRoundAcknowledged);
-                                                                var prelimNotAcked = prelimAssigned - prelimAcked;
-                                                                
-                                                                @if (prelimAssigned > 0)
+                                                                @if (roundDef.HasPlacement)
                                                                 {
-                                                                    var ackedPercent = (int)((prelimAcked / (double)prelimAssigned) * 100);
-                                                                    var notAckedPercent = 100 - ackedPercent;
-                                                                    
-                                                                    <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
-                                                                        <div class="text-xs text-slate-600">→ Preliminary Schedule</div>
-                                                                        <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
-                                                                            @if (prelimAcked > 0)
+                                                                    @* Placement round: Placed / Participated / NoShow *@
+                                                                    var total = stats.Placed + stats.Participated + stats.NoShow;
+                                                                    var placedPct = total > 0 ? (int)((stats.Placed / (double)total) * 100) : 0;
+                                                                    var participatedPct = total > 0 ? (int)((stats.Participated / (double)total) * 100) : 0;
+                                                                    var noShowPct = 100 - placedPct - participatedPct;
+
+                                                                    <div class="space-y-1.5">
+                                                                        <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                            @if (stats.Placed > 0)
                                                                             {
-                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                     style="width: @(ackedPercent)%"
-                                                                                     @onclick='() => ShowPrelimAckedModal(category, "screening")'>
-                                                                                    <span class="text-xs font-bold">@prelimAcked</span>
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(placedPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "placed", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">@Icons.Trophy("h-4 w-4 inline") @stats.Placed</span>
                                                                                 </div>
                                                                             }
-                                                                            @if (prelimNotAcked > 0)
+                                                                            @if (stats.Participated > 0)
                                                                             {
-                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
-                                                                                     style="width: @(notAckedPercent)%"
-                                                                                     @onclick='() => ShowPrelimNotAckedModal(category, "screening")'>
-                                                                                    <span class="text-xs font-bold">@prelimNotAcked</span>
-                                                                                    <span class="absolute -top-1 -right-1 flex h-2 w-2">
-                                                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                                                                                    </span>
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(participatedPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "participated", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">@stats.Participated</span>
+                                                                                </div>
+                                                                            }
+                                                                            @if (stats.NoShow > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(noShowPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "noshow", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">— @stats.NoShow</span>
                                                                                 </div>
                                                                             }
                                                                         </div>
                                                                         <div class="flex justify-between text-xs text-slate-500">
-                                                                            <span>@ackedPercent% confirmed</span>
-                                                                            <span>@notAckedPercent% awaiting</span>
+                                                                            <span>Podium: @GetMedal(1)@stats.First @GetMedal(2)@stats.Second @GetMedal(3)@stats.Third</span>
+                                                                            <span>@participatedPct% participated</span>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    @* Standard round: Completed / Eliminated / NoShow *@
+                                                                    var completedCount = stats.Completed;
+                                                                    var eliminatedNoShow = stats.Eliminated - stats.NoShow;
+                                                                    var noShowCount = stats.NoShow;
+                                                                    var total = completedCount + eliminatedNoShow + noShowCount;
+                                                                    var completedPct = total > 0 ? (int)((completedCount / (double)total) * 100) : 0;
+                                                                    var eliminatedPct = total > 0 ? (int)((eliminatedNoShow / (double)total) * 100) : 0;
+                                                                    var noShowPct = 100 - completedPct - eliminatedPct;
+
+                                                                    var passLabel = roundDef.ResultType == RoundResultType.PassFail ? "passed" : "qualified";
+                                                                    var failLabel = roundDef.ResultType == RoundResultType.PassFail ? "failed" : "not qualified";
+
+                                                                    <div class="space-y-1.5">
+                                                                        <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
+                                                                            @if (completedCount > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(completedPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "completed", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">@completedCount</span>
+                                                                                </div>
+                                                                            }
+                                                                            @if (eliminatedNoShow > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(eliminatedPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "eliminated", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">@eliminatedNoShow</span>
+                                                                                </div>
+                                                                            }
+                                                                            @if (noShowCount > 0)
+                                                                            {
+                                                                                <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
+                                                                                     style="width: @(noShowPct)%"
+                                                                                     @onclick='() => ShowRoundModal(category, roundDef.Id, "noshow", roundDef.Name)'>
+                                                                                    <span class="text-sm font-bold">— @noShowCount</span>
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                        <div class="flex justify-between text-xs text-slate-500">
+                                                                            <span>@completedPct% @passLabel</span>
+                                                                            <span>@eliminatedPct% @failLabel · @noShowPct% no show</span>
                                                                         </div>
                                                                     </div>
                                                                 }
                                                             }
-                                                        </div>
-                                                    }
 
-                                                    <!-- Preliminary Round -->
-                                                    <div class="space-y-2">
-                                                        <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Preliminary Round</div>
-                                                        @{
-                                                            var prelimStats = GetPreliminaryStats(categoryRounds);
-                                                        }
-                                                        
-                                                        @if (prelimStats.Pending > 0)
-                                                        {
-                                                            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
-                                                                 @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.Pending)">
-                                                                @Icons.Clock("h-4 w-4 flex-shrink-0")
-                                                                <span class="text-sm font-medium">Awaiting Results</span>
-                                                                <span class="ml-auto text-lg font-bold">@prelimStats.Pending</span>
-                                                            </div>
-                                                        }
-                                                        
-                                                        @if (prelimStats.Qualified > 0 || prelimStats.NotQualified > 0 || prelimStats.NoShow > 0)
-                                                        {
-                                                            var total = prelimStats.Qualified + prelimStats.NotQualified + prelimStats.NoShow;
-                                                            var qualifiedPercent = (int)((prelimStats.Qualified / (double)total) * 100);
-                                                            var notQualifiedPercent = (int)((prelimStats.NotQualified / (double)total) * 100);
-                                                            var noShowPercent = 100 - qualifiedPercent - notQualifiedPercent;
-                                                            
-                                                            <div class="space-y-1.5">
-                                                                <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
-                                                                    @if (prelimStats.Qualified > 0)
-                                                                    {
-                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                             style="width: @(qualifiedPercent)%"
-                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.Qualified)">
-                                                                            <span class="text-sm font-bold">✓ @prelimStats.Qualified</span>
-                                                                        </div>
-                                                                    }
-                                                                    @if (prelimStats.NotQualified > 0)
-                                                                    {
-                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-rose-600 to-pink-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                             style="width: @(notQualifiedPercent)%"
-                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.NotQualified)">
-                                                                            <span class="text-sm font-bold">✗ @prelimStats.NotQualified</span>
-                                                                        </div>
-                                                                    }
-                                                                    @if (prelimStats.NoShow > 0)
-                                                                    {
-                                                                        <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                             style="width: @(noShowPercent)%"
-                                                                             @onclick="() => ShowPreliminaryModal(category, PreliminaryRoundStatus.NoShow)">
-                                                                            <span class="text-sm font-bold">— @prelimStats.NoShow</span>
-                                                                        </div>
-                                                                    }
-                                                                </div>
-                                                                <div class="flex justify-between text-xs text-slate-500">
-                                                                    <span>@qualifiedPercent% qualified</span>
-                                                                    <span>@notQualifiedPercent% not qualified · @noShowPercent% no show</span>
-                                                                </div>
-                                                            </div>
-                                                        }
-                                                        
-                                                        @if (prelimStats.Qualified > 0)
-                                                        {
-                                                            var finalAssigned = categoryRounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundDateTime.HasValue);
-                                                            var finalAcked = categoryRounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundAcknowledged);
-                                                            var finalNotAcked = finalAssigned - finalAcked;
-                                                            
-                                                            @if (finalAssigned > 0)
+                                                            <!-- Schedule Acknowledgment Sub-bar -->
+                                                            @if (roundDef.HasSchedule && stats.ScheduleAssigned > 0)
                                                             {
-                                                                var ackedPercent = (int)((finalAcked / (double)finalAssigned) * 100);
-                                                                var notAckedPercent = 100 - ackedPercent;
-                                                                
+                                                                var ackedPct = (int)((stats.ScheduleAcked / (double)stats.ScheduleAssigned) * 100);
+                                                                var notAckedPct = 100 - ackedPct;
+
                                                                 <div class="ml-3 pl-3 border-l-2 border-slate-300 space-y-1.5">
-                                                                    <div class="text-xs text-slate-600">→ Final Schedule</div>
+                                                                    <div class="text-xs text-slate-600">Schedule Acknowledgment</div>
                                                                     <div class="flex gap-1 h-8 rounded-lg overflow-hidden">
-                                                                        @if (finalAcked > 0)
+                                                                        @if (stats.ScheduleAcked > 0)
                                                                         {
                                                                             <div class="flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(ackedPercent)%"
-                                                                                 @onclick="() => ShowFinalAckedModal(category)">
-                                                                                <span class="text-xs font-bold">@finalAcked</span>
+                                                                                 style="width: @(ackedPct)%"
+                                                                                 @onclick='() => ShowRoundModal(category, roundDef.Id, "acked", roundDef.Name)'>
+                                                                                <span class="text-xs font-bold">@stats.ScheduleAcked</span>
                                                                             </div>
                                                                         }
-                                                                        @if (finalNotAcked > 0)
+                                                                        @if (stats.ScheduleNotAcked > 0)
                                                                         {
                                                                             <div class="flex items-center justify-center bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2 cursor-pointer hover:shadow-md transition-shadow relative"
-                                                                                 style="width: @(notAckedPercent)%"
-                                                                                 @onclick="() => ShowFinalNotAckedModal(category)">
-                                                                                <span class="text-xs font-bold">@finalNotAcked</span>
+                                                                                 style="width: @(notAckedPct)%"
+                                                                                 @onclick='() => ShowRoundModal(category, roundDef.Id, "notacked", roundDef.Name)'>
+                                                                                <span class="text-xs font-bold">@stats.ScheduleNotAcked</span>
                                                                                 <span class="absolute -top-1 -right-1 flex h-2 w-2">
                                                                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                                                                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
@@ -441,94 +318,19 @@
                                                                         }
                                                                     </div>
                                                                     <div class="flex justify-between text-xs text-slate-500">
-                                                                        <span>@ackedPercent% confirmed</span>
-                                                                        <span>@notAckedPercent% awaiting</span>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                        }
-                                                    </div>
-
-                                                    <!-- Final Round (Expandable) -->
-                                                    @if (expandedFinals.Contains(category.Id))
-                                                    {
-                                                        <div class="space-y-2 pt-2 border-t border-slate-200">
-                                                            <div class="flex items-center justify-between">
-                                                                <div class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Final Round</div>
-                                                                <button @onclick="() => ToggleFinalExpanded(category.Id)" class="text-xs text-slate-500 hover:text-slate-700">
-                                                                    Hide
-                                                                </button>
-                                                            </div>
-                                                            @{
-                                                                var finalStats = GetFinalStats(categoryRounds);
-                                                            }
-                                                            
-                                                            @if (finalStats.Pending > 0)
-                                                            {
-                                                                <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:shadow-md transition-shadow"
-                                                                     @onclick="() => ShowFinalModal(category, FinalRoundStatus.Pending)">
-                                                                    @Icons.Clock("h-4 w-4 flex-shrink-0")
-                                                                    <span class="text-sm font-medium">Awaiting Results</span>
-                                                                    <span class="ml-auto text-lg font-bold">@finalStats.Pending</span>
-                                                                </div>
-                                                            }
-                                                            
-                                                            @if (finalStats.Placed > 0 || finalStats.Participated > 0 || finalStats.NoShow > 0)
-                                                            {
-                                                                var total = finalStats.Placed + finalStats.Participated + finalStats.NoShow;
-                                                                var placedPercent = (int)((finalStats.Placed / (double)total) * 100);
-                                                                var participatedPercent = (int)((finalStats.Participated / (double)total) * 100);
-                                                                var noShowPercent = 100 - placedPercent - participatedPercent;
-                                                                
-                                                                <div class="space-y-1.5">
-                                                                    <div class="flex gap-1 h-10 rounded-lg overflow-hidden">
-                                                                        @if (finalStats.Placed > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(placedPercent)%"
-                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.Placed)">
-                                                                                <span class="text-sm font-bold">🏆 @finalStats.Placed</span>
-                                                                            </div>
-                                                                        }
-                                                                        @if (finalStats.Participated > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(participatedPercent)%"
-                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.Participated)">
-                                                                                <span class="text-sm font-bold">@finalStats.Participated</span>
-                                                                            </div>
-                                                                        }
-                                                                        @if (finalStats.NoShow > 0)
-                                                                        {
-                                                                            <div class="flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 cursor-pointer hover:shadow-md transition-shadow"
-                                                                                 style="width: @(noShowPercent)%"
-                                                                                 @onclick="() => ShowFinalModal(category, FinalRoundStatus.NoShow)">
-                                                                                <span class="text-sm font-bold">— @finalStats.NoShow</span>
-                                                                            </div>
-                                                                        }
-                                                                    </div>
-                                                                    <div class="flex justify-between text-xs text-slate-500">
-                                                                        <span>Podium: 🥇@finalStats.First 🥈@finalStats.Second 🥉@finalStats.Third</span>
-                                                                        <span>@participatedPercent% participated · @noShowPercent% no show</span>
+                                                                        <span>@ackedPct% confirmed</span>
+                                                                        <span>@notAckedPct% awaiting</span>
                                                                     </div>
                                                                 </div>
                                                             }
                                                         </div>
                                                     }
-                                                    else
-                                                    {
-                                                        <button @onclick="() => ToggleFinalExpanded(category.Id)" 
-                                                                class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition-colors">
-                                                            Show Final Round Details
-                                                        </button>
-                                                    }
-
                                                 </div>
-                                            </div>
-                                        }
-                                    }
-                                </div>
-                            }
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
@@ -537,15 +339,17 @@
     }
 </div>
 
-<!-- Modal (same as before) -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- COMPETITOR DETAIL MODAL (read-only views) -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
 @if (showModal)
 {
     <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" @onclick="CloseModal">
         <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" @onclick:stopPropagation="true">
-            
+
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-900">@modalTitle</h3>
-                <button @onclick="CloseModal" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <button @onclick="CloseModal" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                     @Icons.XMark("h-5 w-5")
                 </button>
             </div>
@@ -563,6 +367,10 @@
                                 <tr>
                                     <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">CID</th>
                                     <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                                    @if (modalShowPlacement)
+                                    {
+                                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Placement</th>
+                                    }
                                     @if (modalShowAcknowledgment)
                                     {
                                         <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acknowledged</th>
@@ -576,19 +384,34 @@
                             <tbody class="divide-y divide-slate-100">
                                 @foreach (var competitor in modalCompetitors)
                                 {
+                                    var entry = competitor.GetRound(modalRoundDefinitionId);
+
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-mono text-slate-600">@competitor.Cid</td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">@competitor.CompetitorName</td>
+                                        @if (modalShowPlacement)
+                                        {
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                                                @if (entry?.Placement is int p)
+                                                {
+                                                    @(p switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"#{p}" })
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-slate-400">—</span>
+                                                }
+                                            </td>
+                                        }
                                         @if (modalShowAcknowledgment)
                                         {
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
-                                                @GetAcknowledgmentTime(competitor)
+                                                @GetAcknowledgmentTime(entry)
                                             </td>
                                         }
                                         @if (modalShowTimeSince)
                                         {
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium">
-                                                @GetTimeSinceAssignment(competitor)
+                                                @GetTimeSinceAssignment(entry)
                                             </td>
                                         }
                                     </tr>
@@ -601,7 +424,7 @@
 
             <div class="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
                 <span class="text-sm text-slate-600">@modalCompetitors.Count competitor(s)</span>
-                <button @onclick="CloseModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors">
+                <button @onclick="CloseModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
                     Close
                 </button>
             </div>
@@ -610,37 +433,475 @@
     </div>
 }
 
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- ACTIVE MODAL (with inline result entry) -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+@if (showActiveModal)
+{
+    <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" @onclick="CloseActiveModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" @onclick:stopPropagation="true">
+
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900">@activeModalTitle</h3>
+                <button @onclick="CloseActiveModal" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                    @Icons.XMark("h-5 w-5")
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                @if (activeModalCompetitors.Count == 0)
+                {
+                    <p class="text-slate-500 text-center py-8 text-sm">No competitors found.</p>
+                }
+                else
+                {
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="border-b border-slate-200">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">CID</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-40">Result</th>
+                                    @if (activeModalRoundDef?.HasPlacement == true)
+                                    {
+                                        <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Place</th>
+                                    }
+                                    @if (activeModalRoundDef?.AllowBypass == true)
+                                    {
+                                        <th class="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20"></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var competitor in activeModalCompetitors)
+                                {
+                                    var regId = competitor.RegistrationId;
+                                    var currentResult = pendingResults.GetValueOrDefault(regId, "");
+                                    var showPlacementInput = activeModalRoundDef?.HasPlacement == true && currentResult == "Placed";
+
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm font-mono text-slate-600">@competitor.Cid</td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-slate-900">@competitor.CompetitorName</td>
+                                        <td class="px-3 py-3 whitespace-nowrap">
+                                            <select class="w-full rounded-lg border border-slate-300 text-sm py-1.5 px-2 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                    value="@currentResult"
+                                                    @onchange='(e) => OnResultChanged(regId, e.Value?.ToString() ?? "")'>
+                                                <option value="">— Select —</option>
+                                                @foreach (var opt in GetResultOptions())
+                                                {
+                                                    <option value="@opt.Value">@opt.Label</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        @if (activeModalRoundDef?.HasPlacement == true)
+                                        {
+                                            <td class="px-3 py-3 whitespace-nowrap">
+                                                @if (showPlacementInput)
+                                                {
+                                                    <input type="number" min="1" max="99"
+                                                           class="w-16 rounded-lg border border-slate-300 text-sm py-1.5 px-2 text-center focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                                                           value="@(pendingPlacements.GetValueOrDefault(regId))"
+                                                           @onchange='(e) => OnPlacementChanged(regId, e.Value?.ToString() ?? "")' />
+                                                }
+                                            </td>
+                                        }
+                                        @if (activeModalRoundDef?.AllowBypass == true)
+                                        {
+                                            <td class="px-3 py-3 text-center">
+                                                <button @onclick="() => ShowBypassModal(competitor, activeModalRoundDef)"
+                                                        class="px-2 py-1 text-xs font-medium text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-md transition-colors cursor-pointer"
+                                                        disabled="@isOperating">
+                                                    Bypass
+                                                </button>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                <span class="text-sm text-slate-600">@activeModalCompetitors.Count competitor(s)</span>
+                <div class="flex items-center gap-3">
+                    <button @onclick="CloseActiveModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                        Close
+                    </button>
+                    @{
+                        var hasAnyResult = pendingResults.Values.Any(v => !string.IsNullOrEmpty(v));
+                    }
+                    @if (activeModalCompetitors.Count > 0)
+                    {
+                        <button @onclick="SaveAllResults"
+                                class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled="@(!hasAnyResult || isOperating)">
+                            @if (isOperating)
+                            {
+                                @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Results</span>
+                            }
+                        </button>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SCHEDULE ASSIGNMENT MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+@if (showScheduleModal)
+{
+    <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" @onclick="CloseScheduleModal">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden" @onclick:stopPropagation="true">
+
+            <div class="px-6 py-4 border-b border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-900">Assign Schedule</h3>
+                <p class="text-sm text-slate-500 mt-1">@scheduleRoundName</p>
+            </div>
+
+            <div class="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+                <!-- Date/Time Picker -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Date & Time</label>
+                    <input type="datetime-local"
+                           class="w-full rounded-lg border border-slate-300 text-sm py-2 px-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                           @bind="scheduleDateTime" />
+                </div>
+
+                <!-- Competitor Checkbox List -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-sm font-medium text-slate-700">Competitors (@scheduleSelected.Count / @scheduleCompetitors.Count)</label>
+                        <div class="flex gap-2">
+                            <button @onclick="ScheduleSelectAll" class="text-xs text-cyan-600 hover:text-cyan-800 cursor-pointer">Select All</button>
+                            <span class="text-slate-300">|</span>
+                            <button @onclick="ScheduleDeselectAll" class="text-xs text-slate-500 hover:text-slate-700 cursor-pointer">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+                        @foreach (var competitor in scheduleCompetitors)
+                        {
+                            var isSelected = scheduleSelected.Contains(competitor.RegistrationId);
+                            <label class="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" checked="@isSelected"
+                                       @onchange="() => ToggleScheduleSelection(competitor.RegistrationId)"
+                                       class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                                <span class="text-sm font-mono text-slate-500">@competitor.Cid</span>
+                                <span class="text-sm text-slate-900">@competitor.CompetitorName</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button @onclick="CloseScheduleModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                    Cancel
+                </button>
+                <button @onclick="AssignSchedule"
+                        class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled="@(!scheduleDateTime.HasValue || scheduleSelected.Count == 0 || isOperating)">
+                    @if (isOperating)
+                    {
+                        @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                        <span>Assigning...</span>
+                    }
+                    else
+                    {
+                        @Icons.Calendar("h-4 w-4 inline mr-1")
+                        <span>Assign to @scheduleSelected.Count</span>
+                    }
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- INITIALIZE CONFIRMATION MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<Modal Visible="showInitModal" Title="Initialize Competition" MaxWidth="max-w-md"
+       IconBgClass="bg-cyan-600" OnBackdropClick="CloseInitModal">
+    <Icon>@Icons.Play("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <p class="text-slate-700">
+            Initialize <strong>@initVerifiedCount</strong> verified competitors for <strong>@initCategoryName</strong>?
+        </p>
+        @if (initExistingCount > 0)
+        {
+            <p class="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                @initExistingCount competitor(s) already have progress and will be skipped.
+            </p>
+        }
+        @if (initVerifiedCount == 0)
+        {
+            <p class="mt-2 text-sm text-slate-500 italic">No verified registrations found for this category.</p>
+        }
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end gap-3 w-full">
+            <button @onclick="CloseInitModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                Cancel
+            </button>
+            <button @onclick="InitializeCategory"
+                    class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled="@(initVerifiedCount == 0 || isOperating)">
+                @if (isOperating)
+                {
+                    @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                    <span>Initializing...</span>
+                }
+                else
+                {
+                    <span>Initialize</span>
+                }
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- BYPASS CONFIRMATION MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<Modal Visible="showBypassModal" Title="Bypass Round" MaxWidth="max-w-sm"
+       IconBgClass="bg-teal-600" OnBackdropClick="CloseBypassModal">
+    <Icon>@Icons.Award("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <p class="text-slate-700">
+            Bypass <strong>@bypassRoundName</strong> for <strong>@bypassCompetitorName</strong>?
+        </p>
+        <p class="mt-2 text-xs text-slate-500">They will advance directly to the next round.</p>
+        <div class="mt-3">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Reason (optional)</label>
+            <input type="text" @bind="bypassReason" placeholder="e.g., Previous year participant"
+                   class="w-full rounded-lg border border-slate-300 text-sm py-1.5 px-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+        </div>
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end gap-3 w-full">
+            <button @onclick="CloseBypassModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                Cancel
+            </button>
+            <button @onclick="ConfirmBypass"
+                    class="px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled="@isOperating">
+                @if (isOperating)
+                {
+                    @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                    <span>Bypassing...</span>
+                }
+                else
+                {
+                    <span>Bypass</span>
+                }
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- HOW IT WORKS GUIDE MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<Modal Visible="showGuideModal" Title="How Competition Tracking Works" MaxWidth="max-w-lg"
+       IconBgClass="bg-cyan-600" OnBackdropClick="() => showGuideModal = false">
+    <Icon>@Icons.InfoCircleOutline("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <div class="space-y-5 text-sm text-slate-700">
+
+            <!-- Step 1 -->
+            <div class="flex gap-3">
+                <div class="shrink-0 h-7 w-7 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold">1</div>
+                <div>
+                    <p class="font-semibold text-slate-900">Verify Registrations</p>
+                    <p class="text-slate-500 mt-0.5">Registrations must have <strong>Verified</strong> status before they can be initialized for competition. Complete ID verification and admin review first.</p>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex gap-3">
+                <div class="shrink-0 h-7 w-7 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                    <p class="font-semibold text-slate-900">Configure Rounds in Settings</p>
+                    <p class="text-slate-500 mt-0.5">Each category needs its competition rounds set up in <strong>Settings &rarr; Divisions &rarr; Category &rarr; Rounds</strong>. Define the round order, type (Pass/Fail or Qualify/Eliminate), and optional messages.</p>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex gap-3">
+                <div class="shrink-0 h-7 w-7 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold">3</div>
+                <div>
+                    <p class="font-semibold text-slate-900">Initialize Category</p>
+                    <p class="text-slate-500 mt-0.5">Click <strong>Initialize</strong> on a category to create competition progress records for all verified competitors. The first round starts as <strong>Active</strong>, remaining rounds are <strong>Pending</strong>.</p>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="flex gap-3">
+                <div class="shrink-0 h-7 w-7 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold">4</div>
+                <div>
+                    <p class="font-semibold text-slate-900">Enter Results</p>
+                    <p class="text-slate-500 mt-0.5">Click <strong>Awaiting Results</strong> on any round to enter pass/fail or qualification results. Advancing results automatically move the competitor to the next round. Eliminating results stop their progression.</p>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-slate-200 pt-4">
+                <p class="font-semibold text-slate-900 mb-2">Additional Features</p>
+                <ul class="space-y-2 text-slate-500">
+                    <li class="flex items-start gap-2">
+                        @Icons.Calendar("h-4 w-4 text-slate-400 mt-0.5 shrink-0")
+                        <span><strong class="text-slate-700">Schedule</strong> &mdash; Assign date/time for rounds with schedules. Competitors see their schedule and must acknowledge it.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        @Icons.Award("h-4 w-4 text-slate-400 mt-0.5 shrink-0")
+                        <span><strong class="text-slate-700">Bypass</strong> &mdash; Skip a round for a competitor (e.g., previous year finalists). They advance directly to the next round.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        @Icons.Plus("h-4 w-4 text-slate-400 mt-0.5 shrink-0")
+                        <span><strong class="text-slate-700">Re-initialize</strong> &mdash; After a category has started, use the <strong>+</strong> button to add newly verified registrations without affecting existing competitors.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Registration List note -->
+            <div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                <p class="text-xs text-slate-500">
+                    <strong class="text-slate-700">Registration List:</strong> The round column shows a dash (<strong>&mdash;</strong>) until a competitor is initialized. After initialization, it shows the current active round name, or <strong>Eliminated</strong> / <strong>Complete</strong> once results are finalized.
+                </p>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end w-full">
+            <button @onclick="() => showGuideModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                Got it
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- TOAST NOTIFICATIONS -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-50 max-w-sm">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.CheckCircle("h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5")
+            <div class="flex-1">
+                <p class="text-sm font-medium text-emerald-800">@successMessage</p>
+            </div>
+            <button type="button" @onclick='() => successMessage = ""'
+                    class="text-emerald-400 hover:text-emerald-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:left-auto md:right-6 z-50 max-w-sm">
+        <div class="rounded-xl border border-red-200 bg-red-50 shadow-lg p-4 flex items-start gap-3">
+            @Icons.XCircle("h-5 w-5 text-red-600 flex-shrink-0 mt-0.5")
+            <div class="flex-1">
+                <p class="text-sm font-medium text-red-800">@errorMessage</p>
+            </div>
+            <button type="button" @onclick='() => errorMessage = ""'
+                    class="text-red-400 hover:text-red-600 cursor-pointer">
+                @Icons.XMark("h-4 w-4")
+            </button>
+        </div>
+    </div>
+}
+
 @code {
     private bool isLoading = true;
     private CompetitionSettings settings = new();
-    private List<Registration> allRegistrations = new();
-    private List<CompetitionRound> allRounds = new();
+    private List<CompetitionProgress> allProgress = new();
+    private Dictionary<string, List<CompetitionProgress>> progressByCategory = new();
     private HashSet<string> expandedDivisions = new();
-    private HashSet<string> expandedFinals = new();
 
-    // Modal state
+    // Operation state
+    private bool isOperating;
+    private string successMessage = "";
+    private string errorMessage = "";
+
+    // Read-only modal state
     private bool showModal;
     private string modalTitle = "";
-    private List<CompetitionRound> modalCompetitors = new();
+    private List<CompetitionProgress> modalCompetitors = new();
+    private string modalRoundDefinitionId = "";
     private bool modalShowAcknowledgment;
     private bool modalShowTimeSince;
-    private string modalRoundType = "";
+    private bool modalShowPlacement;
+
+    // Active modal state (with result entry)
+    private bool showActiveModal;
+    private string activeModalTitle = "";
+    private List<CompetitionProgress> activeModalCompetitors = new();
+    private RoundDefinition? activeModalRoundDef;
+    private string activeModalCategoryId = "";
+    private Dictionary<string, string> pendingResults = new();
+    private Dictionary<string, int?> pendingPlacements = new();
+
+    // Guide modal
+    private bool showGuideModal;
+
+    // Init modal state
+    private bool showInitModal;
+    private string initCategoryId = "";
+    private string initCategoryName = "";
+    private int initVerifiedCount;
+    private int initExistingCount;
+    private List<RoundDefinition> initRoundDefinitions = new();
+
+    // Schedule modal state
+    private bool showScheduleModal;
+    private string scheduleCategoryId = "";
+    private string scheduleRoundDefId = "";
+    private string scheduleRoundName = "";
+    private DateTime? scheduleDateTime;
+    private List<CompetitionProgress> scheduleCompetitors = new();
+    private HashSet<string> scheduleSelected = new();
+
+    // Bypass modal state
+    private bool showBypassModal;
+    private string bypassRegistrationId = "";
+    private string bypassCompetitorName = "";
+    private string bypassRoundDefId = "";
+    private string bypassRoundName = "";
+    private string bypassReason = "";
 
     protected override async Task OnInitializedAsync()
     {
         settings = await SettingsService.GetSettingsAsync();
-        var currentYear = settings.CompetitionInfo.CompetitionYear;
-        
-        var regsTask = RegistrationService.GetAllByYearAsync(currentYear);
-        var roundsTask = CompetitionRoundService.GetAllByYearAsync(currentYear);
-
-        await Task.WhenAll(regsTask, roundsTask);
-
-        allRegistrations = (await regsTask).ToList();
-        allRounds = (await roundsTask).ToList();
-
+        await RefreshData();
         isLoading = false;
     }
+
+    private async Task RefreshData()
+    {
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+        allProgress = (await CompetitionProgressService.GetAllByYearAsync(currentYear)).ToList();
+        progressByCategory = allProgress
+            .GroupBy(p => p.CategoryId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACCORDION
+    // ═══════════════════════════════════════════════════════════════════════════
 
     private void ToggleDivisionExpanded(string divisionId)
     {
@@ -650,214 +911,455 @@
             expandedDivisions.Add(divisionId);
     }
 
-    private void ToggleFinalExpanded(string categoryId)
-    {
-        if (expandedFinals.Contains(categoryId))
-            expandedFinals.Remove(categoryId);
-        else
-            expandedFinals.Add(categoryId);
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DATA HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    // Stats Calculators (same as before)
-    private (int Pending, int Pass, int Fail) GetVideoStats(List<CompetitionRound> rounds)
+    private List<CompetitionProgress> GetCategoryProgress(string categoryId) =>
+        progressByCategory.TryGetValue(categoryId, out var list) ? list : new();
+
+    private static string GetMedal(int place) => place switch
     {
-        return (
-            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pending),
-            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Pass),
-            rounds.Count(r => r.VideoQualification == VideoQualificationStatus.Fail)
+        1 => "\U0001f947",
+        2 => "\U0001f948",
+        3 => "\U0001f949",
+        _ => ""
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUND STATS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private record RoundStats(
+        int Active, int Completed, int Eliminated, int Bypassed, int Pending,
+        int NoShow, int Placed, int Participated, int First, int Second, int Third,
+        int ScheduleAssigned, int ScheduleAcked, int ScheduleNotAcked);
+
+    private RoundStats GetRoundStats(List<CompetitionProgress> categoryProgress, string roundDefinitionId)
+    {
+        var entries = categoryProgress
+            .Select(p => p.GetRound(roundDefinitionId))
+            .Where(e => e != null)
+            .ToList();
+
+        return new RoundStats(
+            Active: entries.Count(e => e!.Status == RoundEntryStatus.Active),
+            Completed: entries.Count(e => e!.Status == RoundEntryStatus.Completed),
+            Eliminated: entries.Count(e => e!.Status == RoundEntryStatus.Eliminated),
+            Bypassed: entries.Count(e => e!.Status == RoundEntryStatus.Bypassed),
+            Pending: entries.Count(e => e!.Status == RoundEntryStatus.Pending),
+            NoShow: entries.Count(e => e!.Result == RoundResult.NoShow),
+            Placed: entries.Count(e => e!.Result == RoundResult.Placed),
+            Participated: entries.Count(e => e!.Result == RoundResult.Participated),
+            First: entries.Count(e => e!.Placement == 1),
+            Second: entries.Count(e => e!.Placement == 2),
+            Third: entries.Count(e => e!.Placement == 3),
+            ScheduleAssigned: entries.Count(e => e!.ScheduledDateTime.HasValue),
+            ScheduleAcked: entries.Count(e => e!.ScheduledDateTime.HasValue && e.Acknowledged),
+            ScheduleNotAcked: entries.Count(e => e!.ScheduledDateTime.HasValue && !e.Acknowledged)
         );
     }
 
-    private (int Bypassed, int Pending, int Pass, int Fail, int NoShow) GetScreeningStats(List<CompetitionRound> rounds)
-    {
-        return (
-            rounds.Count(r => r.ScreeningRoundBypass),
-            // Only count Pending if they didn't fail video (if video was required)
-            rounds.Count(r => !r.ScreeningRoundBypass && 
-                             r.ScreeningRoundResult == ScreeningRoundStatus.Pending &&
-                             r.VideoQualification != VideoQualificationStatus.Fail),
-            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.Pass),
-            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.Fail),
-            rounds.Count(r => r.ScreeningRoundResult == ScreeningRoundStatus.NoShow)
-        );
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // READ-ONLY MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    private (int Pending, int Qualified, int NotQualified, int NoShow) GetPreliminaryStats(List<CompetitionRound> rounds)
+    private void ShowRoundModal(Category category, string roundDefinitionId, string filterType, string roundName)
     {
-        return (
-            // Only count Pending if they passed previous rounds (video OR screening)
-            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Pending &&
-                             (r.VideoQualification == VideoQualificationStatus.Pass ||
-                              r.ScreeningRoundResult == ScreeningRoundStatus.Pass ||
-                              r.ScreeningRoundBypass ||
-                              // Or if neither video nor screening was required
-                              (r.VideoQualification == VideoQualificationStatus.Pending && 
-                               r.ScreeningRoundResult == ScreeningRoundStatus.Pending &&
-                               !r.ScreeningRoundBypass))),
-            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified),
-            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.NotQualified),
-            rounds.Count(r => r.PreliminaryRoundResult == PreliminaryRoundStatus.NoShow)
-        );
-    }
+        var categoryProgress = GetCategoryProgress(category.Id);
 
-    private (int Pending, int Placed, int Participated, int NoShow, int First, int Second, int Third) GetFinalStats(List<CompetitionRound> rounds)
-    {
-        return (
-            // Only count Pending if they qualified from preliminary
-            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Pending &&
-                             r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified),
-            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Placed),
-            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.Participated),
-            rounds.Count(r => r.FinalRoundResult == FinalRoundStatus.NoShow),
-            rounds.Count(r => r.FinalRoundPlacement == 1),
-            rounds.Count(r => r.FinalRoundPlacement == 2),
-            rounds.Count(r => r.FinalRoundPlacement == 3)
-        );
-    }
+        modalCompetitors = filterType switch
+        {
+            "completed" => categoryProgress.Where(p => p.GetRound(roundDefinitionId)?.Status == RoundEntryStatus.Completed).ToList(),
+            "eliminated" => categoryProgress.Where(p =>
+            {
+                var r = p.GetRound(roundDefinitionId);
+                return r?.Status == RoundEntryStatus.Eliminated && r.Result != RoundResult.NoShow;
+            }).ToList(),
+            "noshow" => categoryProgress.Where(p => p.GetRound(roundDefinitionId)?.Result == RoundResult.NoShow).ToList(),
+            "bypassed" => categoryProgress.Where(p => p.GetRound(roundDefinitionId)?.Status == RoundEntryStatus.Bypassed).ToList(),
+            "placed" => categoryProgress.Where(p => p.GetRound(roundDefinitionId)?.Result == RoundResult.Placed).ToList(),
+            "participated" => categoryProgress.Where(p => p.GetRound(roundDefinitionId)?.Result == RoundResult.Participated).ToList(),
+            "acked" => categoryProgress.Where(p =>
+            {
+                var r = p.GetRound(roundDefinitionId);
+                return r?.ScheduledDateTime.HasValue == true && r.Acknowledged;
+            }).ToList(),
+            "notacked" => categoryProgress.Where(p =>
+            {
+                var r = p.GetRound(roundDefinitionId);
+                return r?.ScheduledDateTime.HasValue == true && !r.Acknowledged;
+            }).ToList(),
+            _ => new()
+        };
 
-    // Modal Openers (same as before - keeping all of them)
-    private void ShowVideoModal(Category category, VideoQualificationStatus status)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == status).ToList();
-        modalTitle = $"{category.Name} - Video: {status}";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = false;
+        modalTitle = $"{category.Name} — {roundName}: {FormatFilterType(filterType)}";
+        modalRoundDefinitionId = roundDefinitionId;
+        modalShowAcknowledgment = filterType == "acked";
+        modalShowTimeSince = filterType == "notacked";
+        modalShowPlacement = filterType == "placed";
         showModal = true;
     }
 
-    private void ShowScreeningBypassedModal(Category category)
+    private static string FormatFilterType(string filterType) => filterType switch
     {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.ScreeningRoundBypass).ToList();
-        modalTitle = $"{category.Name} - Screening: Bypassed";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = false;
-        showModal = true;
-    }
-
-    private void ShowScreeningModal(Category category, ScreeningRoundStatus status)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.ScreeningRoundResult == status).ToList();
-        modalTitle = $"{category.Name} - Screening: {status}";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = false;
-        showModal = true;
-    }
-
-    private void ShowPrelimAckedModal(Category category, string source)
-    {
-        List<CompetitionRound> rounds;
-        if (source == "video")
-            rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundAcknowledged).ToList();
-        else
-            rounds = allRounds.Where(r => r.CategoryId == category.Id && (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && r.PreliminaryRoundAcknowledged).ToList();
-        
-        modalTitle = $"{category.Name} - Preliminary: Acknowledged";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = true;
-        modalShowTimeSince = false;
-        modalRoundType = "preliminary";
-        showModal = true;
-    }
-
-    private void ShowPrelimNotAckedModal(Category category, string source)
-    {
-        List<CompetitionRound> rounds;
-        if (source == "video")
-            rounds = allRounds.Where(r => r.CategoryId == category.Id && r.VideoQualification == VideoQualificationStatus.Pass && r.PreliminaryRoundDateTime.HasValue && !r.PreliminaryRoundAcknowledged).ToList();
-        else
-            rounds = allRounds.Where(r => r.CategoryId == category.Id && (r.ScreeningRoundResult == ScreeningRoundStatus.Pass || r.ScreeningRoundBypass) && r.PreliminaryRoundDateTime.HasValue && !r.PreliminaryRoundAcknowledged).ToList();
-        
-        modalTitle = $"{category.Name} - Preliminary: Awaiting Confirmation";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = true;
-        modalRoundType = "preliminary";
-        showModal = true;
-    }
-
-    private void ShowPreliminaryModal(Category category, PreliminaryRoundStatus status)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == status).ToList();
-        modalTitle = $"{category.Name} - Preliminary: {status}";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = false;
-        showModal = true;
-    }
-
-    private void ShowFinalAckedModal(Category category)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundAcknowledged).ToList();
-        modalTitle = $"{category.Name} - Final: Acknowledged";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = true;
-        modalShowTimeSince = false;
-        modalRoundType = "final";
-        showModal = true;
-    }
-
-    private void ShowFinalNotAckedModal(Category category)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.PreliminaryRoundResult == PreliminaryRoundStatus.Qualified && r.FinalRoundDateTime.HasValue && !r.FinalRoundAcknowledged).ToList();
-        modalTitle = $"{category.Name} - Final: Awaiting Confirmation";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = true;
-        modalRoundType = "final";
-        showModal = true;
-    }
-
-    private void ShowFinalModal(Category category, FinalRoundStatus status)
-    {
-        var rounds = allRounds.Where(r => r.CategoryId == category.Id && r.FinalRoundResult == status).ToList();
-        modalTitle = $"{category.Name} - Final: {status}";
-        modalCompetitors = rounds;
-        modalShowAcknowledgment = false;
-        modalShowTimeSince = false;
-        showModal = true;
-    }
+        "active" => "Awaiting Results",
+        "completed" => "Passed / Qualified",
+        "eliminated" => "Failed / Not Qualified",
+        "noshow" => "No Show",
+        "bypassed" => "Bypassed",
+        "placed" => "Placed",
+        "participated" => "Participated",
+        "acked" => "Schedule Acknowledged",
+        "notacked" => "Awaiting Confirmation",
+        _ => filterType
+    };
 
     private void CloseModal()
     {
         showModal = false;
         modalCompetitors.Clear();
-        modalRoundType = "";
+        modalRoundDefinitionId = "";
     }
 
-    private string GetAcknowledgmentTime(CompetitionRound round)
-    {
-        DateTimeOffset? ackTime = modalRoundType switch
-        {
-            "preliminary" => round.PreliminaryRoundAcknowledgedAt,
-            "final" => round.FinalRoundAcknowledgedAt,
-            _ => null
-        };
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACTIVE MODAL (with result entry)
+    // ═══════════════════════════════════════════════════════════════════════════
 
-        if (!ackTime.HasValue)
-            return "—";
+    private void ShowActiveModal(Category category, RoundDefinition roundDef)
+    {
+        var categoryProgress = GetCategoryProgress(category.Id);
+        activeModalCompetitors = categoryProgress
+            .Where(p => p.GetRound(roundDef.Id)?.Status == RoundEntryStatus.Active)
+            .ToList();
+
+        activeModalTitle = $"{category.Name} — {roundDef.Name}: Awaiting Results";
+        activeModalRoundDef = roundDef;
+        activeModalCategoryId = category.Id;
+
+        pendingResults.Clear();
+        pendingPlacements.Clear();
+
+        showActiveModal = true;
+    }
+
+    private void CloseActiveModal()
+    {
+        showActiveModal = false;
+        activeModalCompetitors.Clear();
+        activeModalRoundDef = null;
+        pendingResults.Clear();
+        pendingPlacements.Clear();
+    }
+
+    private record ResultOption(string Value, string Label);
+
+    private List<ResultOption> GetResultOptions()
+    {
+        if (activeModalRoundDef == null) return new();
+
+        if (activeModalRoundDef.HasPlacement)
+        {
+            return new()
+            {
+                new("Placed", "Placed"),
+                new("Participated", "Participated"),
+                new("NoShow", "No Show")
+            };
+        }
+
+        return activeModalRoundDef.ResultType == RoundResultType.PassFail
+            ? new()
+            {
+                new("Pass", "Pass"),
+                new("Fail", "Fail"),
+                new("NoShow", "No Show")
+            }
+            : new()
+            {
+                new("Qualified", "Qualified"),
+                new("NotQualified", "Not Qualified"),
+                new("NoShow", "No Show")
+            };
+    }
+
+    private void OnResultChanged(string registrationId, string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            pendingResults.Remove(registrationId);
+        else
+            pendingResults[registrationId] = value;
+
+        // Clear placement if result changed away from Placed
+        if (value != "Placed")
+            pendingPlacements.Remove(registrationId);
+    }
+
+    private void OnPlacementChanged(string registrationId, string value)
+    {
+        if (int.TryParse(value, out var placement) && placement > 0)
+            pendingPlacements[registrationId] = placement;
+        else
+            pendingPlacements.Remove(registrationId);
+    }
+
+    private static RoundResult ParseRoundResult(string value) => value switch
+    {
+        "Pass" => RoundResult.Pass,
+        "Fail" => RoundResult.Fail,
+        "Qualified" => RoundResult.Qualified,
+        "NotQualified" => RoundResult.NotQualified,
+        "NoShow" => RoundResult.NoShow,
+        "Placed" => RoundResult.Placed,
+        "Participated" => RoundResult.Participated,
+        _ => throw new ArgumentException($"Unknown result: {value}")
+    };
+
+    private async Task SaveAllResults()
+    {
+        if (activeModalRoundDef == null || isOperating) return;
+
+        var toSave = pendingResults.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToList();
+        if (toSave.Count == 0) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var roundDefId = activeModalRoundDef.Id;
+            foreach (var (regId, resultStr) in toSave)
+            {
+                var result = ParseRoundResult(resultStr);
+                int? placement = result == RoundResult.Placed ? pendingPlacements.GetValueOrDefault(regId) : null;
+                await CompetitionProgressService.SetRoundResultAsync(regId, roundDefId, result, placement: placement);
+            }
+
+            await RefreshData();
+            CloseActiveModal();
+            successMessage = $"{toSave.Count} result(s) saved";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INITIALIZE MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ShowInitModal(Category category)
+    {
+        initCategoryId = category.Id;
+        initCategoryName = category.Name;
+        initRoundDefinitions = category.Rounds;
+
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+
+        var allRegs = await RegistrationService.GetAllByYearAsync(currentYear);
+        var verified = allRegs.Where(r =>
+            r.CompetitionSelection.CategoryId == category.Id &&
+            r.Status == RegistrationStatus.Verified).ToList();
+
+        var existing = await CompetitionProgressService.GetByCategoryAsync(category.Id, currentYear);
+        var existingRegIds = existing.Select(p => p.RegistrationId).ToHashSet();
+
+        initVerifiedCount = verified.Count(r => !existingRegIds.Contains(r.Id));
+        initExistingCount = existing.Count;
+        showInitModal = true;
+    }
+
+    private void CloseInitModal()
+    {
+        showInitModal = false;
+        initCategoryId = "";
+        initCategoryName = "";
+        initVerifiedCount = 0;
+        initExistingCount = 0;
+    }
+
+    private async Task InitializeCategory()
+    {
+        if (isOperating) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var currentYear = settings.CompetitionInfo.CompetitionYear;
+            var count = await CompetitionProgressService.InitializeCategoryAsync(
+                initCategoryId, currentYear, initRoundDefinitions);
+
+            await RefreshData();
+            CloseInitModal();
+            successMessage = $"{count} competitor(s) initialized";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SCHEDULE MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void ShowScheduleModal(Category category, RoundDefinition roundDef)
+    {
+        var categoryProgress = GetCategoryProgress(category.Id);
+        scheduleCompetitors = categoryProgress
+            .Where(p => p.GetRound(roundDef.Id)?.Status == RoundEntryStatus.Active)
+            .ToList();
+
+        scheduleCategoryId = category.Id;
+        scheduleRoundDefId = roundDef.Id;
+        scheduleRoundName = $"{category.Name} — {roundDef.Name}";
+        scheduleDateTime = null;
+        scheduleSelected = new HashSet<string>(scheduleCompetitors.Select(c => c.RegistrationId));
+        showScheduleModal = true;
+    }
+
+    private void CloseScheduleModal()
+    {
+        showScheduleModal = false;
+        scheduleCompetitors.Clear();
+        scheduleSelected.Clear();
+        scheduleDateTime = null;
+    }
+
+    private void ScheduleSelectAll() =>
+        scheduleSelected = new HashSet<string>(scheduleCompetitors.Select(c => c.RegistrationId));
+
+    private void ScheduleDeselectAll() =>
+        scheduleSelected.Clear();
+
+    private void ToggleScheduleSelection(string registrationId)
+    {
+        if (!scheduleSelected.Remove(registrationId))
+            scheduleSelected.Add(registrationId);
+    }
+
+    private async Task AssignSchedule()
+    {
+        if (isOperating || !scheduleDateTime.HasValue || scheduleSelected.Count == 0) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var dateTime = new DateTimeOffset(scheduleDateTime.Value);
+            await CompetitionProgressService.BulkAssignScheduleAsync(
+                scheduleSelected.ToList(), scheduleRoundDefId, dateTime);
+
+            var count = scheduleSelected.Count;
+            await RefreshData();
+            CloseScheduleModal();
+            successMessage = $"Schedule assigned to {count} competitor(s)";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BYPASS MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void ShowBypassModal(CompetitionProgress competitor, RoundDefinition roundDef)
+    {
+        bypassRegistrationId = competitor.RegistrationId;
+        bypassCompetitorName = competitor.CompetitorName;
+        bypassRoundDefId = roundDef.Id;
+        bypassRoundName = roundDef.Name;
+        bypassReason = "";
+        showBypassModal = true;
+    }
+
+    private void CloseBypassModal()
+    {
+        showBypassModal = false;
+        bypassRegistrationId = "";
+        bypassCompetitorName = "";
+        bypassRoundDefId = "";
+        bypassRoundName = "";
+        bypassReason = "";
+    }
+
+    private async Task ConfirmBypass()
+    {
+        if (isOperating) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var reason = string.IsNullOrWhiteSpace(bypassReason) ? null : bypassReason.Trim();
+            await CompetitionProgressService.SetBypassAsync(
+                bypassRegistrationId, bypassRoundDefId, true, reason);
+
+            await RefreshData();
+            CloseBypassModal();
+
+            // Refresh the active modal if it's open
+            if (showActiveModal && activeModalRoundDef != null)
+            {
+                var catProgress = GetCategoryProgress(activeModalCategoryId);
+                activeModalCompetitors = catProgress
+                    .Where(p => p.GetRound(activeModalRoundDef.Id)?.Status == RoundEntryStatus.Active)
+                    .ToList();
+                // Remove bypassed competitor from pending results
+                pendingResults.Remove(bypassRegistrationId);
+                pendingPlacements.Remove(bypassRegistrationId);
+            }
+
+            successMessage = $"{bypassCompetitorName} bypassed";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MODAL DISPLAY HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static string GetAcknowledgmentTime(RoundEntry? entry)
+    {
+        if (entry?.AcknowledgedAt == null) return "—";
 
         var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
-        var ct = TimeZoneInfo.ConvertTimeFromUtc(ackTime.Value.UtcDateTime, centralZone);
+        var ct = TimeZoneInfo.ConvertTimeFromUtc(entry.AcknowledgedAt.Value.UtcDateTime, centralZone);
         return ct.ToString("MMM d, h:mm tt");
     }
 
-    private string GetTimeSinceAssignment(CompetitionRound round)
+    private static string GetTimeSinceAssignment(RoundEntry? entry)
     {
-        DateTimeOffset? assignTime = modalRoundType switch
-        {
-            "preliminary" => round.PreliminaryRoundDateTime,
-            "final" => round.FinalRoundDateTime,
-            _ => null
-        };
+        if (entry?.ScheduledDateTime == null) return "—";
 
-        if (!assignTime.HasValue)
-            return "—";
+        var timeSince = DateTimeOffset.UtcNow - entry.ScheduledDateTime.Value;
 
-        var timeSince = DateTimeOffset.UtcNow - assignTime.Value;
-        
         if (timeSince.TotalDays >= 1)
             return $"{(int)timeSince.TotalDays}d ago";
         else if (timeSince.TotalHours >= 1)

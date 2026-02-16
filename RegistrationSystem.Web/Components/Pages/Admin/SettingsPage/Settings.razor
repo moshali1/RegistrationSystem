@@ -1,6 +1,7 @@
 ﻿@page "/admin/competition-settings"
 @attribute [Authorize(Roles = "Admin")]
 @namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage
+@using RegistrationSystem.Web.Components.Pages.Registration
 
 <div class="space-y-6">
     <!-- Page header -->
@@ -149,7 +150,12 @@
                                                OnClearOverride="ClearEditingCategoryOverride"
                                                OnEnableOverride="EnableEditingCategoryOverride"
                                                OnStartChanged="SetEditingCategoryStart"
-                                               OnEndChanged="SetEditingCategoryEnd" />
+                                               OnEndChanged="SetEditingCategoryEnd"
+                                               OnAddRound="OpenAddRound"
+                                               OnEditRound="OpenEditRound"
+                                               OnDeleteRound="RequestDeleteRound"
+                                               OnMoveRoundUp="MoveRoundUp"
+                                               OnMoveRoundDown="MoveRoundDown" />
                         }
                         else if (editingDivision is not null)
                         {
@@ -192,7 +198,12 @@
                                            OnClearOverride="ClearEditingCategoryOverride"
                                            OnEnableOverride="EnableEditingCategoryOverride"
                                            OnStartChanged="SetEditingCategoryStart"
-                                           OnEndChanged="SetEditingCategoryEnd" />
+                                           OnEndChanged="SetEditingCategoryEnd"
+                                           OnAddRound="OpenAddRound"
+                                           OnEditRound="OpenEditRound"
+                                           OnDeleteRound="RequestDeleteRound"
+                                           OnMoveRoundUp="MoveRoundUp"
+                                           OnMoveRoundDown="MoveRoundDown" />
                     }
                     else if (editingDivision is not null)
                     {
@@ -324,6 +335,144 @@
                 @onclick="CancelPendingAction">
             Cancel
         </button>
+    </Footer>
+</Modal>
+
+<!-- Round Editor Modal -->
+<Modal Visible="@showRoundEditorModal"
+       Title="@(isNewRound ? "Add Round" : "Edit Round")"
+       IconBgClass="bg-cyan-600"
+       MaxWidth="max-w-lg"
+       OnBackdropClick="CloseRoundEditor">
+    <Icon>@Icons.Trophy("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        @if (editingRoundDefinition is not null)
+        {
+            <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-700">Round Name</label>
+                    <input type="text" @bind="editingRoundDefinition.Name" @bind:event="oninput"
+                           placeholder="e.g., Video Qualification"
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-700">Result Type</label>
+                    <select @bind="editingRoundDefinition.ResultType"
+                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="@RoundResultType.PassFail">Pass / Fail</option>
+                        <option value="@RoundResultType.QualifyEliminate">Qualify / Eliminate</option>
+                    </select>
+                    <p class="text-xs text-slate-500">
+                        @(editingRoundDefinition.ResultType == RoundResultType.PassFail
+                            ? "Binary pass/fail (e.g., video qualification, screening)"
+                            : "Qualified/NotQualified/NoShow (e.g., preliminary, final)")
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-200">
+                        <div class="flex items-center gap-2">
+                            @Icons.Calendar("h-4 w-4 text-slate-500")
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Has Schedule</label>
+                                <p class="text-xs text-slate-500">Live event with date/time</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch @bind-Value="editingRoundDefinition.HasSchedule" />
+                    </div>
+
+                    <div class="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-200">
+                        <div class="flex items-center gap-2">
+                            @Icons.ArrowRight("h-4 w-4 text-slate-500")
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Allow Bypass</label>
+                                <p class="text-xs text-slate-500">Admin can skip this round</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch @bind-Value="editingRoundDefinition.AllowBypass" />
+                    </div>
+
+                    <div class="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-200">
+                        <div class="flex items-center gap-2">
+                            @Icons.Award("h-4 w-4 text-slate-500")
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Has Placement</label>
+                                <p class="text-xs text-slate-500">Track 1st, 2nd, 3rd positions</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch @bind-Value="editingRoundDefinition.HasPlacement" />
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <button type="button" class="cursor-pointer flex items-center gap-2 text-xs font-semibold text-slate-700 mb-3"
+                            @onclick="() => showRoundMessages = !showRoundMessages">
+                        @Icons.Chevron($"h-3.5 w-3.5 text-slate-400 transition-transform duration-200 {(showRoundMessages ? "rotate-90" : "")}")
+                        Messages
+                        <span class="text-slate-400 font-normal">(optional)</span>
+                    </button>
+
+                    @if (showRoundMessages)
+                    {
+                        <div class="space-y-3">
+                            <MessageEditor Label="Pass / Qualify Message"
+                                           Description="Shown when competitor advances"
+                                           @bind-Value="editingRoundDefinition.PassMessage" />
+                            <MessageEditor Label="Fail / Eliminate Message"
+                                           Description="Shown when competitor is eliminated"
+                                           @bind-Value="editingRoundDefinition.FailMessage" />
+                            @if (editingRoundDefinition.HasSchedule)
+                            {
+                                <MessageEditor Label="Schedule Details"
+                                               Description="Venue, directions, parking, requirements"
+                                               @bind-Value="editingRoundDefinition.ScheduleDetails" />
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </ChildContent>
+    <Footer>
+        <div class="flex gap-3 justify-end">
+            <button type="button"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
+                    @onclick="CloseRoundEditor">
+                Cancel
+            </button>
+            <button type="button"
+                    class="cursor-pointer rounded-lg bg-cyan-700 text-white px-4 py-2 text-sm font-medium hover:bg-cyan-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    @onclick="SaveRoundEditor"
+                    disabled="@(string.IsNullOrWhiteSpace(editingRoundDefinition?.Name))">
+                @(isNewRound ? "Add Round" : "Save Changes")
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
+<!-- Delete Round Confirmation Modal -->
+<Modal Visible="@showDeleteRoundModal"
+       Title="Delete Round"
+       IconBgClass="bg-red-600"
+       OnBackdropClick="CloseDeleteRoundModal">
+    <Icon>@Icons.TrashFilled("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <p>Are you sure you want to delete the round <strong>"@deleteRoundName"</strong>? Remaining rounds will be renumbered.</p>
+    </ChildContent>
+    <Footer>
+        <div class="flex gap-3 justify-end">
+            <button type="button"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
+                    @onclick="CloseDeleteRoundModal">
+                Cancel
+            </button>
+            <button type="button"
+                    class="cursor-pointer rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                    @onclick="ConfirmDeleteRound">
+                Delete
+            </button>
+        </div>
     </Footer>
 </Modal>
 

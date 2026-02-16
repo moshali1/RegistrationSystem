@@ -47,10 +47,34 @@ public static class SettingsComparer
             && a.RegistrationEnd == b.RegistrationEnd
             && a.RequiresVideo == b.RequiresVideo
             && a.VideoInstructions == b.VideoInstructions
-            && a.ScreeningRoundEnabled == b.ScreeningRoundEnabled
             && a.AllowMultipleInDivision == b.AllowMultipleInDivision
             && a.AllowEdit == b.AllowEdit
-            && a.AllowWithdraw == b.AllowWithdraw;
+            && a.AllowWithdraw == b.AllowWithdraw
+            && AreRoundsEqual(a.Rounds, b.Rounds);
+    }
+
+    private static bool AreRoundsEqual(List<RoundDefinition> a, List<RoundDefinition> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!AreRoundDefinitionsEqual(a[i], b[i])) return false;
+        }
+        return true;
+    }
+
+    private static bool AreRoundDefinitionsEqual(RoundDefinition a, RoundDefinition b)
+    {
+        return a.Id == b.Id
+            && a.Order == b.Order
+            && a.Name == b.Name
+            && a.HasSchedule == b.HasSchedule
+            && a.ResultType == b.ResultType
+            && a.AllowBypass == b.AllowBypass
+            && a.HasPlacement == b.HasPlacement
+            && a.PassMessage == b.PassMessage
+            && a.FailMessage == b.FailMessage
+            && a.ScheduleDetails == b.ScheduleDetails;
     }
 
     private static bool AreCompetitionInfoEqual(CompetitionInfo? a, CompetitionInfo? b)

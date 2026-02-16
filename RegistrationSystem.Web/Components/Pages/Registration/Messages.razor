@@ -1,4 +1,4 @@
-﻿@page "/registrations/{RegistrationId}/messages"
+@page "/registrations/{RegistrationId}/messages"
 @using Microsoft.AspNetCore.Components.Authorization
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.CompetitionRounds
@@ -8,7 +8,7 @@
 @using System.Security.Claims
 
 @inject RegistrationService RegistrationService
-@inject CompetitionRoundService CompetitionRoundService
+@inject CompetitionProgressService CompetitionProgressService
 @inject SettingsService SettingsService
 @inject IAuditService AuditService
 @inject NavigationManager NavigationManager
@@ -99,6 +99,7 @@
                                 @foreach (var (step, index) in timelineSteps.Select((s, i) => (s, i)))
                                 {
                                     var isLast = index == timelineSteps.Count - 1;
+                                    var stepIndex = index;
 
                                     <div class="flex">
                                         <!-- Dot + Connector -->
@@ -128,17 +129,33 @@
                                                 @((MarkupString)step.Description)
                                             </div>
 
+                                            @* Expandable Instructions *@
+                                            @if (!string.IsNullOrEmpty(step.ExpandableDetails))
+                                            {
+                                                <button @onclick="() => ToggleExpanded(stepIndex)"
+                                                        class="mt-2 flex items-center gap-1.5 text-xs font-medium text-cyan-600 hover:text-cyan-700 transition-colors cursor-pointer">
+                                                    @Icons.Chevron($"h-3 w-3 transition-transform duration-200 {(expandedSteps.Contains(stepIndex) ? "rotate-90" : "")}")
+                                                    Instructions
+                                                </button>
+                                                @if (expandedSteps.Contains(stepIndex))
+                                                {
+                                                    <div class="mt-2 text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 message-content">
+                                                        @((MarkupString)step.ExpandableDetails)
+                                                    </div>
+                                                }
+                                            }
+
                                             @if (!string.IsNullOrEmpty(step.AcknowledgedDetail))
                                             {
-                                                <div class="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                                                    @Icons.CheckCircle("h-3.5 w-3.5")
+                                                <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                                                    @Icons.CheckCircle("h-3 w-3")
                                                     @step.AcknowledgedDetail
                                                 </div>
                                             }
 
                                             @if (step.ShowAcknowledge)
                                             {
-                                                <button @onclick="() => AcknowledgeAsync(step.AcknowledgeType)"
+                                                <button @onclick="AcknowledgeAsync"
                                                         disabled="@isAcknowledging"
                                                         class="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-teal-600 rounded-lg shadow-sm hover:from-cyan-700 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all">
                                                     @if (isAcknowledging)
@@ -268,15 +285,15 @@
     public string RegistrationId { get; set; } = string.Empty;
 
     private Registration? registration;
-    private CompetitionRound? competitionRound;
+    private CompetitionProgress? competitionProgress;
     private Category? category;
     private string? divisionName;
-    private bool requiresVideo;
-    private bool requiresScreening;
+    private List<RoundDefinition> roundDefinitions = new();
 
     private List<AuditEntry> statusEntries = new();
     private List<AuditEntry> communicationEntries = new();
     private List<TimelineStep> timelineSteps = new();
+    private HashSet<int> expandedSteps = new();
 
     private string? currentUserId;
     private bool isLoading = true;
@@ -290,9 +307,9 @@
         string? BadgeLabel,
         string? BadgeClass,
         string Description,
+        string? ExpandableDetails = null,
         string? AcknowledgedDetail = null,
-        bool ShowAcknowledge = false,
-        string AcknowledgeType = ""
+        bool ShowAcknowledge = false
     );
 
     private static readonly HashSet<AuditAction> StatusActions = new()
@@ -328,21 +345,20 @@
             return;
         }
 
-        var roundTask = CompetitionRoundService.GetByRegistrationIdAsync(RegistrationId);
+        var progressTask = CompetitionProgressService.GetByRegistrationIdAsync(RegistrationId);
         var settingsTask = SettingsService.GetSettingsAsync();
         var auditTask = AuditService.GetEntityHistoryAsync("Registration", RegistrationId);
 
-        await Task.WhenAll(roundTask, settingsTask, auditTask);
+        await Task.WhenAll(progressTask, settingsTask, auditTask);
 
-        competitionRound = await roundTask;
+        competitionProgress = await progressTask;
         var settings = await settingsTask;
         var auditEntries = await auditTask;
 
         var division = settings.FindDivision(registration.CompetitionSelection.DivisionId);
         divisionName = division?.Name;
         category = division?.FindCategory(registration.CompetitionSelection.CategoryId);
-        requiresVideo = category?.RequiresVideo ?? false;
-        requiresScreening = category?.ScreeningRoundEnabled ?? false;
+        roundDefinitions = category?.Rounds ?? new();
 
         statusEntries = auditEntries.Where(e => StatusActions.Contains(e.Action)).ToList();
         communicationEntries = auditEntries.Where(e => CommunicationActions.Contains(e.Action)).ToList();
@@ -355,347 +371,205 @@
 
     private void BuildTimeline()
     {
-        timelineSteps = new List<TimelineStep>();
+        timelineSteps = new();
+        if (competitionProgress == null) return;
 
-        // Video Qualification — only if category requires it
-        if (requiresVideo)
+        var steps = new List<TimelineStep>();
+
+        foreach (var roundDef in roundDefinitions.OrderBy(r => r.Order))
         {
-            var vqStatus = competitionRound?.VideoQualification ?? VideoQualificationStatus.Pending;
+            var entry = competitionProgress.GetRound(roundDef.Id);
+            if (entry == null) continue;
 
-            timelineSteps.Add(new TimelineStep(
-                Title: "Video Qualification",
-                DotClass: vqStatus switch
-                {
-                    VideoQualificationStatus.Pass => "bg-emerald-500",
-                    VideoQualificationStatus.Fail => "bg-red-500",
-                    _ => "bg-amber-500"
-                },
-                BadgeLabel: vqStatus switch
-                {
-                    VideoQualificationStatus.Pass => "Passed",
-                    VideoQualificationStatus.Fail => "Did not pass",
-                    _ => "Under review"
-                },
-                BadgeClass: vqStatus switch
-                {
-                    VideoQualificationStatus.Pass => "text-emerald-700 bg-emerald-50",
-                    VideoQualificationStatus.Fail => "text-red-700 bg-red-50",
-                    _ => "text-amber-700 bg-amber-50"
-                },
-                Description: vqStatus switch
-                {
-                    VideoQualificationStatus.Pass => GetDefaultPassMessage("Video Qualification"),
-                    VideoQualificationStatus.Fail => GetDefaultFailMessage("Video Qualification", "Screening Round"),
-                    _ => "An admin is currently reviewing your recitation video."
-                }
-            ));
+            // Pending — haven't reached this round yet
+            if (entry.Status == RoundEntryStatus.Pending) break;
 
-            // Failed video qualification blocks everything after
-            if (vqStatus == VideoQualificationStatus.Fail)
-                return;
-        }
-
-        // Screening Round — only if category requires it
-        if (requiresScreening)
-        {
-            var screeningBypass = competitionRound?.ScreeningRoundBypass ?? false;
-
-            if (screeningBypass)
+            // Bypassed
+            if (entry.Status == RoundEntryStatus.Bypassed)
             {
-                // Bypassed — show exempt badge, no date, no acknowledge
-                timelineSteps.Add(new TimelineStep(
-                    Title: "Screening Round",
-                    DotClass: "bg-emerald-500",
-                    BadgeLabel: "Exempt",
-                    BadgeClass: "text-emerald-700 bg-emerald-50",
-                    Description: "As a previous year finalist, you are exempt from screening."
-                ));
+                steps.AddRange(BuildBypassedSteps(roundDef, entry));
+                continue;
             }
-            else
+
+            // Active — show schedule or "awaiting results"
+            if (entry.Status == RoundEntryStatus.Active)
             {
-                var hasScreeningDate = competitionRound?.ScreeningRoundDateTime.HasValue ?? false;
-
-                if (!hasScreeningDate)
-                {
-                    timelineSteps.Add(new TimelineStep(
-                        Title: "Screening Round",
-                        DotClass: "bg-slate-300",
-                        BadgeLabel: null,
-                        BadgeClass: null,
-                        Description: "Not yet scheduled."
-                    ));
-                    return; // Stop timeline
-                }
-
-                var screeningDt = competitionRound!.ScreeningRoundDateTime!.Value;
-                var screeningAcked = competitionRound.ScreeningRoundAcknowledged;
-
-                var screeningInstructions = competitionRound.VideoQualificationComment; // Instructions for screening
-
-                timelineSteps.Add(new TimelineStep(
-                    Title: "Screening Round",
-                    DotClass: screeningAcked ? "bg-emerald-500" : "bg-cyan-500",
-                    BadgeLabel: screeningAcked ? "Acknowledged" : null,
-                    BadgeClass: "text-emerald-700 bg-emerald-50",
-                    Description: !string.IsNullOrEmpty(screeningInstructions)
-                        ? $"{FormatCentralTime(screeningDt)}<br><br><strong>Instructions:</strong><br>{screeningInstructions}"
-                        : $"Scheduled for {FormatCentralTime(screeningDt)}",
-                    AcknowledgedDetail: screeningAcked && competitionRound.ScreeningRoundAcknowledgedAt.HasValue
-                        ? $"Acknowledged on {FormatCentralTime(competitionRound.ScreeningRoundAcknowledgedAt.Value)}"
-                        : null,
-                    ShowAcknowledge: !screeningAcked,
-                    AcknowledgeType: "screening"
-                ));
-
-                // Screening Result — only show after date has passed
-                if (screeningDt > DateTimeOffset.UtcNow)
-                    return; // Stop timeline
-
-                var screeningResult = competitionRound.ScreeningRoundResult;
-
-                if (screeningResult == ScreeningRoundStatus.Pass)
-                {
-                    timelineSteps.Add(new TimelineStep(
-                        Title: "Screening Result",
-                        DotClass: "bg-emerald-500",
-                        BadgeLabel: "Passed",
-                        BadgeClass: "text-emerald-700 bg-emerald-50",
-                        Description: GetDefaultPassMessage("Screening Round")
-                    ));
-                }
-                else if (screeningResult == ScreeningRoundStatus.Fail)
-                {
-                    timelineSteps.Add(new TimelineStep(
-                        Title: "Screening Result",
-                        DotClass: "bg-red-500",
-                        BadgeLabel: "Did not pass",
-                        BadgeClass: "text-red-700 bg-red-50",
-                        Description: GetDefaultFailMessage("Screening Round", "Preliminary Round")
-                    ));
-                    return;
-                }
-                else if (screeningResult == ScreeningRoundStatus.NoShow)
-                {
-                    timelineSteps.Add(new TimelineStep(
-                        Title: "Screening Result",
-                        DotClass: "bg-amber-500",
-                        BadgeLabel: "Did not attend",
-                        BadgeClass: "text-amber-700 bg-amber-50",
-                        Description: competitionRound.ScreeningRoundComment ?? "You did not attend the screening round."
-                    ));
-                    return; // Stop timeline
-                }
-                else
-                {
-                    // Date passed but not yet graded (Pending)
-                    timelineSteps.Add(new TimelineStep(
-                        Title: "Screening Result",
-                        DotClass: "bg-amber-500",
-                        BadgeLabel: "Pending",
-                        BadgeClass: "text-amber-700 bg-amber-50",
-                        Description: "Results are being processed. Please check back soon."
-                    ));
-                    return; // Stop timeline
-                }
+                steps.AddRange(BuildActiveSteps(roundDef, entry));
+                break; // Stop at current active round
             }
+
+            // Completed or Eliminated — show result
+            steps.AddRange(BuildResultSteps(roundDef, entry));
+
+            // If eliminated, stop the timeline
+            if (entry.Status == RoundEntryStatus.Eliminated) break;
         }
 
-        // Preliminary Round
-        var hasPrelimDate = competitionRound?.PreliminaryRoundDateTime.HasValue ?? false;
+        timelineSteps = steps;
+    }
 
-        if (!hasPrelimDate)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Preliminary Round",
-                DotClass: "bg-slate-300",
-                BadgeLabel: null,
-                BadgeClass: null,
-                Description: "Not yet scheduled."
-            ));
-            return;
-        }
+    private List<TimelineStep> BuildBypassedSteps(RoundDefinition roundDef, RoundEntry entry)
+    {
+        var description = !string.IsNullOrEmpty(entry.BypassReason)
+            ? $"You are exempt from this round. <em>({entry.BypassReason})</em>"
+            : "As a previous year finalist, you are exempt from this round.";
 
-        var prelimDt = competitionRound!.PreliminaryRoundDateTime!.Value;
-        var prelimAcked = competitionRound.PreliminaryRoundAcknowledged;
-
-        // Get preliminary instructions from the correct property based on category config
-        var preliminaryInstructions = requiresScreening
-            ? competitionRound.ScreeningRoundComment  // If screening exists, instructions come from screening comment
-            : competitionRound.VideoQualificationComment; // If no screening, instructions come from video comment
-
-        timelineSteps.Add(new TimelineStep(
-            Title: "Preliminary Round",
-            DotClass: prelimAcked ? "bg-emerald-500" : "bg-cyan-500",
-            BadgeLabel: prelimAcked ? "Acknowledged" : null,
+        return [new TimelineStep(
+            Title: roundDef.Name,
+            DotClass: "bg-emerald-500",
+            BadgeLabel: "Exempt",
             BadgeClass: "text-emerald-700 bg-emerald-50",
-            Description: !string.IsNullOrEmpty(preliminaryInstructions)
-                ? $"{FormatCentralTime(prelimDt)}<br>{preliminaryInstructions}"
-                : $"Scheduled for {FormatCentralTime(prelimDt)}",
-            AcknowledgedDetail: prelimAcked && competitionRound.PreliminaryRoundAcknowledgedAt.HasValue
-                ? $"Acknowledged on {FormatCentralTime(competitionRound.PreliminaryRoundAcknowledgedAt.Value)}"
-                : null,
-            ShowAcknowledge: !prelimAcked,
-            AcknowledgeType: "prelim"
-        ));
+            Description: description
+        )];
+    }
 
-        // Preliminary Result — only show after round date has passed
-        if (prelimDt > DateTimeOffset.UtcNow)
-            return;
+    private List<TimelineStep> BuildActiveSteps(RoundDefinition roundDef, RoundEntry entry)
+    {
+        var steps = new List<TimelineStep>();
 
-        var prelimResult = competitionRound.PreliminaryRoundResult;
-
-        if (prelimResult == PreliminaryRoundStatus.Qualified)
+        if (roundDef.HasSchedule && entry.ScheduledDateTime.HasValue)
         {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Preliminary Result",
-                DotClass: "bg-emerald-500",
-                BadgeLabel: "Qualified",
-                BadgeClass: "text-emerald-700 bg-emerald-50",
-                Description: GetDefaultPassMessage("Preliminary Round")
+            // Has schedule assigned — show formatted date prominently + expandable instructions + ack button
+            var description = FormatScheduleDescription(entry.ScheduledDateTime.Value);
+            var details = !string.IsNullOrEmpty(roundDef.ScheduleDetails) ? roundDef.ScheduleDetails : null;
+
+            steps.Add(new TimelineStep(
+                Title: roundDef.Name,
+                DotClass: entry.Acknowledged ? "bg-emerald-500" : "bg-cyan-500",
+                BadgeLabel: entry.Acknowledged ? "Acknowledged" : "Scheduled",
+                BadgeClass: entry.Acknowledged ? "text-emerald-700 bg-emerald-50" : "text-cyan-700 bg-cyan-50",
+                Description: description,
+                ExpandableDetails: details,
+                AcknowledgedDetail: entry.Acknowledged && entry.AcknowledgedAt.HasValue
+                    ? $"Confirmed {FormatCentralTime(entry.AcknowledgedAt.Value)}"
+                    : null,
+                ShowAcknowledge: !entry.Acknowledged
             ));
-        }
-        else if (prelimResult == PreliminaryRoundStatus.NotQualified)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Preliminary Result",
-                DotClass: "bg-red-500",
-                BadgeLabel: "Not Qualified",
-                BadgeClass: "text-red-700 bg-red-50",
-                Description: GetDefaultFailMessage("Preliminary Round", "Final Round")
-            ));
-            return;
-        }
-        else if (prelimResult == PreliminaryRoundStatus.NoShow)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Preliminary Result",
-                DotClass: "bg-amber-500",
-                BadgeLabel: "Did not attend",
-                BadgeClass: "text-amber-700 bg-amber-50",
-                Description: competitionRound.PreliminaryRoundComment ?? "You did not attend the preliminary round."
-            ));
-            return; // No final round
-        }
-        else
-        {
-            // Date passed but not yet graded (Pending)
-            timelineSteps.Add(new TimelineStep(
-                Title: "Preliminary Result",
-                DotClass: "bg-amber-500",
-                BadgeLabel: "Pending",
-                BadgeClass: "text-amber-700 bg-amber-50",
-                Description: "Results are being processed. Please check back soon."
-            ));
-            return;
-        }
 
-        // Final Round — only reached if qualified
-        var hasFinalDate = competitionRound.FinalRoundDateTime.HasValue;
+            // If the scheduled date hasn't passed yet, stop here — result will show after
+            if (entry.ScheduledDateTime.Value > DateTimeOffset.UtcNow) return steps;
 
-        if (!hasFinalDate)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Final Round",
-                DotClass: "bg-slate-300",
-                BadgeLabel: null,
-                BadgeClass: null,
-                Description: "Not yet scheduled."
-            ));
-            return;
-        }
-
-        var finalDt = competitionRound.FinalRoundDateTime!.Value;
-        var finalAcked = competitionRound.FinalRoundAcknowledged;
-        var finalInstructions = competitionRound.PreliminaryRoundComment; // Instructions for final
-
-        timelineSteps.Add(new TimelineStep(
-            Title: "Final Round",
-            DotClass: finalAcked ? "bg-emerald-500" : "bg-cyan-500",
-            BadgeLabel: finalAcked ? "Acknowledged" : null,
-            BadgeClass: "text-emerald-700 bg-emerald-50",
-            Description: !string.IsNullOrEmpty(finalInstructions)
-                ? $"{FormatCentralTime(finalDt)}<br>{finalInstructions}"
-                : $"Scheduled for {FormatCentralTime(finalDt)}",
-            AcknowledgedDetail: finalAcked && competitionRound.FinalRoundAcknowledgedAt.HasValue
-                ? $"Acknowledged on {FormatCentralTime(competitionRound.FinalRoundAcknowledgedAt.Value)}"
-                : null,
-            ShowAcknowledge: !finalAcked,
-            AcknowledgeType: "final"
-        ));
-
-        // Final Result — only show after round date has passed
-        if (finalDt > DateTimeOffset.UtcNow)
-            return;
-
-        var finalResult = competitionRound.FinalRoundResult;
-
-        if (finalResult == FinalRoundStatus.Placed)
-        {
-            var placement = competitionRound.FinalRoundPlacement;
-            var placementText = placement switch
-            {
-                1 => "🥇 Placed 1st",
-                2 => "🥈 Placed 2nd",
-                3 => "🥉 Placed 3rd",
-                _ => "Placed"
-            };
-
-            timelineSteps.Add(new TimelineStep(
-                Title: "Final Result",
-                DotClass: "bg-emerald-500",
-                BadgeLabel: placementText,
-                BadgeClass: "text-emerald-700 bg-emerald-50",
-                Description: competitionRound.FinalRoundComment ?? GetDefaultFinalMessage(placement)
-            ));
-        }
-        else if (finalResult == FinalRoundStatus.Participated)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Final Result",
-                DotClass: "bg-cyan-500",
-                BadgeLabel: "Participated",
-                BadgeClass: "text-cyan-700 bg-cyan-50",
-                Description: competitionRound.FinalRoundComment ?? GetDefaultFinalMessage(null)
-            ));
-        }
-        else if (finalResult == FinalRoundStatus.NoShow)
-        {
-            timelineSteps.Add(new TimelineStep(
-                Title: "Final Result",
-                DotClass: "bg-amber-500",
-                BadgeLabel: "Did not attend",
-                BadgeClass: "text-amber-700 bg-amber-50",
-                Description: "You did not attend the final round."
-            ));
-        }
-        else
-        {
-            // Date passed but not yet graded (Pending)
-            timelineSteps.Add(new TimelineStep(
-                Title: "Final Result",
+            // Date passed but still Active (no result entered yet) — show pending result
+            steps.Add(new TimelineStep(
+                Title: $"{roundDef.Name} Result",
                 DotClass: "bg-amber-500",
                 BadgeLabel: "Pending",
                 BadgeClass: "text-amber-700 bg-amber-50",
                 Description: "Results are being processed. Please check back soon."
             ));
         }
+        else if (roundDef.HasSchedule)
+        {
+            // HasSchedule but not yet assigned
+            steps.Add(new TimelineStep(
+                Title: roundDef.Name,
+                DotClass: "bg-slate-300",
+                BadgeLabel: null,
+                BadgeClass: null,
+                Description: "Not yet scheduled."
+            ));
+        }
+        else
+        {
+            // No schedule (async review round like video qualification)
+            steps.Add(new TimelineStep(
+                Title: roundDef.Name,
+                DotClass: "bg-amber-500",
+                BadgeLabel: "Under review",
+                BadgeClass: "text-amber-700 bg-amber-50",
+                Description: "An admin is currently reviewing your submission."
+            ));
+        }
+
+        return steps;
+    }
+
+    private List<TimelineStep> BuildResultSteps(RoundDefinition roundDef, RoundEntry entry)
+    {
+        var steps = new List<TimelineStep>();
+
+        // First, show the schedule step if this is a HasSchedule round
+        if (roundDef.HasSchedule && entry.ScheduledDateTime.HasValue)
+        {
+            var scheduleDesc = FormatScheduleDescription(entry.ScheduledDateTime.Value);
+            var details = !string.IsNullOrEmpty(roundDef.ScheduleDetails) ? roundDef.ScheduleDetails : null;
+
+            steps.Add(new TimelineStep(
+                Title: roundDef.Name,
+                DotClass: "bg-emerald-500",
+                BadgeLabel: "Completed",
+                BadgeClass: "text-emerald-700 bg-emerald-50",
+                Description: scheduleDesc,
+                ExpandableDetails: details,
+                AcknowledgedDetail: entry.AcknowledgedAt.HasValue
+                    ? $"Confirmed {FormatCentralTime(entry.AcknowledgedAt.Value)}"
+                    : null
+            ));
+        }
+
+        // Then show the result
+        var (dotClass, badgeLabel, badgeClass, description) = entry.Result switch
+        {
+            RoundResult.Pass => (
+                "bg-emerald-500", "Passed", "text-emerald-700 bg-emerald-50",
+                entry.Comment ?? roundDef.PassMessage ?? GetDefaultPassMessage(roundDef.Name)
+            ),
+            RoundResult.Qualified => (
+                "bg-emerald-500", "Qualified", "text-emerald-700 bg-emerald-50",
+                entry.Comment ?? roundDef.PassMessage ?? GetDefaultPassMessage(roundDef.Name)
+            ),
+            RoundResult.Fail => (
+                "bg-red-500", "Did not pass", "text-red-700 bg-red-50",
+                entry.Comment ?? roundDef.FailMessage ?? GetDefaultFailMessage(roundDef.Name)
+            ),
+            RoundResult.NotQualified => (
+                "bg-red-500", "Not Qualified", "text-red-700 bg-red-50",
+                entry.Comment ?? roundDef.FailMessage ?? GetDefaultFailMessage(roundDef.Name)
+            ),
+            RoundResult.NoShow => (
+                "bg-amber-500", "Did not attend", "text-amber-700 bg-amber-50",
+                entry.Comment ?? roundDef.FailMessage ?? $"You did not attend the {roundDef.Name}."
+            ),
+            RoundResult.Placed => (
+                "bg-emerald-500", GetPlacementBadge(entry.Placement), "text-emerald-700 bg-emerald-50",
+                entry.Comment ?? roundDef.PassMessage ?? GetDefaultFinalMessage(entry.Placement)
+            ),
+            RoundResult.Participated => (
+                "bg-cyan-500", "Participated", "text-cyan-700 bg-cyan-50",
+                entry.Comment ?? roundDef.PassMessage ?? GetDefaultFinalMessage(null)
+            ),
+            _ => (
+                "bg-amber-500", "Pending", "text-amber-700 bg-amber-50",
+                "Results are being processed. Please check back soon."
+            )
+        };
+
+        steps.Add(new TimelineStep(
+            Title: $"{roundDef.Name} Result",
+            DotClass: dotClass,
+            BadgeLabel: badgeLabel,
+            BadgeClass: badgeClass,
+            Description: description
+        ));
+
+        return steps;
     }
 
     // ─── Event Handlers ───────────────────────────────────────────────
 
-    private async Task AcknowledgeAsync(string type)
+    private void ToggleExpanded(int stepIndex)
+    {
+        if (!expandedSteps.Remove(stepIndex))
+            expandedSteps.Add(stepIndex);
+    }
+
+    private async Task AcknowledgeAsync()
     {
         isAcknowledging = true;
         try
         {
-            if (type == "prelim")
-                await CompetitionRoundService.AcknowledgePreliminaryRoundAsync(RegistrationId, currentUserId!);
-            else if (type == "screening")
-                await CompetitionRoundService.AcknowledgeScreeningRoundAsync(RegistrationId, currentUserId!);
-            else
-                await CompetitionRoundService.AcknowledgeFinalRoundAsync(RegistrationId, currentUserId!);
-
-            competitionRound = await CompetitionRoundService.GetByRegistrationIdAsync(RegistrationId);
+            await CompetitionProgressService.AcknowledgeAsync(RegistrationId, currentUserId!);
+            competitionProgress = await CompetitionProgressService.GetByRegistrationIdAsync(RegistrationId);
             BuildTimeline();
         }
         finally
@@ -716,6 +590,16 @@
         var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
         var ct = TimeZoneInfo.ConvertTimeFromUtc(dto.UtcDateTime, centralZone);
         return ct.ToString("MMM d, yyyy 'at' h:mm tt") + " CT";
+    }
+
+    private static string FormatScheduleDescription(DateTimeOffset dto)
+    {
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var ct = TimeZoneInfo.ConvertTimeFromUtc(dto.UtcDateTime, centralZone);
+        var dayOfWeek = ct.ToString("dddd");
+        var date = ct.ToString("MMMM d, yyyy");
+        var time = ct.ToString("h:mm tt");
+        return $"<strong class=\"text-slate-900\">{dayOfWeek}, {date}</strong><br><span class=\"text-lg font-semibold text-cyan-700\">{time} CT</span>";
     }
 
     private static string GetStatusBadgeClass(RegistrationStatus status) => status switch
@@ -751,24 +635,28 @@
         _ => "bg-slate-400"
     };
 
-    private string GetDefaultPassMessage(string roundName)
+    private static string GetPlacementBadge(int? placement) => placement switch
     {
-        return $"Congratulations! You have successfully passed the <strong>{roundName}</strong>.";
-    }
+        1 => "\U0001f947 Placed 1st",
+        2 => "\U0001f948 Placed 2nd",
+        3 => "\U0001f949 Placed 3rd",
+        _ => "Placed"
+    };
 
-    private string GetDefaultFailMessage(string roundName, string nextRoundName)
-    {
-        return $"Thank you for participating in the <strong>{roundName}</strong> of the competition. While you did not advance to the <strong>{nextRoundName}</strong>, we sincerely appreciate your dedication to the Qur'an and commend your efforts.<br><br>We encourage you to continue your memorization journey and look forward to your participation in future competitions, in shā' Allāh.<br><br><em>JazakAllahu Khayran.</em>";
-    }
+    private static string GetDefaultPassMessage(string roundName) =>
+        $"Congratulations! You have successfully passed the <strong>{roundName}</strong>.";
 
-    private string GetDefaultFinalMessage(int? placement)
+    private static string GetDefaultFailMessage(string roundName) =>
+        $"Thank you for participating in the <strong>{roundName}</strong> of the competition. While you did not advance to the next round, we sincerely appreciate your dedication to the Qur'an and commend your efforts.<br><br>We encourage you to continue your memorization journey and look forward to your participation in future competitions, in sh\u0101' All\u0101h.<br><br><em>Jazak All\u0101hu Khayran.</em>";
+
+    private static string GetDefaultFinalMessage(int? placement)
     {
         if (placement.HasValue && placement.Value <= 3)
         {
-            var medal = placement.Value switch { 1 => "🥇 First Place", 2 => "🥈 Second Place", 3 => "🥉 Third Place", _ => "" };
-            return $"<strong>Masha'Allah! {medal}</strong><br><br>Congratulations on your outstanding performance in the Final Round. May Allah bless you, your teachers, and your family.<br><br>Details about the award ceremony will be shared with you soon, in shā' Allāh.<br><br><em>JazakAllahu Khayran.</em>";
+            var medal = placement.Value switch { 1 => "\U0001f947 First Place", 2 => "\U0001f948 Second Place", 3 => "\U0001f949 Third Place", _ => "" };
+            return $"<strong>Masha'All\u0101h! {medal}</strong><br><br>Congratulations on your outstanding performance. May All\u0101h bless you, your teachers, and your family.<br><br>Details about the award ceremony will be shared with you soon, in sh\u0101' All\u0101h.<br><br><em>Jazak All\u0101hu Khayran.</em>";
         }
 
-        return "Thank you for participating in the Final Round of the competition. May Allah accept your efforts and make the Qur'an a light in your life.<br><br>Details about the award ceremony will be shared with you soon, in shā' Allāh.<br><br><em>JazakAllahu Khayran.</em>";
+        return "Thank you for participating in the competition. May All\u0101h accept your efforts and make the Qur'\u0101n a light in your life.<br><br>Details about the award ceremony will be shared with you soon, in sh\u0101' All\u0101h.<br><br><em>Jazak All\u0101hu Khayran.</em>";
     }
 }
