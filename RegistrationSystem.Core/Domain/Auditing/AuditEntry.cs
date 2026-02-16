@@ -171,50 +171,38 @@ public class FieldChange
 
 /// <summary>
 /// Types of audit actions that can be logged.
+/// Integer values must match the MongoDB migration script (scripts/migrate-audit-actions.js).
 /// </summary>
 public enum AuditAction
 {
-    // General CRUD
-    Created = 0,
-    Updated = 1,
-    Deleted = 2,
+    // Registration lifecycle
+    Submitted = 1,
+    Updated = 2,
+    Deleted = 3,
 
-    // Registration-specific
-    Submitted = 10,
-    StatusChanged = 11,
-    Approved = 12,
-    Rejected = 13,
-    Withdrawn = 14,
-    WithdrawalRequested = 15,
-    Verified = 16,
-    Disqualified = 17,
-
-    // File operations
-    FileUploaded = 20,
-    FileDeleted = 21,
+    // Status changes
+    StatusChanged = 10,
+    Withdrawn = 11,
+    Disqualified = 12,
 
     // Communication
-    EmailSent = 30,
-    SmsSent = 31,
+    EmailSent = 20,
+    SmsSent = 21,
 
     // Niqab bypass
-    NiqabBypassCreated = 40,
-    NiqabBypassClaimed = 41,
-    NiqabBypassDeleted = 42,
+    NiqabBypassCreated = 30,
+    NiqabBypassClaimed = 31,
+    NiqabBypassDeleted = 32,
 
     // Settings
-    SettingsUpdated = 50,
-    DivisionUpdated = 51,
-    CategoryUpdated = 52,
+    SettingsUpdated = 40,
 
     // Admin actions
-    AdminOverride = 60,
-    ManualCorrection = 61,
+    ManualCorrection = 50,
 
-    // System
-    SystemMigration = 90,
-    DataImport = 91,
-    DataExport = 92
+    // Data operations
+    DataImport = 60,
+    DataExport = 61
 }
 
 /// <summary>
@@ -227,28 +215,19 @@ public static class AuditActionExtensions
     /// </summary>
     public static string GetDisplayName(this AuditAction action) => action switch
     {
-        AuditAction.Created => "Created",
+        AuditAction.Submitted => "Submitted",
         AuditAction.Updated => "Updated",
         AuditAction.Deleted => "Deleted",
-        AuditAction.Submitted => "Submitted",
         AuditAction.StatusChanged => "Status Changed",
-        AuditAction.Approved => "Approved",
-        AuditAction.Rejected => "Rejected",
         AuditAction.Withdrawn => "Withdrawn",
-        AuditAction.WithdrawalRequested => "Withdrawal Requested",
-        AuditAction.FileUploaded => "File Uploaded",
-        AuditAction.FileDeleted => "File Deleted",
+        AuditAction.Disqualified => "Disqualified",
         AuditAction.EmailSent => "Email Sent",
         AuditAction.SmsSent => "SMS Sent",
         AuditAction.NiqabBypassCreated => "Niqab Bypass Created",
         AuditAction.NiqabBypassClaimed => "Niqab Bypass Claimed",
         AuditAction.NiqabBypassDeleted => "Niqab Bypass Deleted",
         AuditAction.SettingsUpdated => "Settings Updated",
-        AuditAction.DivisionUpdated => "Division Updated",
-        AuditAction.CategoryUpdated => "Category Updated",
-        AuditAction.AdminOverride => "Admin Override",
         AuditAction.ManualCorrection => "Manual Correction",
-        AuditAction.SystemMigration => "System Migration",
         AuditAction.DataImport => "Data Import",
         AuditAction.DataExport => "Data Export",
         _ => action.ToString()
@@ -259,19 +238,16 @@ public static class AuditActionExtensions
     /// </summary>
     public static string GetColorClass(this AuditAction action) => action switch
     {
-        AuditAction.Created or AuditAction.Submitted => "emerald",
+        AuditAction.Submitted => "emerald",
         AuditAction.Updated => "cyan",
-        AuditAction.Deleted => "red",
-        AuditAction.Approved => "emerald",
-        AuditAction.Rejected => "red",
-        AuditAction.Withdrawn or AuditAction.WithdrawalRequested => "amber",
+        AuditAction.Deleted or AuditAction.Disqualified => "red",
+        AuditAction.Withdrawn => "amber",
         AuditAction.StatusChanged => "violet",
         AuditAction.EmailSent or AuditAction.SmsSent => "blue",
-        AuditAction.FileUploaded => "cyan",
-        AuditAction.FileDeleted => "red",
-        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed => "violet",
-        AuditAction.SettingsUpdated or AuditAction.DivisionUpdated or AuditAction.CategoryUpdated => "slate",
-        AuditAction.AdminOverride or AuditAction.ManualCorrection => "amber",
+        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed or AuditAction.NiqabBypassDeleted => "violet",
+        AuditAction.SettingsUpdated => "slate",
+        AuditAction.ManualCorrection => "amber",
+        AuditAction.DataImport or AuditAction.DataExport => "slate",
         _ => "slate"
     };
 }
