@@ -2,7 +2,7 @@
 @attribute [Authorize]
 
 @inject RegistrationService RegistrationService
-@inject CompetitionRoundService CompetitionRoundService
+@inject CompetitionProgressService CompetitionProgressService
 @inject SettingsService SettingsService
 @inject CurrentUserService CurrentUserService
 @inject NavigationManager NavigationManager
@@ -545,7 +545,7 @@
     private CompetitionSettings? settings;
     private int competitionYear;
     private IReadOnlyList<Registration> registrations = Array.Empty<Registration>();
-    private IReadOnlyDictionary<string, CompetitionRound> competitionRounds = new Dictionary<string, CompetitionRound>();
+    private IReadOnlyDictionary<string, CompetitionProgress> competitionProgress = new Dictionary<string, CompetitionProgress>();
     private bool isAdmin;
     private bool showAllRegistrations = false;
     private string? currentUserId;
@@ -650,9 +650,9 @@
                 registrations = await RegistrationService.GetUserRegistrationsAsync(currentUserId, competitionYear);
             }
 
-            // BATCH load competition rounds - single query instead of N queries
+            // BATCH load competition progress - single query instead of N queries
             var registrationIds = registrations.Select(r => r.Id).ToList();
-            competitionRounds = await CompetitionRoundService.GetByRegistrationIdsAsync(registrationIds);
+            competitionProgress = await CompetitionProgressService.GetByRegistrationIdsAsync(registrationIds);
         }
         finally
         {
@@ -850,16 +850,16 @@
 
     private bool HasRoundNotification(string registrationId)
     {
-        // Show Messages link if CompetitionRound exists (means there's info to view)
-        return competitionRounds.ContainsKey(registrationId);
+        // Show Messages link if CompetitionProgress exists (means there's info to view)
+        return competitionProgress.ContainsKey(registrationId);
     }
 
     private bool HasUnacknowledgedRound(string registrationId)
     {
-        // Show red dot if they have a schedule they haven't acknowledged
-        if (!competitionRounds.TryGetValue(registrationId, out var round))
+        // Show red dot if they have a round they haven't acknowledged
+        if (!competitionProgress.TryGetValue(registrationId, out var progress))
             return false;
 
-        return round.HasPendingAcknowledgment;
+        return progress.HasPendingAcknowledgment;
     }
 }

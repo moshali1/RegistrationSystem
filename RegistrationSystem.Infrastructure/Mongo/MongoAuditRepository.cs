@@ -195,6 +195,17 @@ public class MongoAuditRepository : IAuditRepository
         return result.DeletedCount;
     }
 
+    public async Task UpdateSummaryAsync(string id, string newSummary, CancellationToken cancellationToken = default)
+    {
+        var update = Builders<AuditEntry>.Update.Set(x => x.Summary, newSummary);
+        await _collection.UpdateOneAsync(x => x.Id == id, update, cancellationToken: cancellationToken);
+    }
+
+    public async Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default)
+    {
+        await _collection.DeleteOneAsync(x => x.Id == id, cancellationToken);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ═══════════════════════════════════════════════════════════════════════════

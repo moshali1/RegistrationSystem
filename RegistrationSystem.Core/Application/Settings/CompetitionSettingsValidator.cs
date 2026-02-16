@@ -63,7 +63,31 @@ public class CompetitionSettingsValidator
                 category.RegistrationEnd.HasValue &&
                 category.RegistrationEnd <= category.RegistrationStart)
                 errors.Add($"Category '{category.Name}' registration end must be after start.");
+
+            ValidateRoundDefinitions(category, division.Name, errors);
         }
+    }
+
+    private static void ValidateRoundDefinitions(Category category, string divisionName, List<string> errors)
+    {
+        if (category.Rounds.Count == 0) return;
+
+        var roundNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var round in category.Rounds)
+        {
+            if (string.IsNullOrWhiteSpace(round.Name))
+                errors.Add($"Round name cannot be empty in category '{category.Name}' ({divisionName}).");
+
+            if (!roundNames.Add(round.Name))
+                errors.Add($"Duplicate round name '{round.Name}' in category '{category.Name}' ({divisionName}).");
+
+            if (round.Order < 1)
+                errors.Add($"Round order must be positive for '{round.Name}' in category '{category.Name}' ({divisionName}).");
+        }
+
+        var orders = category.Rounds.Select(r => r.Order).ToList();
+        if (orders.Distinct().Count() != orders.Count)
+            errors.Add($"Duplicate round orders in category '{category.Name}' ({divisionName}).");
     }
 }
 

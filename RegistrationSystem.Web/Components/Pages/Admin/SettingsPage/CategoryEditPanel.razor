@@ -75,18 +75,102 @@
         }
     </div>
 
-    <!-- Screening Round -->
+    <!-- Competition Rounds -->
     <div class="border-t border-slate-200 pt-5">
-        <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-slate-50 border border-slate-200">
+        <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
-                @Icons.ClipboardCheck("h-4 w-4 text-slate-500")
-                <div>
-                    <label class="text-sm font-medium text-slate-700">Enable Screening Round</label>
-                    <p class="text-xs text-slate-500">Pass/fail qualification round (some competitors may bypass)</p>
-                </div>
+                @Icons.Trophy("h-4 w-4 text-slate-500")
+                <label class="text-xs font-semibold text-slate-700">Competition Rounds</label>
             </div>
-            <ToggleSwitch @bind-Value="Category.ScreeningRoundEnabled" />
+            <span class="text-xs text-slate-400">@Category.Rounds.Count @(Category.Rounds.Count == 1 ? "round" : "rounds")</span>
         </div>
+
+        @if (Category.Rounds.Count > 0)
+        {
+            var sortedRounds = Category.Rounds.OrderBy(r => r.Order).ToList();
+            var minOrder = sortedRounds.First().Order;
+            var maxOrder = sortedRounds.Last().Order;
+
+            <div class="space-y-2">
+                @foreach (var round in sortedRounds)
+                {
+                    var isFirst = round.Order == minOrder;
+                    var isLast = round.Order == maxOrder;
+                    var roundId = round.Id;
+
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+                        <div class="px-3 py-2 flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-5 h-5 rounded-md bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                                    @round.Order
+                                </span>
+                                <span class="text-sm font-medium text-slate-800 truncate">@round.Name</span>
+                            </div>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                @if (round.HasSchedule)
+                                {
+                                    <span class="text-cyan-600" title="Has Schedule">
+                                        @Icons.Calendar("h-3.5 w-3.5")
+                                    </span>
+                                }
+                                @if (round.AllowBypass)
+                                {
+                                    <span class="text-amber-600" title="Bypass Allowed">
+                                        @Icons.ArrowRight("h-3.5 w-3.5")
+                                    </span>
+                                }
+                                @if (round.HasPlacement)
+                                {
+                                    <span class="text-violet-600" title="Has Placement">
+                                        @Icons.Award("h-3.5 w-3.5")
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <div class="px-3 py-1.5 bg-white border-t border-slate-100 flex items-center justify-between">
+                            <div class="flex items-center gap-0.5">
+                                <button type="button" disabled="@isFirst"
+                                        class="cursor-pointer p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                        @onclick="() => OnMoveRoundUp.InvokeAsync(roundId)">
+                                    @Icons.ChevronUp("h-3.5 w-3.5")
+                                </button>
+                                <button type="button" disabled="@isLast"
+                                        class="cursor-pointer p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                        @onclick="() => OnMoveRoundDown.InvokeAsync(roundId)">
+                                    @Icons.ChevronDown("h-3.5 w-3.5")
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-0.5">
+                                <button type="button"
+                                        class="cursor-pointer p-1 rounded text-slate-400 hover:text-cyan-700 transition-colors"
+                                        @onclick="() => OnEditRound.InvokeAsync(roundId)">
+                                    @Icons.Edit("h-3.5 w-3.5")
+                                </button>
+                                <button type="button"
+                                        class="cursor-pointer p-1 rounded text-slate-400 hover:text-red-600 transition-colors"
+                                        @onclick="() => OnDeleteRound.InvokeAsync(roundId)">
+                                    @Icons.Trash("h-3.5 w-3.5")
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-4 text-center">
+                <p class="text-xs text-slate-500">No rounds configured</p>
+                <p class="text-xs text-slate-400 mt-0.5">Add rounds to define the competition pipeline</p>
+            </div>
+        }
+
+        <button type="button"
+                class="cursor-pointer mt-3 inline-flex items-center gap-1.5 text-xs text-cyan-700 hover:text-cyan-800 font-medium transition-colors"
+                @onclick="OnAddRound">
+            @Icons.Plus("h-3.5 w-3.5")
+            Add round
+        </button>
     </div>
 
     <!-- Multiple Registrations -->
@@ -218,6 +302,11 @@
     [Parameter] public EventCallback OnEnableOverride { get; set; }
     [Parameter] public EventCallback<string?> OnStartChanged { get; set; }
     [Parameter] public EventCallback<string?> OnEndChanged { get; set; }
+    [Parameter] public EventCallback OnAddRound { get; set; }
+    [Parameter] public EventCallback<string> OnEditRound { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteRound { get; set; }
+    [Parameter] public EventCallback<string> OnMoveRoundUp { get; set; }
+    [Parameter] public EventCallback<string> OnMoveRoundDown { get; set; }
 
     private static string GetPortionDisplayName(PortionOption opt) => opt switch
     {

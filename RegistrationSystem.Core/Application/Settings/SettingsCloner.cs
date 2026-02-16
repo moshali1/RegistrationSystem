@@ -44,10 +44,10 @@ public static class SettingsCloner
             RegistrationEnd = source.RegistrationEnd,
             RequiresVideo = source.RequiresVideo,
             VideoInstructions = source.VideoInstructions,
-            ScreeningRoundEnabled = source.ScreeningRoundEnabled,
             AllowMultipleInDivision = source.AllowMultipleInDivision,
             AllowEdit = source.AllowEdit,
-            AllowWithdraw = source.AllowWithdraw
+            AllowWithdraw = source.AllowWithdraw,
+            Rounds = source.Rounds.Select(CloneRoundDefinition).ToList()
         };
     }
 
@@ -68,10 +68,27 @@ public static class SettingsCloner
         target.RegistrationEnd = source.RegistrationEnd;
         target.RequiresVideo = source.RequiresVideo;
         target.VideoInstructions = source.VideoInstructions;
-        target.ScreeningRoundEnabled = source.ScreeningRoundEnabled;
         target.AllowMultipleInDivision = source.AllowMultipleInDivision;
         target.AllowEdit = source.AllowEdit;
         target.AllowWithdraw = source.AllowWithdraw;
+        target.Rounds = source.Rounds.Select(CloneRoundDefinition).ToList();
+    }
+
+    public static RoundDefinition CloneRoundDefinition(RoundDefinition source)
+    {
+        return new RoundDefinition
+        {
+            Id = source.Id,
+            Order = source.Order,
+            Name = source.Name,
+            HasSchedule = source.HasSchedule,
+            ResultType = source.ResultType,
+            AllowBypass = source.AllowBypass,
+            HasPlacement = source.HasPlacement,
+            PassMessage = source.PassMessage,
+            FailMessage = source.FailMessage,
+            ScheduleDetails = source.ScheduleDetails
+        };
     }
 
     private static CompetitionInfo CloneCompetitionInfo(CompetitionInfo? source)

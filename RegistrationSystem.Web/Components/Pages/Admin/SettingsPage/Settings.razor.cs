@@ -66,6 +66,17 @@ public partial class Settings : ComponentBase, IDisposable
     private bool showUnsavedEditModal;
     private Action? pendingEditAction;
 
+    // Round editor modal
+    private bool showRoundEditorModal;
+    private RoundDefinition? editingRoundDefinition;
+    private bool isNewRound;
+    private bool showRoundMessages;
+
+    // Round delete confirmation
+    private bool showDeleteRoundModal;
+    private string deleteRoundName = string.Empty;
+    private Action? deleteRoundAction;
+
     // Timer for auto-dismiss
     private System.Threading.Timer? alertTimer;
 
@@ -745,6 +756,124 @@ public partial class Settings : ComponentBase, IDisposable
             "Ended" => "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 border border-slate-200",
             _ => "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 border border-slate-200"
         };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUND CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenAddRound()
+    {
+        if (editingCategory is null) return;
+
+        var nextOrder = editingCategory.Rounds.Count > 0
+            ? editingCategory.Rounds.Max(r => r.Order) + 1
+            : 1;
+
+        editingRoundDefinition = new RoundDefinition
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Order = nextOrder,
+            ResultType = RoundResultType.PassFail
+        };
+        isNewRound = true;
+        showRoundMessages = false;
+        showRoundEditorModal = true;
+    }
+
+    private void OpenEditRound(string roundId)
+    {
+        if (editingCategory is null) return;
+        var round = editingCategory.Rounds.FirstOrDefault(r => r.Id == roundId);
+        if (round is null) return;
+
+        editingRoundDefinition = SettingsCloner.CloneRoundDefinition(round);
+        isNewRound = false;
+        showRoundMessages = !string.IsNullOrEmpty(round.PassMessage)
+                         || !string.IsNullOrEmpty(round.FailMessage)
+                         || !string.IsNullOrEmpty(round.ScheduleDetails);
+        showRoundEditorModal = true;
+    }
+
+    private void SaveRoundEditor()
+    {
+        if (editingCategory is null || editingRoundDefinition is null) return;
+        if (string.IsNullOrWhiteSpace(editingRoundDefinition.Name)) return;
+
+        if (isNewRound)
+        {
+            editingCategory.Rounds.Add(editingRoundDefinition);
+        }
+        else
+        {
+            var existing = editingCategory.Rounds.FirstOrDefault(r => r.Id == editingRoundDefinition.Id);
+            if (existing is not null)
+            {
+                var index = editingCategory.Rounds.IndexOf(existing);
+                editingCategory.Rounds[index] = editingRoundDefinition;
+            }
+        }
+
+        CloseRoundEditor();
+    }
+
+    private void CloseRoundEditor()
+    {
+        showRoundEditorModal = false;
+        editingRoundDefinition = null;
+    }
+
+    private void MoveRoundUp(string roundId)
+    {
+        if (editingCategory is null) return;
+        var sorted = editingCategory.Rounds.OrderBy(r => r.Order).ToList();
+        var index = sorted.FindIndex(r => r.Id == roundId);
+        if (index <= 0) return;
+
+        (sorted[index].Order, sorted[index - 1].Order) = (sorted[index - 1].Order, sorted[index].Order);
+    }
+
+    private void MoveRoundDown(string roundId)
+    {
+        if (editingCategory is null) return;
+        var sorted = editingCategory.Rounds.OrderBy(r => r.Order).ToList();
+        var index = sorted.FindIndex(r => r.Id == roundId);
+        if (index < 0 || index >= sorted.Count - 1) return;
+
+        (sorted[index].Order, sorted[index + 1].Order) = (sorted[index + 1].Order, sorted[index].Order);
+    }
+
+    private void RequestDeleteRound(string roundId)
+    {
+        if (editingCategory is null) return;
+        var round = editingCategory.Rounds.FirstOrDefault(r => r.Id == roundId);
+        if (round is null) return;
+
+        deleteRoundName = round.Name;
+        deleteRoundAction = () =>
+        {
+            editingCategory.Rounds.Remove(round);
+            // Re-normalize orders
+            var order = 1;
+            foreach (var r in editingCategory.Rounds.OrderBy(r => r.Order))
+            {
+                r.Order = order++;
+            }
+        };
+        showDeleteRoundModal = true;
+    }
+
+    private void ConfirmDeleteRound()
+    {
+        deleteRoundAction?.Invoke();
+        CloseDeleteRoundModal();
+    }
+
+    private void CloseDeleteRoundModal()
+    {
+        showDeleteRoundModal = false;
+        deleteRoundAction = null;
+        deleteRoundName = string.Empty;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CID CONFIGURATION

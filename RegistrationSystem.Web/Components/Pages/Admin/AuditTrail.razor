@@ -15,7 +15,7 @@
 <!-- Header -->
 <div class="mb-6">
     <div class="mb-2">
-        <h1 class="text-2xl font-bold text-slate-800">Audit Trail</h1>
+        <h1 class="text-2xl font-bold text-slate-800 select-none" @ondblclick="HandleHeaderDoubleClick">Audit Trail</h1>
         <p class="text-sm text-slate-500 mt-1">Track all system changes and activity</p>
     </div>
 
@@ -286,6 +286,23 @@ else
                                         @Icons.Chevron("h-3.5 w-3.5")
                                     </button>
                                 }
+                                @if (managementMode)
+                                {
+                                    <span class="ml-auto flex items-center gap-1">
+                                        <button type="button"
+                                                @onclick="() => OpenEditModal(entry)"
+                                                class="p-1 rounded hover:bg-slate-100 text-slate-300 hover:text-slate-500 transition-colors"
+                                                title="Edit summary">
+                                            @Icons.EditSquare("h-3.5 w-3.5")
+                                        </button>
+                                        <button type="button"
+                                                @onclick="() => OpenDeleteModal(entry)"
+                                                class="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
+                                                title="Delete entry">
+                                            @Icons.Trash("h-3.5 w-3.5")
+                                        </button>
+                                    </span>
+                                }
                             </div>
                         </div>
                     </div>
@@ -317,6 +334,109 @@ else
             </button>
         </div>
     }
+}
+
+<!-- Password Gate Modal -->
+@if (showPasswordModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @onclick="() => showPasswordModal = false">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-sm mx-4 p-6" @onclick:stopPropagation>
+            <div class="text-center mb-4">
+                @Icons.Lock("h-8 w-8 text-slate-400 mx-auto mb-2")
+                <h3 class="text-sm font-medium text-slate-600">Authentication Required</h3>
+            </div>
+            <input type="password"
+                   @bind="enteredPassword"
+                   @bind:event="oninput"
+                   @onkeydown="HandlePasswordKeyDown"
+                   placeholder="Enter access code"
+                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 focus:bg-white transition-all @(passwordError ? "border-red-300 ring-2 ring-red-200" : "")" />
+            @if (passwordError)
+            {
+                <p class="text-xs text-red-500 text-center mt-2">Invalid code</p>
+            }
+            <div class="flex gap-2 mt-4">
+                <button type="button"
+                        @onclick="() => { showPasswordModal = false; enteredPassword = string.Empty; passwordError = false; }"
+                        class="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="VerifyPassword"
+                        class="flex-1 px-4 py-2 rounded-xl bg-slate-700 text-white text-sm font-medium hover:bg-slate-800 transition-colors">
+                    Unlock
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Edit Summary Modal -->
+@if (showEditModal && editingEntry != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @onclick="CloseEditModal">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-lg mx-4 p-6" @onclick:stopPropagation>
+            <h3 class="text-lg font-semibold text-slate-800 mb-1">Edit Audit Entry</h3>
+            <p class="text-xs text-slate-400 mb-4 font-mono">@editingEntry.Id</p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Summary</label>
+                    <textarea @bind="editSummary"
+                              rows="3"
+                              class="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:bg-white transition-all resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-5">
+                <button type="button"
+                        @onclick="CloseEditModal"
+                        class="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="SaveEdit"
+                        disabled="@isSaving"
+                        class="flex-1 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-50 transition-colors">
+                    @(isSaving ? "Saving..." : "Save")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal && deletingEntry != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @onclick="() => { showDeleteModal = false; deletingEntry = null; }">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-sm mx-4 p-6" @onclick:stopPropagation>
+            <div class="text-center mb-4">
+                @Icons.Trash("h-8 w-8 text-red-400 mx-auto mb-2")
+                <h3 class="text-base font-semibold text-slate-800">Delete Audit Entry?</h3>
+                <p class="text-sm text-slate-500 mt-1">This cannot be undone.</p>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600">
+                <span class="font-medium">@deletingEntry.Action.GetDisplayName()</span> — @deletingEntry.EntityType
+                @if (!string.IsNullOrEmpty(deletingEntry.Summary))
+                {
+                    <br /><span class="text-slate-400">@deletingEntry.Summary</span>
+                }
+            </div>
+            <div class="flex gap-2">
+                <button type="button"
+                        @onclick="() => { showDeleteModal = false; deletingEntry = null; }"
+                        class="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="ConfirmDelete"
+                        disabled="@isSaving"
+                        class="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+                    @(isSaving ? "Deleting..." : "Delete")
+                </button>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -544,6 +664,121 @@ else
 
     private static DateOnly TodayCentral =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTz));
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MANAGEMENT MODE (hidden — double-click header to activate)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool managementMode;
+    private bool showPasswordModal;
+    private string enteredPassword = "";
+    private bool passwordError;
+    private const string ManagementPassword = "123456";
+
+    private bool showEditModal;
+    private AuditEntry? editingEntry;
+    private string editSummary = "";
+
+    private bool showDeleteModal;
+    private AuditEntry? deletingEntry;
+
+    private bool isSaving;
+
+    private void HandleHeaderDoubleClick()
+    {
+        if (managementMode)
+        {
+            managementMode = false;
+            return;
+        }
+
+        showPasswordModal = true;
+        enteredPassword = "";
+        passwordError = false;
+    }
+
+    private void HandlePasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            VerifyPassword();
+    }
+
+    private void VerifyPassword()
+    {
+        if (enteredPassword == ManagementPassword)
+        {
+            managementMode = true;
+            showPasswordModal = false;
+            enteredPassword = "";
+            passwordError = false;
+        }
+        else
+        {
+            passwordError = true;
+        }
+    }
+
+    private void OpenEditModal(AuditEntry entry)
+    {
+        editingEntry = entry;
+        editSummary = entry.Summary ?? "";
+        showEditModal = true;
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+        editingEntry = null;
+        editSummary = "";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingEntry == null) return;
+
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            await AuditService.UpdateEntrySummaryAsync(editingEntry.Id, editSummary);
+            editingEntry.Summary = editSummary;
+            CloseEditModal();
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenDeleteModal(AuditEntry entry)
+    {
+        deletingEntry = entry;
+        showDeleteModal = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deletingEntry == null) return;
+
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            await AuditService.DeleteEntryAsync(deletingEntry.Id);
+            auditEntries.Remove(deletingEntry);
+            totalCount--;
+            showDeleteModal = false;
+            deletingEntry = null;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
 
     public void Dispose()
     {

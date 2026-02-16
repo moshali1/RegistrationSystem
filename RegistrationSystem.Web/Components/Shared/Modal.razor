@@ -8,7 +8,7 @@
             <div class="fixed inset-0 backdrop-blur-sm transition-all duration-200 @(_isVisible ? "bg-slate-900/60" : "bg-slate-900/0")"
                  @onclick="HandleBackdropClick"></div>
             <!-- Panel -->
-            <div class="relative bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 transition-all duration-200 ease-out @(_isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95")">
+            <div class="relative bg-white rounded-xl shadow-2xl @MaxWidth w-full overflow-hidden border border-slate-200 transition-all duration-200 ease-out @(_isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95")">
                 <div class="px-6 pt-6 pb-4">
                     <div class="flex items-start gap-4">
                         <div class="flex-shrink-0 w-12 h-12 rounded-xl @IconBgClass flex items-center justify-center shadow-lg">
@@ -42,6 +42,7 @@
     [Parameter] public RenderFragment? Footer { get; set; }
     [Parameter] public EventCallback OnBackdropClick { get; set; }
     [Parameter] public bool AllowBackdropClose { get; set; } = true;
+    [Parameter] public string MaxWidth { get; set; } = "max-w-sm";
 
     private string FooterAlignClass => Footer is not null ? "" : "justify-end";
 

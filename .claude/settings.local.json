@@ -23,7 +23,26 @@
       "Bash(taskkill:*)",
       "Bash(tasklist:*)",
       "Bash(wmic process:*)",
-      "WebFetch(domain:register.imamshatibi.org)"
+      "WebFetch(domain:register.imamshatibi.org)",
+      "Bash(ls -la \"C:\\\\Users\\\\msals\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-msals--claude-worktrees-Admin-sweet-rhodes\\\\tasks\"\" 2>/dev/null || echo \"Directory not found\"; ls -la \"C:UsersmsalsAppDataLocalTempclaude\"\")",
+      "Bash(find:*)",
+      "Bash(cmd.exe /c \"taskkill /F /IM RegistrationSystem.Web.exe\")",
+      "Bash(cmd.exe /c \"taskkill /F /IM dotnet.exe\")",
+      "Bash(cmd.exe /c \"wmic process where \"\"name like ''%RegistrationSystem%''\"\" get processid,name,commandline\")",
+      "Bash(cmd.exe /c \"tasklist | findstr RegistrationSystem\")",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(ls \"C:\\\\Users\\\\msals\\\\.claude-worktrees\\\\Admin\\\\sweet-rhodes\\\\RegistrationSystem.Core\\\\Domain\\\\CompetitionProgress\"\" 2>/dev/null; ls \"C:Usersmsals.claude-worktreesAdminsweet-rhodesRegistrationSystem.CoreApplicationCompetitionProgress\"\")",
+      "Bash(where:*)",
+      "Bash(git grep:*)",
+      "Bash(dotnet user-secrets set:*)",
+      "Bash(dotnet user-secrets:*)",
+      "Bash(dotnet package search:*)",
+      "Bash(dotnet list:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell:*)",
+      "Bash(Select-String \"Comment\")",
+      "Bash(mongosh:*)"
     ]
   }
 }

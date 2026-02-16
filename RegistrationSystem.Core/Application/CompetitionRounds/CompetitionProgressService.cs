@@ -59,6 +59,33 @@ public class CompetitionProgressService
         return progress;
     }
 
+    /// <summary>
+    /// Bulk-initializes competition progress for all verified registrations in a category
+    /// that don't already have progress. Returns the count of newly initialized competitors.
+    /// </summary>
+    public async Task<int> InitializeCategoryAsync(
+        string categoryId,
+        int competitionYear,
+        List<RoundDefinition> roundDefinitions,
+        CancellationToken cancellationToken = default)
+    {
+        var registrations = await _registrationRepository.GetByCompetitionYearAsync(competitionYear, cancellationToken);
+        var verified = registrations
+            .Where(r => r.CompetitionSelection.CategoryId == categoryId && r.Status == RegistrationStatus.Verified)
+            .ToList();
+
+        var existing = await _repository.GetByCategoryAsync(categoryId, competitionYear, cancellationToken);
+        var existingRegIds = existing.Select(p => p.RegistrationId).ToHashSet();
+
+        var count = 0;
+        foreach (var reg in verified.Where(r => !existingRegIds.Contains(r.Id)))
+        {
+            await InitializeAsync(reg, roundDefinitions, cancellationToken);
+            count++;
+        }
+        return count;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUND RESULTS
     // ═══════════════════════════════════════════════════════════════════════════

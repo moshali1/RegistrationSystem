@@ -200,6 +200,62 @@ public class ImageAnalysisService
         return new SinglePersonResult { Success = true };
     }
 
+    /// <summary>
+    /// Extracts all text from an image using OCR. Returns the full text content
+    /// as joined lines, useful for feeding into AI analysis.
+    /// </summary>
+    public async Task<OcrTextResult> ExtractAllTextAsync(
+        Stream imageStream,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var memoryStream = new MemoryStream();
+            await imageStream.CopyToAsync(memoryStream, cancellationToken);
+            var imageData = BinaryData.FromBytes(memoryStream.ToArray());
+
+            var result = await _client.AnalyzeAsync(
+                imageData,
+                VisualFeatures.Read,
+                new ImageAnalysisOptions { GenderNeutralCaption = true },
+                cancellationToken);
+
+            if (result?.Value?.Read?.Blocks == null)
+            {
+                return new OcrTextResult
+                {
+                    IsSuccess = true,
+                    ExtractedText = string.Empty,
+                    LineCount = 0
+                };
+            }
+
+            var lines = new List<string>();
+            foreach (var block in result.Value.Read.Blocks)
+            {
+                foreach (var line in block.Lines)
+                {
+                    lines.Add(line.Text);
+                }
+            }
+
+            return new OcrTextResult
+            {
+                IsSuccess = true,
+                ExtractedText = string.Join("\n", lines),
+                LineCount = lines.Count
+            };
+        }
+        catch (Exception ex)
+        {
+            return new OcrTextResult
+            {
+                IsSuccess = false,
+                Error = $"Failed to extract text from image: {ex.Message}"
+            };
+        }
+    }
+
     private static double CalculateIdConfidence(int keywordCount)
     {
         return keywordCount switch
@@ -243,5 +299,16 @@ public class PeopleDetectionResult
 public class SinglePersonResult
 {
     public bool Success { get; set; }
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Result of full OCR text extraction.
+/// </summary>
+public class OcrTextResult
+{
+    public bool IsSuccess { get; set; }
+    public string ExtractedText { get; set; } = string.Empty;
+    public int LineCount { get; set; }
     public string? Error { get; set; }
 }
