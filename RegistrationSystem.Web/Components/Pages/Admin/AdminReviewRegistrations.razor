@@ -1088,7 +1088,7 @@
             var divisionName = GetDivisionName(registration);
             var categoryName = GetCategoryName(registration);
             var editUrl = $"{EmailOptions.SiteUrl.TrimEnd('/')}/registration/{registration.Id}/edit";
-            var deadlineText = settings?.RegistrationEnd?.ToString("MMMM d, yyyy");
+            var deadlineText = (settings?.PendingDeadline ?? settings?.RegistrationEnd)?.ToString("MMMM d, yyyy");
 
             var placeholders = EmailTemplateService.BuildPlaceholders(
                 competitorName: registration.PersonalInfo.FullName,

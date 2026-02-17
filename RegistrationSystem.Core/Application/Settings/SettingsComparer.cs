@@ -10,6 +10,7 @@ public static class SettingsComparer
         if (a.RegistrationEnabled != b.RegistrationEnabled) return false;
         if (a.RegistrationStart != b.RegistrationStart) return false;
         if (a.RegistrationEnd != b.RegistrationEnd) return false;
+        if (a.PendingDeadline != b.PendingDeadline) return false;
         if (a.AgeCutoffDate != b.AgeCutoffDate) return false;
         if (a.Divisions.Count != b.Divisions.Count) return false;
         for (int i = 0; i < a.Divisions.Count; i++)

@@ -20,7 +20,7 @@
 
 <PageTitle>ID Verification</PageTitle>
 
-<div class="max-w-7xl mx-auto px-4 md:px-6">
+<div class="max-w-[1800px] mx-auto px-4 md:px-6">
 
     <!-- Header -->
     <div class="mb-4">
@@ -58,6 +58,24 @@
                                 <option value="@category.Id">@category.Name</option>
                             }
                         </select>
+                    </div>
+                }
+
+                <!-- Status Filter -->
+                @if (!string.IsNullOrEmpty(selectedCategoryId))
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-slate-300 uppercase tracking-wide">Status</span>
+                        <div class="flex rounded-lg overflow-hidden border border-slate-500">
+                            @foreach (var status in statusFilterOptions)
+                            {
+                                var isActive = selectedStatuses.Contains(status);
+                                <button type="button" @onclick="() => ToggleStatus(status)"
+                                        class="px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer @(isActive ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-400 hover:text-slate-200")">
+                                    @StatusBadge.GetDisplayName(status)
+                                </button>
+                            }
+                        </div>
                     </div>
                 }
 
@@ -106,33 +124,33 @@
     {
         <!-- Summary Cards -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                <p class="text-2xl font-bold text-emerald-700">@passCount</p>
-                <p class="text-xs font-medium text-emerald-600 uppercase tracking-wide mt-1">Passed</p>
+            <div class="rounded-xl bg-emerald-600 p-4 text-center shadow-sm">
+                <p class="text-2xl font-bold text-white">@passCount</p>
+                <p class="text-xs font-medium text-white/80 uppercase tracking-wide mt-1">Passed</p>
             </div>
-            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
-                <p class="text-2xl font-bold text-red-700">@flagCount</p>
-                <p class="text-xs font-medium text-red-600 uppercase tracking-wide mt-1">Flagged</p>
+            <div class="rounded-xl bg-red-600 p-4 text-center shadow-sm">
+                <p class="text-2xl font-bold text-white">@flagCount</p>
+                <p class="text-xs font-medium text-white/80 uppercase tracking-wide mt-1">Flagged</p>
             </div>
-            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-                <p class="text-2xl font-bold text-amber-700">@questionCount</p>
-                <p class="text-xs font-medium text-amber-600 uppercase tracking-wide mt-1">Needs Review</p>
+            <div class="rounded-xl bg-amber-500 p-4 text-center shadow-sm">
+                <p class="text-2xl font-bold text-white">@questionCount</p>
+                <p class="text-xs font-medium text-white/80 uppercase tracking-wide mt-1">Needs Review</p>
             </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p class="text-2xl font-bold text-slate-600">@skippedCount</p>
-                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">Skipped</p>
+            <div class="rounded-xl bg-slate-600 p-4 text-center shadow-sm">
+                <p class="text-2xl font-bold text-white">@skippedCount</p>
+                <p class="text-xs font-medium text-white/80 uppercase tracking-wide mt-1">Skipped</p>
             </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p class="text-2xl font-bold text-slate-600">@errorCount</p>
-                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-1">Errors</p>
+            <div class="rounded-xl bg-slate-500 p-4 text-center shadow-sm">
+                <p class="text-2xl font-bold text-white">@errorCount</p>
+                <p class="text-xs font-medium text-white/80 uppercase tracking-wide mt-1">Errors</p>
             </div>
         </div>
 
         <!-- Bulk Action -->
         @if (passableCount > 0 && !isProcessing)
         {
-            <div class="rounded-xl border border-cyan-200 bg-cyan-50 p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm text-cyan-800">
+            <div class="rounded-xl bg-slate-800 p-4 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                <p class="text-sm text-white">
                     <span class="font-semibold">@passableCount</span> passed registrations can be moved to Reviewed status.
                 </p>
                 <button type="button" @onclick="() => showBulkReviewModal = true"
@@ -155,8 +173,9 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden md:table-cell">Country</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden lg:table-cell">Name on ID</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Result</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden lg:table-cell">Reasoning</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide hidden lg:table-cell">Details</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -172,11 +191,11 @@
                                     <td class="px-4 py-3 text-slate-400 hidden md:table-cell">—</td>
                                     <td class="px-4 py-3 text-slate-400 hidden lg:table-cell">—</td>
                                     <td class="px-4 py-3">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-600 text-white shadow-sm">
                                             Skipped
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-xs text-slate-400 hidden lg:table-cell">@r.SkipReason</td>
+                                    <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">@r.SkipReason</td>
                                 }
                                 else if (r.HasError)
                                 {
@@ -184,7 +203,7 @@
                                     <td class="px-4 py-3 text-red-400 hidden md:table-cell">—</td>
                                     <td class="px-4 py-3 text-red-400 hidden lg:table-cell">—</td>
                                     <td class="px-4 py-3">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-600 text-white shadow-sm">
                                             Error
                                         </span>
                                     </td>
@@ -194,12 +213,15 @@
                                 {
                                     <td class="px-4 py-3 text-slate-600 hidden md:table-cell">@FormatDocType(r.DocumentType)</td>
                                     <td class="px-4 py-3 hidden md:table-cell">
-                                        <span class="@(r.IsAllowedRegion ? "text-slate-600" : "text-red-600 font-medium")">
-                                            @r.IssuingCountry
-                                        </span>
-                                        @if (!r.IsAllowedRegion)
+                                        @if (r.IsAllowedRegion)
                                         {
-                                            <span class="ml-1 text-xs text-red-400">(not allowed)</span>
+                                            <span class="text-slate-600">@r.IssuingCountry</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-600 text-white">
+                                                @r.IssuingCountry
+                                            </span>
                                         }
                                     </td>
                                     <td class="px-4 py-3 hidden lg:table-cell">
@@ -212,26 +234,31 @@
                                         @switch (r.Outcome)
                                         {
                                             case IdVerificationOutcome.Pass:
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-600 text-white shadow-sm">
                                                     @Icons.CheckCircle("h-3 w-3")
                                                     Pass
                                                 </span>
                                                 break;
                                             case IdVerificationOutcome.Flag:
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-600 text-white shadow-sm">
                                                     @Icons.XCircle("h-3 w-3")
                                                     Flag
                                                 </span>
                                                 break;
                                             case IdVerificationOutcome.Question:
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white shadow-sm">
                                                     @Icons.Warning("h-3 w-3")
                                                     Review
                                                 </span>
                                                 break;
                                         }
                                     </td>
-                                    <td class="px-4 py-3 text-xs text-slate-500 max-w-xs truncate hidden lg:table-cell" title="@r.Reasoning">@r.Reasoning</td>
+                                    <td class="px-4 py-3 hidden lg:table-cell">
+                                        <button type="button" @onclick="() => OpenDetail(r)"
+                                                class="text-cyan-600 hover:text-cyan-700 text-xs font-medium hover:underline cursor-pointer">
+                                            Details
+                                        </button>
+                                    </td>
                                 }
 
                                 <td class="px-4 py-3">
@@ -247,6 +274,12 @@
                                     {
                                         <span class="text-slate-300 text-xs">—</span>
                                     }
+                                </td>
+                                <td class="px-4 py-3">
+                                    <a href="/admin/registration/@r.RegistrationId" target="_blank"
+                                       class="text-slate-500 hover:text-cyan-600 text-xs font-medium hover:underline">
+                                        Review
+                                    </a>
                                 </td>
                             </tr>
                         }
@@ -294,7 +327,7 @@
                     <span class="font-medium text-emerald-700">Reviewed</span>.
                 </p>
                 <p class="text-xs text-slate-500 mb-6">
-                    Each status change will be logged in the audit trail as "AI ID Verification: Pass".
+                    Each status change will be logged in the audit trail as "Auto verification: Pass".
                 </p>
                 <div class="flex justify-end gap-3">
                     <button type="button" @onclick="() => showBulkReviewModal = false"
@@ -319,15 +352,134 @@
     </div>
 }
 
+<!-- Verification Detail Modal -->
+<Modal Visible="showDetailModal" Title="@(selectedResult?.CompetitorName ?? "Verification Details")" MaxWidth="max-w-lg"
+       IconBgClass="@GetDetailModalIconBg()" OnBackdropClick="CloseDetail">
+    <Icon>
+        @Icons.ShieldCheckFilled("w-6 h-6 text-white")
+    </Icon>
+    <ChildContent>
+        @if (selectedResult != null)
+        {
+            <div class="space-y-4">
+                <!-- Outcome -->
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Result</span>
+                    @switch (selectedResult.Outcome)
+                    {
+                        case IdVerificationOutcome.Pass:
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-600 text-white shadow-sm">
+                                @Icons.CheckCircle("h-3.5 w-3.5") Pass
+                            </span>
+                            break;
+                        case IdVerificationOutcome.Flag:
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-600 text-white shadow-sm">
+                                @Icons.XCircle("h-3.5 w-3.5") Flag
+                            </span>
+                            break;
+                        case IdVerificationOutcome.Question:
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white shadow-sm">
+                                @Icons.Warning("h-3.5 w-3.5") Needs Review
+                            </span>
+                            break;
+                    }
+                </div>
+
+                <!-- Document Info -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-50 rounded-lg p-3">
+                        <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Document Type</span>
+                        <p class="text-sm font-semibold text-slate-800 mt-0.5">@FormatDocType(selectedResult.DocumentType)</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3">
+                        <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Issuing Country</span>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <p class="text-sm font-semibold text-slate-800">@selectedResult.IssuingCountry</p>
+                            @if (selectedResult.IsAllowedRegion)
+                            {
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white">Allowed</span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-600 text-white">Not Allowed</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Name & DOB Matching -->
+                <div>
+                    <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Identity Matching</span>
+                    <div class="mt-1.5 bg-slate-50 rounded-lg divide-y divide-slate-200">
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">Registered Name</span>
+                            <span class="text-sm font-semibold text-slate-800">@selectedResult.CompetitorName</span>
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">Name on Document</span>
+                            <span class="text-sm font-semibold text-slate-800">@selectedResult.ExtractedFirstName @selectedResult.ExtractedLastName</span>
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">First Name</span>
+                            @RenderMatchBadge(selectedResult.FirstNameMatch)
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">Last Name</span>
+                            @RenderMatchBadge(selectedResult.LastNameMatch)
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">Registered DOB</span>
+                            <span class="text-sm font-semibold text-slate-800">@GetRegisteredDob(selectedResult.RegistrationId)</span>
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">DOB on Document</span>
+                            <span class="text-sm font-semibold text-slate-800">@(string.IsNullOrEmpty(selectedResult.ExtractedDateOfBirth) ? "Not found" : selectedResult.ExtractedDateOfBirth)</span>
+                        </div>
+                        <div class="flex items-center justify-between px-3 py-2.5">
+                            <span class="text-xs text-slate-500">Date of Birth</span>
+                            @RenderMatchBadge(selectedResult.DateOfBirthMatch)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Reasoning -->
+                <div>
+                    <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">AI Reasoning</span>
+                    <p class="mt-1.5 text-sm text-slate-700 bg-slate-50 rounded-lg p-3 leading-relaxed">@selectedResult.Reasoning</p>
+                </div>
+            </div>
+        }
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end gap-3 w-full">
+            <button type="button" @onclick="CloseDetail"
+                    class="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                Close
+            </button>
+            @if (selectedResult != null)
+            {
+                var detailIdUrl = GetIdUrl(selectedResult.RegistrationId);
+                if (detailIdUrl != null)
+                {
+                    <a href="@detailIdUrl" target="_blank"
+                       class="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white text-sm font-medium transition-all inline-flex items-center gap-2 shadow-sm">
+                        View Document
+                    </a>
+                }
+            }
+        </div>
+    </Footer>
+</Modal>
+
 <!-- Success Toast -->
 @if (!string.IsNullOrEmpty(successMessage))
 {
     <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:right-6 md:left-auto z-40 max-w-sm">
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 shadow-lg p-4 flex items-start gap-3">
-            @Icons.CheckCircle("h-5 w-5 text-emerald-600 shrink-0 mt-0.5")
-            <p class="text-sm font-medium text-emerald-800">@successMessage</p>
+        <div class="rounded-xl bg-emerald-600 shadow-lg p-4 flex items-start gap-3">
+            @Icons.CheckCircle("h-5 w-5 text-white shrink-0 mt-0.5")
+            <p class="text-sm font-medium text-white">@successMessage</p>
             <button type="button" @onclick='() => successMessage = ""'
-                    class="ml-auto shrink-0 text-emerald-400 hover:text-emerald-600 cursor-pointer">
+                    class="ml-auto shrink-0 text-white/60 hover:text-white cursor-pointer">
                 @Icons.XMark("h-4 w-4")
             </button>
         </div>
@@ -338,11 +490,11 @@
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="fixed bottom-4 left-4 right-4 md:bottom-6 md:right-6 md:left-auto z-40 max-w-sm">
-        <div class="rounded-xl border border-red-200 bg-red-50 shadow-lg p-4 flex items-start gap-3">
-            @Icons.XCircle("h-5 w-5 text-red-600 shrink-0 mt-0.5")
-            <p class="text-sm font-medium text-red-800">@errorMessage</p>
+        <div class="rounded-xl bg-red-600 shadow-lg p-4 flex items-start gap-3">
+            @Icons.XCircle("h-5 w-5 text-white shrink-0 mt-0.5")
+            <p class="text-sm font-medium text-white">@errorMessage</p>
             <button type="button" @onclick='() => errorMessage = ""'
-                    class="ml-auto shrink-0 text-red-400 hover:text-red-600 cursor-pointer">
+                    class="ml-auto shrink-0 text-white/60 hover:text-white cursor-pointer">
                 @Icons.XMark("h-4 w-4")
             </button>
         </div>
@@ -364,6 +516,20 @@
     private string selectedDivisionId = string.Empty;
     private string selectedCategoryId = string.Empty;
 
+    // Status filter
+    private static readonly RegistrationStatus[] statusFilterOptions =
+    [
+        RegistrationStatus.AwaitingReview,
+        RegistrationStatus.Pending,
+        RegistrationStatus.Reviewed,
+        RegistrationStatus.Verified
+    ];
+    private HashSet<RegistrationStatus> selectedStatuses = new()
+    {
+        RegistrationStatus.AwaitingReview,
+        RegistrationStatus.Pending
+    };
+
     // Processing
     private bool isProcessing;
     private int processProgress;
@@ -378,6 +544,10 @@
     // Bulk action
     private bool showBulkReviewModal;
     private bool isBulkProcessing;
+
+    // Detail modal
+    private bool showDetailModal;
+    private IdVerificationResult? selectedResult;
 
     // Messages
     private string successMessage = string.Empty;
@@ -438,6 +608,19 @@
     // FILTERS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    private void ToggleStatus(RegistrationStatus status)
+    {
+        if (selectedStatuses.Contains(status))
+        {
+            if (selectedStatuses.Count > 1)
+                selectedStatuses.Remove(status);
+        }
+        else
+        {
+            selectedStatuses.Add(status);
+        }
+    }
+
     private void OnDivisionChanged()
     {
         selectedCategoryId = string.Empty;
@@ -480,9 +663,7 @@
             var targetRegistrations = allRegistrations
                 .Where(r => r.CompetitionSelection.DivisionId == selectedDivisionId)
                 .Where(r => r.CompetitionSelection.CategoryId == selectedCategoryId)
-                .Where(r => r.Status == RegistrationStatus.AwaitingReview
-                          || r.Status == RegistrationStatus.Pending
-                          || r.Status == RegistrationStatus.Reviewed)
+                .Where(r => selectedStatuses.Contains(r.Status))
                 .ToList();
 
             processedRegistrations = targetRegistrations;
@@ -631,6 +812,14 @@
         _ => "text-amber-600"
     };
 
+    private string GetRegisteredDob(string registrationId)
+    {
+        var reg = processedRegistrations.FirstOrDefault(r => r.Id == registrationId);
+        if (reg == null) return "—";
+        var dob = reg.PersonalInfo.DateOfBirth;
+        return dob == default ? "—" : dob.ToString("yyyy-MM-dd");
+    }
+
     private static string GetRowClass(IdVerificationResult r)
     {
         if (r.IsSkipped) return "bg-slate-50/30";
@@ -642,4 +831,35 @@
             _ => ""
         };
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DETAIL MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenDetail(IdVerificationResult result)
+    {
+        selectedResult = result;
+        showDetailModal = true;
+    }
+
+    private void CloseDetail()
+    {
+        showDetailModal = false;
+        selectedResult = null;
+    }
+
+    private string GetDetailModalIconBg() => selectedResult?.Outcome switch
+    {
+        IdVerificationOutcome.Pass => "bg-emerald-600",
+        IdVerificationOutcome.Flag => "bg-red-600",
+        IdVerificationOutcome.Question => "bg-amber-500",
+        _ => "bg-cyan-600"
+    };
+
+    private static RenderFragment RenderMatchBadge(NameMatchResult match) => match switch
+    {
+        NameMatchResult.Match => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-600 text-white">Match</span>,
+        NameMatchResult.NoMatch => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-600 text-white">No Match</span>,
+        _ => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white">Uncertain</span>
+    };
 }

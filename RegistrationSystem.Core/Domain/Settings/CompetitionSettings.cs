@@ -9,6 +9,7 @@ public class CompetitionSettings
     public bool RegistrationEnabled { get; set; }
     public DateTimeOffset? RegistrationStart { get; set; }
     public DateTimeOffset? RegistrationEnd { get; set; }
+    public DateTimeOffset? PendingDeadline { get; set; }
     public DateOnly AgeCutoffDate { get; set; } = new DateOnly(DateTime.UtcNow.Year, 1, 1);
 
     public List<Division> Divisions { get; set; } = new();

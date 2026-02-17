@@ -117,6 +117,7 @@ public class IdVerificationService
                 ocrResult.ExtractedText,
                 registration.PersonalInfo.FirstName,
                 registration.PersonalInfo.LastName,
+                registration.PersonalInfo.DateOfBirth,
                 cancellationToken);
 
             if (aiResponse == null)
@@ -134,6 +135,8 @@ public class IdVerificationService
             result.ExtractedLastName = aiResponse.ExtractedLastName ?? "";
             result.FirstNameMatch = ParseNameMatch(aiResponse.FirstNameMatch);
             result.LastNameMatch = ParseNameMatch(aiResponse.LastNameMatch);
+            result.ExtractedDateOfBirth = aiResponse.ExtractedDateOfBirth ?? "";
+            result.DateOfBirthMatch = ParseNameMatch(aiResponse.DateOfBirthMatch);
             result.Reasoning = aiResponse.Reasoning ?? "";
             result.Outcome = ParseOutcome(aiResponse.OverallResult);
 
@@ -151,12 +154,16 @@ public class IdVerificationService
         string ocrText,
         string registeredFirstName,
         string registeredLastName,
+        DateOnly registeredDateOfBirth,
         CancellationToken cancellationToken)
     {
+        var dobFormatted = registeredDateOfBirth.ToString("yyyy-MM-dd");
+
         var userPrompt = $$"""
-            Analyze the following OCR text extracted from an identity document. The competitor's registered name is:
+            Analyze the following OCR text extracted from an identity document. The competitor's registered information is:
             - First Name: {{registeredFirstName}}
             - Last Name: {{registeredLastName}}
+            - Date of Birth: {{dobFormatted}}
 
             OCR Text from document:
             ---
@@ -169,10 +176,14 @@ public class IdVerificationService
             3. Whether the country is US, Canada, or Mexico (the only allowed regions)
             4. What first and last name appear on the document
             5. Whether those names match the registered name (consider spelling variations, transliterations, nicknames)
+            6. What date of birth appears on the document (look for DOB, DATE OF BIRTH, BIRTH DATE, or date patterns)
+            7. Whether the date of birth matches the registered date of birth
 
             IMPORTANT: If the document shows additional middle names that are NOT in the registration, this is perfectly acceptable.
             Only the first name and last name need to match. A middle name on the ID that is absent from the registration should NOT affect the match result.
             For example, if registration says "John Smith" and the ID says "John Michael Smith", both firstNameMatch and lastNameMatch should be "match".
+
+            For date of birth: The OCR text may show the date in various formats (MM/DD/YYYY, DD-MM-YYYY, YYYY-MM-DD, etc.). Extract the date and compare it against the registered DOB. If the document does not appear to contain a date of birth (e.g., some documents may not have one), mark dateOfBirthMatch as "uncertain".
 
             Respond with this exact JSON structure:
             {
@@ -183,14 +194,16 @@ public class IdVerificationService
               "extractedLastName": "<last name found on ID or empty string>",
               "firstNameMatch": "match" or "no_match" or "uncertain",
               "lastNameMatch": "match" or "no_match" or "uncertain",
+              "extractedDateOfBirth": "<date of birth found on ID in YYYY-MM-DD format, or empty string if not found>",
+              "dateOfBirthMatch": "match" or "no_match" or "uncertain",
               "overallResult": "pass" or "flag" or "question",
               "reasoning": "<brief explanation, max 50 words>"
             }
 
             Rules for overallResult:
-            - "pass": Valid ID type, allowed region, both names match
-            - "flag": Clearly invalid (not an ID, disallowed region, names clearly don't match)
-            - "question": Uncertain on any check (unclear text, partial name match, ambiguous document type)
+            - "pass": Valid ID type, allowed region, both names match, AND date of birth matches
+            - "flag": Clearly invalid (not an ID, disallowed region, names clearly don't match, or DOB clearly doesn't match)
+            - "question": Uncertain on any check (unclear text, partial name match, ambiguous document type, DOB not found or unclear)
             """;
 
         try
@@ -271,6 +284,12 @@ internal class AiVerificationResponse
     [JsonPropertyName("lastNameMatch")]
     public string? LastNameMatch { get; set; }
 
+    [JsonPropertyName("extractedDateOfBirth")]
+    public string? ExtractedDateOfBirth { get; set; }
+
+    [JsonPropertyName("dateOfBirthMatch")]
+    public string? DateOfBirthMatch { get; set; }
+
     [JsonPropertyName("overallResult")]
     public string? OverallResult { get; set; }
 
@@ -297,6 +316,8 @@ public class IdVerificationResult
     public string ExtractedLastName { get; set; } = string.Empty;
     public NameMatchResult FirstNameMatch { get; set; } = NameMatchResult.Uncertain;
     public NameMatchResult LastNameMatch { get; set; } = NameMatchResult.Uncertain;
+    public string ExtractedDateOfBirth { get; set; } = string.Empty;
+    public NameMatchResult DateOfBirthMatch { get; set; } = NameMatchResult.Uncertain;
     public string Reasoning { get; set; } = string.Empty;
 
     // Skip/Error state

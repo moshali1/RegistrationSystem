@@ -703,6 +703,29 @@
                 </div>
             </section>
 
+            <!-- Pending Deadline -->
+            <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        @Icons.Clock("h-5 w-5 text-amber-600")
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-sm font-semibold text-slate-900">Pending Deadline</h2>
+                        <p class="text-xs text-slate-500">Deadline shown in pending status emails for competitors to submit corrections</p>
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <input type="date"
+                           value="@(settings?.PendingDeadline?.LocalDateTime.ToString("yyyy-MM-dd"))"
+                           @onchange="e => SetPendingDeadline(e.Value?.ToString())"
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                    @if (settings?.PendingDeadline is null)
+                    {
+                        <p class="text-xs text-amber-600">Not set — emails will say "as soon as possible"</p>
+                    }
+                </div>
+            </section>
+
             <!-- Age Cutoff -->
             <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex items-center gap-3 mb-4">
