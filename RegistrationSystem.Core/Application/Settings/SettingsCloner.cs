@@ -12,6 +12,7 @@ public static class SettingsCloner
             RegistrationEnabled = source.RegistrationEnabled,
             RegistrationStart = source.RegistrationStart,
             RegistrationEnd = source.RegistrationEnd,
+            PendingDeadline = source.PendingDeadline,
             AgeCutoffDate = source.AgeCutoffDate,
             Divisions = source.Divisions.Select(CloneDivision).ToList(),
             CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo),

@@ -96,6 +96,12 @@ public partial class Settings : ComponentBase, IDisposable
         settings.RegistrationEnd = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
     }
 
+    private void SetPendingDeadline(string? value)
+    {
+        if (settings is null) return;
+        settings.PendingDeadline = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
+    }
+
     private string ageCutoffDateString => settings?.AgeCutoffDate.ToString("yyyy-MM-dd") ?? string.Empty;
 
     private void OnAgeCutoffChanged(ChangeEventArgs e)
