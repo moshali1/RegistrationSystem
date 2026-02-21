@@ -15,6 +15,7 @@ public class CompetitionSettings
     public List<Division> Divisions { get; set; } = new();
     public CompetitionInfo CompetitionInfo { get; set; } = new();
     public CidConfiguration CidConfiguration { get; set; } = new();
+    public EmailDefaults EmailDefaults { get; set; } = new();
 
     public Division? FindDivision(string divisionId) =>
         Divisions.FirstOrDefault(d => d.Id == divisionId);

@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
+using RegistrationSystem.Core.Application.Messaging;
 using RegistrationSystem.Core.Application.Settings;
+using RegistrationSystem.Core.Domain.Messaging;
 using RegistrationSystem.Core.Domain.Settings;
 using RegistrationSystem.Web.Services;
 
@@ -8,6 +10,7 @@ namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage;
 public partial class Settings : ComponentBase, IDisposable
 {
     [Inject] private SettingsService SettingsService { get; set; } = default!;
+    [Inject] private EmailTemplateService EmailTemplateService { get; set; } = default!;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -48,6 +51,9 @@ public partial class Settings : ComponentBase, IDisposable
     // CID Config tab
     private string newStateAbbreviation = string.Empty;
     private string newStateCode = string.Empty;
+
+    // Email Defaults tab
+    private List<EmailTemplate> emailTemplatesForSettings = new();
 
     // Modals
     private bool showDeleteModal;
@@ -153,6 +159,10 @@ public partial class Settings : ComponentBase, IDisposable
         try
         {
             settings = await SettingsService.GetSettingsAsync();
+            emailTemplatesForSettings = (await EmailTemplateService.GetAllAsync())
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.Name)
+                .ToList();
 
             originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);
@@ -187,6 +197,16 @@ public partial class Settings : ComponentBase, IDisposable
 
         try
         {
+            // Sanitize empty strings to null for email template IDs
+            if (string.IsNullOrWhiteSpace(settings.EmailDefaults.PendingTemplateId))
+                settings.EmailDefaults.PendingTemplateId = null;
+            if (string.IsNullOrWhiteSpace(settings.EmailDefaults.VerifiedTemplateId))
+                settings.EmailDefaults.VerifiedTemplateId = null;
+            if (string.IsNullOrWhiteSpace(settings.EmailDefaults.DisqualifiedTemplateId))
+                settings.EmailDefaults.DisqualifiedTemplateId = null;
+            if (string.IsNullOrWhiteSpace(settings.EmailDefaults.WithdrawnTemplateId))
+                settings.EmailDefaults.WithdrawnTemplateId = null;
+
             await SettingsService.SaveSettingsAsync(settings);
             originalSnapshot = SettingsCloner.Clone(settings);
             globalStatus = SettingsService.GetGlobalStatus(settings, DateTimeOffset.Now);

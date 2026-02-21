@@ -16,7 +16,8 @@ public static class SettingsCloner
             AgeCutoffDate = source.AgeCutoffDate,
             Divisions = source.Divisions.Select(CloneDivision).ToList(),
             CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo),
-            CidConfiguration = CloneCidConfiguration(source.CidConfiguration)
+            CidConfiguration = CloneCidConfiguration(source.CidConfiguration),
+            EmailDefaults = CloneEmailDefaults(source.EmailDefaults)
         };
     }
 
@@ -116,6 +117,20 @@ public static class SettingsCloner
         {
             StateCodeMapping = new Dictionary<string, string>(source.StateCodeMapping),
             DefaultStateCode = source.DefaultStateCode
+        };
+    }
+
+    private static EmailDefaults CloneEmailDefaults(EmailDefaults? source)
+    {
+        if (source is null)
+            return new EmailDefaults();
+
+        return new EmailDefaults
+        {
+            PendingTemplateId = source.PendingTemplateId,
+            VerifiedTemplateId = source.VerifiedTemplateId,
+            DisqualifiedTemplateId = source.DisqualifiedTemplateId,
+            WithdrawnTemplateId = source.WithdrawnTemplateId
         };
     }
 }

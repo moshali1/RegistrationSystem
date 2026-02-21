@@ -549,11 +549,14 @@
                                             <textarea @bind="newComment" rows="2"
                                                       placeholder="Comment (optional for approval, required for rejection)..."
                                                       class="w-full px-3 py-1.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-xs resize-none"></textarea>
-                                            <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                                                <input type="checkbox" @bind="sendEmail"
-                                                       class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
-                                                <span class="text-xs text-slate-600">Send email notification</span>
-                                            </label>
+                                            @if (newStatus != nameof(RegistrationStatus.Reviewed))
+                                            {
+                                                <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                                    <input type="checkbox" @bind="sendEmail"
+                                                           class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                                                    <span class="text-xs text-slate-600">Send email notification</span>
+                                                </label>
+                                            }
                                             <div class="flex gap-2">
                                                 <button type="button" @onclick="UpdateStatus" disabled="@(string.IsNullOrEmpty(newStatus) || isUpdating)"
                                                         class="flex-1 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-400 text-white text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5">
@@ -1199,6 +1202,60 @@
         }
     }
 
+    /// <summary>
+    /// Sends an email using a template fetched by ID (from settings defaults).
+    /// Returns (sent, templateFound, error) so callers can show appropriate warnings.
+    /// </summary>
+    private async Task<(bool Sent, bool TemplateFound, string? Error)> SendStatusEmailByIdAsync(Registration registration, string templateId)
+    {
+        try
+        {
+            var user = await UserService.GetByObjectIdentifierAsync(registration.CreatorUserId);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                return (false, true, "No email address found for the account holder.");
+
+            var template = await EmailTemplateService.GetByIdAsync(templateId);
+            if (template == null || !template.IsActive)
+                return (false, false, null);
+
+            var divisionName = GetDivisionName(registration);
+            var categoryName = GetCategoryName(registration);
+            var editUrl = $"{EmailOptions.SiteUrl.TrimEnd('/')}/registration/{registration.Id}/edit";
+            var deadlineText = (settings?.PendingDeadline ?? settings?.RegistrationEnd)?.ToString("MMMM d, yyyy");
+
+            var placeholders = EmailTemplateService.BuildPlaceholders(
+                competitorName: registration.PersonalInfo.FullName,
+                cid: registration.Cid,
+                divisionName: divisionName,
+                categoryName: categoryName,
+                parentName: user.DisplayName,
+                statusComment: registration.StatusComment,
+                siteUrl: EmailOptions.SiteUrl,
+                editUrl: editUrl,
+                deadline: deadlineText);
+
+            var (subject, plainText, html) = EmailTemplateService.RenderTemplate(template, placeholders);
+
+            var sent = await EmailService.SendEmailAsync(user.Email, user.DisplayName, subject, plainText, html);
+
+            if (sent)
+            {
+                await AuditService.LogEmailSentAsync(
+                    "Registration",
+                    registration.Id,
+                    user.Email,
+                    template.Name,
+                    $"{registration.PersonalInfo.FullName} ({registration.Cid})");
+            }
+
+            return (sent, true, sent ? null : "Email service returned failure.");
+        }
+        catch (Exception ex)
+        {
+            return (false, true, $"Email send failed: {ex.Message}");
+        }
+    }
+
     private async Task LoadEmailSentCount(Registration reg)
     {
         try
@@ -1268,10 +1325,18 @@
                 entityDescription: $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})");
 
             // Send updated email notification
-            var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, "Pending");
-            if (sent) pendingEmailsSentCount++;
-            if (!templateFound) statusUpdateError = "No active \"Pending\" email template found. Configure one in Admin Tools \u2192 Email Templates.";
-            else if (emailError != null) statusUpdateError = emailError;
+            var pendingTemplateId = settings?.EmailDefaults?.PendingTemplateId;
+            if (!string.IsNullOrEmpty(pendingTemplateId))
+            {
+                var (sent, templateFound, emailError) = await SendStatusEmailByIdAsync(selectedRegistration, pendingTemplateId);
+                if (sent) pendingEmailsSentCount++;
+                if (!templateFound) statusUpdateError = "The configured Pending email template was not found or is inactive. No email was sent.";
+                else if (emailError != null) statusUpdateError = emailError;
+            }
+            else
+            {
+                statusUpdateError = "No Pending email template configured in settings. No email was sent.";
+            }
 
             newComment = string.Empty;
         }
@@ -1293,10 +1358,18 @@
 
         try
         {
-            var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, "Pending");
-            if (sent) pendingEmailsSentCount++;
-            if (!templateFound) statusUpdateError = "No active \"Pending\" email template found. Configure one in Admin Tools \u2192 Email Templates.";
-            else if (emailError != null) statusUpdateError = emailError;
+            var pendingTemplateId = settings?.EmailDefaults?.PendingTemplateId;
+            if (!string.IsNullOrEmpty(pendingTemplateId))
+            {
+                var (sent, templateFound, emailError) = await SendStatusEmailByIdAsync(selectedRegistration, pendingTemplateId);
+                if (sent) pendingEmailsSentCount++;
+                if (!templateFound) statusUpdateError = "The configured Pending email template was not found or is inactive. No email was sent.";
+                else if (emailError != null) statusUpdateError = emailError;
+            }
+            else
+            {
+                statusUpdateError = "No Pending email template configured in settings. No email was sent.";
+            }
         }
         finally
         {
@@ -1353,7 +1426,17 @@
             }
 
             selectedRegistration.Status = newStatusEnum;
-            selectedRegistration.StatusComment = string.IsNullOrWhiteSpace(newComment) ? null : newComment;
+
+            // Clear comment when moving to Reviewed or Verified — the issues have been
+            // rectified and the audit trail preserves the history
+            if (newStatusEnum is RegistrationStatus.Reviewed or RegistrationStatus.Verified)
+            {
+                selectedRegistration.StatusComment = null;
+            }
+            else
+            {
+                selectedRegistration.StatusComment = string.IsNullOrWhiteSpace(newComment) ? null : newComment;
+            }
 
             // Handle withdrawal comment
             if (newStatusEnum == RegistrationStatus.Withdrawn)
@@ -1389,19 +1472,21 @@
             // Send status email notification (unless opted out)
             if (sendEmail)
             {
-                string? emailTemplateKeyword = newStatusEnum switch
+                string? emailTemplateId = newStatusEnum switch
                 {
-                    RegistrationStatus.Pending when !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment) => "Pending",
-                    RegistrationStatus.Disqualified => "Disqualif",
-                    RegistrationStatus.Withdrawn => "Withdraw",
+                    RegistrationStatus.Pending when !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment)
+                        => settings?.EmailDefaults?.PendingTemplateId,
+                    RegistrationStatus.Verified => settings?.EmailDefaults?.VerifiedTemplateId,
+                    RegistrationStatus.Disqualified => settings?.EmailDefaults?.DisqualifiedTemplateId,
+                    RegistrationStatus.Withdrawn => settings?.EmailDefaults?.WithdrawnTemplateId,
                     _ => null
                 };
 
-                if (emailTemplateKeyword != null)
+                if (!string.IsNullOrEmpty(emailTemplateId))
                 {
-                    var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, emailTemplateKeyword);
+                    var (sent, templateFound, emailError) = await SendStatusEmailByIdAsync(selectedRegistration, emailTemplateId);
                     if (sent && newStatusEnum == RegistrationStatus.Pending) pendingEmailsSentCount++;
-                    if (!templateFound) statusUpdateError = $"Status updated, but no active \"{emailTemplateKeyword}\" email template found. No email was sent.";
+                    if (!templateFound) statusUpdateError = "Status updated, but the configured email template was not found or is inactive. No email was sent.";
                     else if (emailError != null) statusUpdateError = $"Status updated, but email failed: {emailError}";
                 }
             }

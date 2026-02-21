@@ -100,6 +100,10 @@
                     @Icons.Cog("h-4 w-4")
                     <span>CID Config</span>
                 </button>
+                <button type="button" class="@GetTabClasses(5) cursor-pointer" @onclick="() => TrySwitchTab(5)">
+                    @Icons.Envelope("h-4 w-4")
+                    <span>Email Defaults</span>
+                </button>
             </nav>
         </div>
 
@@ -126,6 +130,10 @@
                 else if (activeTab == 4)
                 {
                     @RenderCidConfigTab()
+                }
+                else if (activeTab == 5)
+                {
+                    @RenderEmailDefaultsTab()
                 }
             </div>
 
@@ -1182,6 +1190,86 @@
                                @bind:event="oninput"
                                class="w-20 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" />
                         <p class="text-xs text-slate-500">This code is assigned to registrants whose state is not in the mapping above</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMAIL DEFAULTS TAB
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private RenderFragment RenderEmailDefaultsTab() => __builder =>
+    {
+        <div class="space-y-6 py-4">
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-600 flex items-center justify-center shadow">
+                            @Icons.Envelope("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-slate-800">Status Change Email Defaults</h3>
+                            <p class="text-xs text-slate-500">Default email templates used when changing a registration's status</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 space-y-5">
+                    <!-- Pending -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-700">Pending Notification</label>
+                        <select @bind="settings!.EmailDefaults.PendingTemplateId"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value="">No default</option>
+                            @foreach (var template in emailTemplatesForSettings)
+                            {
+                                <option value="@template.Id">@template.Name</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500">Sent when a registration is set to Pending status (with comment)</p>
+                    </div>
+
+                    <!-- Verified -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-700">Verified Notification</label>
+                        <select @bind="settings!.EmailDefaults.VerifiedTemplateId"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value="">No default</option>
+                            @foreach (var template in emailTemplatesForSettings)
+                            {
+                                <option value="@template.Id">@template.Name</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500">Sent when a registration is verified</p>
+                    </div>
+
+                    <!-- Disqualified -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-700">Disqualified Notification</label>
+                        <select @bind="settings!.EmailDefaults.DisqualifiedTemplateId"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value="">No default</option>
+                            @foreach (var template in emailTemplatesForSettings)
+                            {
+                                <option value="@template.Id">@template.Name</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500">Sent when a registration is disqualified</p>
+                    </div>
+
+                    <!-- Withdrawn -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-700">Withdrawn Notification</label>
+                        <select @bind="settings!.EmailDefaults.WithdrawnTemplateId"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value="">No default</option>
+                            @foreach (var template in emailTemplatesForSettings)
+                            {
+                                <option value="@template.Id">@template.Name</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500">Sent when a registration is withdrawn</p>
                     </div>
                 </div>
             </div>

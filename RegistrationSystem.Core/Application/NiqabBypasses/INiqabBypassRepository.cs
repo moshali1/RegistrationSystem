@@ -47,6 +47,11 @@ public interface INiqabBypassRepository
     /// Deletes a bypass by ID.
     /// </summary>
     Task DeleteAsync(string id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Finds a bypass linked to a specific registration.
+    /// </summary>
+    Task<NiqabBypass?> FindByRegistrationIdAsync(string registrationId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -163,10 +168,74 @@ public class NiqabBypassService
     }
 
     /// <summary>
+    /// Saves an updated bypass (admin only).
+    /// </summary>
+    public async Task SaveBypassAsync(NiqabBypass bypass, CancellationToken cancellationToken = default)
+    {
+        await _repository.SaveAsync(bypass, cancellationToken);
+    }
+
+    /// <summary>
     /// Deletes a bypass (admin only).
     /// </summary>
     public async Task DeleteBypassAsync(string id, CancellationToken cancellationToken = default)
     {
         await _repository.DeleteAsync(id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Finds a bypass linked to a specific registration ID.
+    /// </summary>
+    public async Task<NiqabBypass?> FindByRegistrationIdAsync(
+        string registrationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _repository.FindByRegistrationIdAsync(registrationId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates a reverse bypass — documenting that a competitor's face was detected
+    /// through niqab by AI and needs in-person identity verification.
+    /// The bypass is created as already used since it's retroactive documentation.
+    /// </summary>
+    public async Task<NiqabBypass> CreateReverseBypassAsync(
+        string registrationId,
+        string registrationCid,
+        string firstName,
+        string lastName,
+        DateOnly dateOfBirth,
+        int competitionYear,
+        string? createdBy = null,
+        string? notes = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Check if a reverse bypass already exists for this registration
+        var existing = await _repository.FindByRegistrationIdAsync(registrationId, cancellationToken);
+        if (existing != null)
+        {
+            throw new InvalidOperationException(
+                $"A bypass record already exists for this registration (code: {existing.Code}).");
+        }
+
+        var bypass = new NiqabBypass
+        {
+            Id = Guid.NewGuid().ToString(),
+            FirstName = firstName.Trim(),
+            LastName = lastName.Trim(),
+            DateOfBirth = dateOfBirth,
+            Code = NiqabBypass.GenerateCode(),
+            CompetitionYear = competitionYear,
+            CreatedBy = createdBy,
+            Notes = notes ?? "Reverse bypass — face detected through niqab, flagged for in-person verification.",
+            IsUsed = true,
+            IsReverse = true,
+            RegistrationId = registrationId,
+            RegistrationCid = registrationCid,
+            UsedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await _repository.SaveAsync(bypass, cancellationToken);
+        return bypass;
     }
 }

@@ -3,6 +3,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Azure
 @using RegistrationSystem.Core.Application.Messaging
 @using RegistrationSystem.Core.Application.NiqabBypasses
 @using RegistrationSystem.Core.Application.Registrations
@@ -10,6 +11,7 @@
 @using RegistrationSystem.Core.Domain.Auditing
 @using RegistrationSystem.Core.Domain.NiqabBypasses
 @using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
 @using RegistrationSystem.Web.Services
 
 @inject NiqabBypassService BypassService
@@ -17,6 +19,7 @@
 @inject SettingsService SettingsService
 @inject IEmailService EmailService
 @inject IAuditService AuditService
+@inject BlobSasService BlobSasService
 @inject BlazorAuditContextProvider AuditContextProvider
 @inject NavigationManager NavigationManager
 
@@ -120,7 +123,14 @@
                                     @bypass.DateOfBirth.ToString("MMM d, yyyy")
                                 </td>
                                 <td class="px-4 py-3">
-                                    @if (bypass.IsUsed && registrationChecks.TryGetValue(bypass.Id, out var check) && check.HasRegistration)
+                                    @if (bypass.IsReverse)
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                                            @Icons.Warning("h-3 w-3")
+                                            Flagged
+                                        </span>
+                                    }
+                                    else if (bypass.IsUsed && !string.IsNullOrEmpty(bypass.RegistrationId))
                                     {
                                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                                             @Icons.CheckCircle("h-3 w-3")
@@ -150,21 +160,13 @@
                                             <span>Checking...</span>
                                         </div>
                                     }
-                                    else if (registrationChecks.TryGetValue(bypass.Id, out var regCheck))
+                                    else if (!string.IsNullOrEmpty(bypass.RegistrationCid))
                                     {
-                                        @if (regCheck.HasRegistration)
-                                        {
-                                            <div>
-                                                <span class="text-xs font-medium text-emerald-700">@regCheck.Cid</span>
-                                                <span class="text-xs text-slate-400 mx-1">·</span>
-                                                <span class="text-xs text-slate-600">@regCheck.Status</span>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-xs text-slate-400">No registration found</span>
-                                        }
-                                        <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.FormatCentral("MMM d, h:mm tt")</p>
+                                        <span class="text-xs font-medium text-emerald-700">@bypass.RegistrationCid</span>
+                                    }
+                                    else if (bypass.IsUsed)
+                                    {
+                                        <span class="text-xs text-slate-400">Not yet registered</span>
                                     }
                                     else
                                     {
@@ -176,19 +178,25 @@
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-1">
-                                        <button type="button"
-                                                @onclick="() => CopyLink(bypass.Code)"
-                                                class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer"
-                                                title="Copy link">
-                                            @Icons.Clipboard("h-4 w-4")
-                                        </button>
-                                        <button type="button"
-                                                @onclick="() => CheckRegistration(bypass)"
-                                                disabled="@(checkingBypassId == bypass.Id)"
-                                                class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer disabled:opacity-50"
-                                                title="Check registration">
-                                            @Icons.Search("h-4 w-4")
-                                        </button>
+                                        @if (!bypass.IsReverse)
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => CopyLink(bypass.Code)"
+                                                    class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer"
+                                                    title="Copy link">
+                                                @Icons.Clipboard("h-4 w-4")
+                                            </button>
+                                        }
+                                        @if (bypass.IsUsed && !bypass.IsReverse)
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => CheckRegistration(bypass)"
+                                                    disabled="@(checkingBypassId == bypass.Id)"
+                                                    class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer disabled:opacity-50"
+                                                    title="Re-check registration">
+                                                @Icons.Search("h-4 w-4")
+                                            </button>
+                                        }
                                         @if (!bypass.IsUsed)
                                         {
                                             <button type="button"
@@ -197,8 +205,20 @@
                                                     title="Send instructions email">
                                                 @Icons.Envelope("h-4 w-4")
                                             </button>
+                                        }
+                                        @if (!string.IsNullOrEmpty(bypass.RegistrationId))
+                                        {
                                             <button type="button"
-                                                    @onclick="() => DeleteBypass(bypass)"
+                                                    @onclick="() => ShowInfoModal(bypass)"
+                                                    class="text-slate-400 hover:text-cyan-600 p-1.5 rounded transition-colors cursor-pointer"
+                                                    title="View competitor info">
+                                                @Icons.Eye("h-4 w-4")
+                                            </button>
+                                        }
+                                        @if (CanDelete(bypass))
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => ShowDeleteConfirmation(bypass)"
                                                     class="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors cursor-pointer"
                                                     title="Delete">
                                                 @Icons.Trash("h-4 w-4")
@@ -227,7 +247,14 @@
                                 </div>
                             </div>
                             <div class="flex-shrink-0">
-                                @if (bypass.IsUsed && registrationChecks.TryGetValue(bypass.Id, out var mCheck) && mCheck.HasRegistration)
+                                @if (bypass.IsReverse)
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                                        @Icons.Warning("h-3 w-3")
+                                        Flagged
+                                    </span>
+                                }
+                                else if (bypass.IsUsed && !string.IsNullOrEmpty(bypass.RegistrationId))
                                 {
                                     <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                                         @Icons.CheckCircle("h-3 w-3")
@@ -251,7 +278,7 @@
                             </div>
                         </div>
 
-                        <!-- Registration Check Result -->
+                        <!-- Registration Info -->
                         @if (checkingBypassId == bypass.Id)
                         {
                             <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
@@ -259,23 +286,13 @@
                                 <span>Checking registration...</span>
                             </div>
                         }
-                        else if (registrationChecks.TryGetValue(bypass.Id, out var regCheck))
+                        else if (!string.IsNullOrEmpty(bypass.RegistrationCid))
                         {
                             <div class="bg-slate-50 rounded-lg px-3 py-2">
-                                @if (regCheck.HasRegistration)
-                                {
-                                    <div class="flex items-center gap-2">
-                                        @Icons.CheckCircle("h-3.5 w-3.5 text-emerald-500")
-                                        <span class="text-xs font-medium text-emerald-700">@regCheck.Cid</span>
-                                        <span class="text-xs text-slate-400">·</span>
-                                        <span class="text-xs text-slate-600">@regCheck.Status</span>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="text-xs text-slate-400">No registration found</span>
-                                }
-                                <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.FormatCentral("MMM d, h:mm tt")</p>
+                                <div class="flex items-center gap-2">
+                                    @Icons.CheckCircle("h-3.5 w-3.5 text-emerald-500")
+                                    <span class="text-xs font-medium text-emerald-700">@bypass.RegistrationCid</span>
+                                </div>
                             </div>
                         }
 
@@ -286,19 +303,25 @@
 
                         <!-- Card Footer / Actions -->
                         <div class="flex items-center gap-1 pt-1 border-t border-slate-100">
-                            <button type="button"
-                                    @onclick="() => CopyLink(bypass.Code)"
-                                    class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer">
-                                @Icons.Clipboard("h-3.5 w-3.5")
-                                Copy
-                            </button>
-                            <button type="button"
-                                    @onclick="() => CheckRegistration(bypass)"
-                                    disabled="@(checkingBypassId == bypass.Id)"
-                                    class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer disabled:opacity-50">
-                                @Icons.Search("h-3.5 w-3.5")
-                                Check
-                            </button>
+                            @if (!bypass.IsReverse)
+                            {
+                                <button type="button"
+                                        @onclick="() => CopyLink(bypass.Code)"
+                                        class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer">
+                                    @Icons.Clipboard("h-3.5 w-3.5")
+                                    Copy
+                                </button>
+                            }
+                            @if (bypass.IsUsed && !bypass.IsReverse)
+                            {
+                                <button type="button"
+                                        @onclick="() => CheckRegistration(bypass)"
+                                        disabled="@(checkingBypassId == bypass.Id)"
+                                        class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer disabled:opacity-50">
+                                    @Icons.Search("h-3.5 w-3.5")
+                                    Re-check
+                                </button>
+                            }
                             @if (!bypass.IsUsed)
                             {
                                 <button type="button"
@@ -307,8 +330,20 @@
                                     @Icons.Envelope("h-3.5 w-3.5")
                                     Email
                                 </button>
+                            }
+                            @if (!string.IsNullOrEmpty(bypass.RegistrationId))
+                            {
                                 <button type="button"
-                                        @onclick="() => DeleteBypass(bypass)"
+                                        @onclick="() => ShowInfoModal(bypass)"
+                                        class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 px-2 py-1.5 rounded transition-colors cursor-pointer">
+                                    @Icons.Eye("h-3.5 w-3.5")
+                                    Info
+                                </button>
+                            }
+                            @if (CanDelete(bypass))
+                            {
+                                <button type="button"
+                                        @onclick="() => ShowDeleteConfirmation(bypass)"
                                         class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 px-2 py-1.5 rounded transition-colors cursor-pointer ml-auto">
                                     @Icons.Trash("h-3.5 w-3.5")
                                     Delete
@@ -508,6 +543,243 @@
     </div>
 }
 
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal && deleteBypass != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/50" @onclick="CloseDeleteModal"></div>
+
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    @Icons.Warning("h-6 w-6 text-red-600")
+                </div>
+
+                <h2 class="text-lg font-semibold text-slate-800 text-center mb-2">Delete Bypass?</h2>
+                <p class="text-sm text-slate-500 text-center mb-4">
+                    This will permanently delete the bypass code for this competitor. This action cannot be undone.
+                </p>
+
+                <div class="bg-slate-50 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Competitor</span>
+                        <span class="text-sm font-medium text-slate-800">@deleteBypass.FirstName @deleteBypass.LastName</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Code</span>
+                        <code class="bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded font-mono text-xs">@deleteBypass.Code</code>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Status</span>
+                        <span class="text-sm text-slate-700">
+                            @if (deleteBypass.IsReverse)
+                            {
+                                <span>Flagged (Reverse)</span>
+                            }
+                            else if (deleteBypass.IsUsed)
+                            {
+                                <span>Claimed</span>
+                            }
+                            else
+                            {
+                                <span>Unclaimed</span>
+                            }
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button"
+                        @onclick="CloseDeleteModal"
+                        class="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium transition-colors cursor-pointer">
+                    Cancel
+                </button>
+                <button type="button"
+                        @onclick="ConfirmDelete"
+                        disabled="@isDeleting"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2 cursor-pointer">
+                    @if (isDeleting)
+                    {
+                        @Icons.Spinner("h-4 w-4")
+                    }
+                    @Icons.Trash("h-4 w-4")
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Competitor Info Modal -->
+@if (showInfoModal && infoBypass != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/50" @onclick="CloseInfoModal"></div>
+
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-slate-800">Competitor Details</h2>
+                <button type="button" @onclick="CloseInfoModal"
+                        class="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+                    @Icons.XMark("h-5 w-5 text-slate-400")
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto max-h-[calc(85vh-130px)]">
+                @if (isLoadingInfo)
+                {
+                    <div class="flex items-center justify-center py-8">
+                        @Icons.Spinner("h-6 w-6 text-cyan-600")
+                        <span class="ml-2 text-sm text-slate-500">Loading competitor info...</span>
+                    </div>
+                }
+                else if (infoRegistration != null)
+                {
+                    <div class="space-y-5">
+                        <!-- Photo + Basic Info -->
+                        <div class="flex gap-4">
+                            @{
+                                var photoRef = infoRegistration.FileUploadInfo?.Photo?.StorageReference;
+                            }
+                            <div class="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                                @if (!string.IsNullOrEmpty(photoRef))
+                                {
+                                    <img src="@GetSasUrl(photoRef)" alt="Photo" class="w-full h-full object-cover" />
+                                }
+                                else
+                                {
+                                    <div class="flex items-center justify-center h-full">
+                                        @Icons.Photo("h-8 w-8 text-slate-300")
+                                    </div>
+                                }
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-lg font-semibold text-slate-800">@infoRegistration.PersonalInfo.FullName</h3>
+                                <p class="text-sm text-slate-500 mt-0.5">@infoRegistration.Cid</p>
+                                @{
+                                    var infoStatusColor = infoRegistration.Status switch
+                                    {
+                                        RegistrationStatus.Reviewed => "bg-blue-100 text-blue-700",
+                                        RegistrationStatus.Verified => "bg-emerald-100 text-emerald-700",
+                                        RegistrationStatus.AwaitingReview => "bg-amber-100 text-amber-700",
+                                        RegistrationStatus.Pending => "bg-orange-100 text-orange-700",
+                                        RegistrationStatus.Withdrawn => "bg-slate-100 text-slate-700",
+                                        RegistrationStatus.Disqualified => "bg-red-100 text-red-700",
+                                        _ => "bg-slate-100 text-slate-600"
+                                    };
+                                    var infoStatusLabel = infoRegistration.Status switch
+                                    {
+                                        RegistrationStatus.AwaitingReview => "Awaiting Review",
+                                        _ => infoRegistration.Status.ToString()
+                                    };
+                                }
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold mt-1.5 @infoStatusColor">
+                                    @infoStatusLabel
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Personal Info -->
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Personal Info</h4>
+                            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div>
+                                    <dt class="text-slate-500 text-xs">Date of Birth</dt>
+                                    <dd class="font-medium text-slate-800">@infoRegistration.PersonalInfo.DateOfBirth.ToString("MMM d, yyyy")</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500 text-xs">Gender</dt>
+                                    <dd class="font-medium text-slate-800">@infoRegistration.PersonalInfo.Gender</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- Competition Info -->
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Competition</h4>
+                            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div>
+                                    <dt class="text-slate-500 text-xs">Division</dt>
+                                    <dd class="font-medium text-slate-800">@GetDivisionName(infoRegistration)</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500 text-xs">Category</dt>
+                                    <dd class="font-medium text-slate-800">@GetCategoryName(infoRegistration)</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- ID Document -->
+                        @{
+                            var idRef = infoRegistration.FileUploadInfo?.IdDocument?.StorageReference;
+                            var idExt = infoRegistration.FileUploadInfo?.IdDocument?.Extension;
+                        }
+                        @if (!string.IsNullOrEmpty(idRef))
+                        {
+                            <div>
+                                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">ID Document</h4>
+                                @if (IsImageFile(idExt!))
+                                {
+                                    <div class="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                        <img src="@GetSasUrl(idRef)" alt="ID" class="w-full object-contain max-h-48" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <a href="@GetSasUrl(idRef)" target="_blank" rel="noopener noreferrer"
+                                       class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm transition-colors">
+                                        @Icons.Document("h-4 w-4 text-slate-500")
+                                        <span>Open @(idExt?.ToUpperInvariant().TrimStart('.') ?? "document")</span>
+                                        @Icons.ExternalLink("h-3 w-3 text-slate-400")
+                                    </a>
+                                }
+                            </div>
+                        }
+
+                        <!-- Bypass Info -->
+                        <div class="bg-violet-50 rounded-xl p-4">
+                            <h4 class="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-3">Bypass Info</h4>
+                            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div>
+                                    <dt class="text-violet-500 text-xs">Code</dt>
+                                    <dd><code class="font-mono font-medium text-violet-800">@infoBypass.Code</code></dd>
+                                </div>
+                                <div>
+                                    <dt class="text-violet-500 text-xs">Type</dt>
+                                    <dd class="font-medium text-violet-800">@(infoBypass.IsReverse ? "Reverse (Flagged)" : "Standard")</dd>
+                                </div>
+                            </dl>
+                            @if (!string.IsNullOrEmpty(infoBypass.Notes))
+                            {
+                                <p class="text-xs text-violet-600 mt-2">@infoBypass.Notes</p>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-8">
+                        @Icons.Warning("h-8 w-8 text-slate-300 mx-auto mb-2")
+                        <p class="text-sm text-slate-500">Registration not found. The competitor may have been removed.</p>
+                    </div>
+                }
+            </div>
+
+            @if (infoRegistration != null)
+            {
+                <div class="px-6 py-4 border-t border-slate-200 flex justify-end">
+                    <a href="/admin/registration/@infoRegistration.Id" target="_blank"
+                       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-cyan-700 bg-cyan-50 hover:bg-cyan-100 transition-colors">
+                        @Icons.ExternalLink("h-3.5 w-3.5")
+                        View Full Details
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @code {
     private List<NiqabBypass> bypasses = new();
     private bool isLoading = true;
@@ -528,8 +800,20 @@
     private NiqabBypass? createdBypass;
 
     // Registration check
-    private Dictionary<string, (bool HasRegistration, string? Status, string? Cid, DateTimeOffset? CheckedAt)> registrationChecks = new();
     private string? checkingBypassId;
+    private bool isSyncing;
+
+    // Delete confirmation modal
+    private bool showDeleteModal;
+    private NiqabBypass? deleteBypass;
+    private bool isDeleting;
+
+    // Competitor info modal
+    private bool showInfoModal;
+    private NiqabBypass? infoBypass;
+    private Registration? infoRegistration;
+    private bool isLoadingInfo;
+    private List<Division> divisions = new();
 
     // Send email modal
     private bool showEmailModal = false;
@@ -544,6 +828,7 @@
     {
         var settings = await SettingsService.GetSettingsAsync();
         competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+        divisions = settings?.Divisions?.Where(d => d.IsEnabled).ToList() ?? new();
 
         await LoadBypasses();
     }
@@ -554,6 +839,10 @@
         try
         {
             bypasses = (await BypassService.GetBypassesByYearAsync(competitionYear)).ToList();
+
+            // Auto-sync: for claimed bypasses that don't have a RegistrationId yet,
+            // look up the registration and persist the match (runs once per bypass)
+            await SyncRegistrationMatches();
         }
         catch (Exception ex)
         {
@@ -562,6 +851,46 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task SyncRegistrationMatches()
+    {
+        var needsSync = bypasses
+            .Where(b => b.IsUsed && string.IsNullOrEmpty(b.RegistrationId) && !b.IsReverse)
+            .ToList();
+
+        if (needsSync.Count == 0) return;
+
+        isSyncing = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var bypass in needsSync)
+            {
+                var matches = await RegistrationService.FindDuplicatesAsync(
+                    bypass.FirstName,
+                    bypass.LastName,
+                    bypass.DateOfBirth,
+                    competitionYear);
+
+                if (matches.Count > 0)
+                {
+                    var reg = matches[0];
+                    bypass.RegistrationId = reg.Id;
+                    bypass.RegistrationCid = reg.Cid;
+                    await BypassService.SaveBypassAsync(bypass);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to sync registrations: {ex.Message}";
+        }
+        finally
+        {
+            isSyncing = false;
         }
     }
 
@@ -653,26 +982,87 @@
     // DELETE BYPASS
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    private async Task DeleteBypass(NiqabBypass bypass)
+    private void ShowDeleteConfirmation(NiqabBypass bypass)
     {
+        deleteBypass = bypass;
+        isDeleting = false;
+        showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        deleteBypass = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deleteBypass == null) return;
+
+        isDeleting = true;
+        StateHasChanged();
+
         try
         {
-            await BypassService.DeleteBypassAsync(bypass.Id);
+            var name = $"{deleteBypass.FirstName} {deleteBypass.LastName}";
+            var code = deleteBypass.Code;
+
+            await BypassService.DeleteBypassAsync(deleteBypass.Id);
 
             // Audit log deletion
             await AuditContextProvider.SetCurrentUserContextAsync();
             await AuditService.LogNiqabBypassDeletedAsync(
-                bypass.Id,
-                $"{bypass.FirstName} {bypass.LastName}",
-                bypass.Code);
+                deleteBypass.Id,
+                name,
+                code);
 
-            successMessage = $"Bypass code for {bypass.FirstName} {bypass.LastName} deleted.";
+            showDeleteModal = false;
+            deleteBypass = null;
+            successMessage = $"Bypass code for {name} deleted.";
             await LoadBypasses();
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete: {ex.Message}";
         }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // COMPETITOR INFO
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    private async Task ShowInfoModal(NiqabBypass bypass)
+    {
+        infoBypass = bypass;
+        infoRegistration = null;
+        isLoadingInfo = true;
+        showInfoModal = true;
+        StateHasChanged();
+
+        try
+        {
+            if (!string.IsNullOrEmpty(bypass.RegistrationId))
+            {
+                infoRegistration = await RegistrationService.GetByIdAsync(bypass.RegistrationId);
+            }
+        }
+        catch { }
+        finally
+        {
+            isLoadingInfo = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseInfoModal()
+    {
+        showInfoModal = false;
+        infoBypass = null;
+        infoRegistration = null;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -694,12 +1084,18 @@
 
             if (matches.Count > 0)
             {
-                var reg = matches[0]; // Take the first match
-                registrationChecks[bypass.Id] = (true, reg.Status.ToString(), reg.Cid, DateTimeOffset.Now);
+                var reg = matches[0];
+                bypass.RegistrationId = reg.Id;
+                bypass.RegistrationCid = reg.Cid;
+                await BypassService.SaveBypassAsync(bypass);
+                successMessage = $"Registration found: {reg.Cid}";
             }
             else
             {
-                registrationChecks[bypass.Id] = (false, null, null, DateTimeOffset.Now);
+                bypass.RegistrationId = null;
+                bypass.RegistrationCid = null;
+                await BypassService.SaveBypassAsync(bypass);
+                successMessage = $"No registration found for {bypass.FirstName} {bypass.LastName}.";
             }
         }
         catch (Exception ex)
@@ -838,6 +1234,13 @@ JazakAllahu Khairan";
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Deletable: unclaimed, claimed-but-not-registered (expired), or reverse (documentation).
+    /// Only protect bypasses that have a confirmed registration linked.
+    /// </summary>
+    private bool CanDelete(NiqabBypass bypass)
+        => !bypass.IsUsed || bypass.IsReverse || string.IsNullOrEmpty(bypass.RegistrationId);
+
     private string GetBypassUrl(string code)
     {
         return $"{NavigationManager.BaseUri}niqab/{code}";
@@ -848,5 +1251,27 @@ JazakAllahu Khairan";
         // Note: In Blazor Server, we'd need JS interop for clipboard
         // For now, just show a success message
         successMessage = $"Link copied! Share: {GetBypassUrl(code)}";
+    }
+
+    private string? GetSasUrl(string storageReference)
+    {
+        return BlobSasService.GenerateSasUriFromReference(storageReference, competitionYear);
+    }
+
+    private string GetDivisionName(Registration reg)
+    {
+        return divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId)?.Name ?? "Unknown";
+    }
+
+    private string GetCategoryName(Registration reg)
+    {
+        var division = divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId);
+        return division?.Categories.FirstOrDefault(c => c.Id == reg.CompetitionSelection.CategoryId)?.Name ?? "Unknown";
+    }
+
+    private bool IsImageFile(string extension)
+    {
+        var ext = extension.ToLowerInvariant().TrimStart('.');
+        return ext is "jpg" or "jpeg" or "png" or "gif" or "webp" or "bmp";
     }
 }

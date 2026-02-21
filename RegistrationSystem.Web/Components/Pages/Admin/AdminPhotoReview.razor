@@ -2,15 +2,22 @@
 @attribute [Authorize(Roles = "Admin")]
 
 @using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Auditing
 @using RegistrationSystem.Core.Application.Azure
+@using RegistrationSystem.Core.Application.NiqabBypasses
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.Settings
+@using RegistrationSystem.Web.Services
 
 @inject RegistrationService RegistrationService
 @inject SettingsService SettingsService
 @inject BlobSasService BlobSasService
+@inject NiqabBypassService NiqabBypassService
+@inject IAuditService AuditService
+@inject BlazorAuditContextProvider AuditContextProvider
 @inject NavigationManager NavigationManager
 
 <PageTitle>Photo Review</PageTitle>
@@ -84,6 +91,17 @@
                         <option value="AwaitingReview">Awaiting Review</option>
                         <option value="Pending">Pending</option>
                         <option value="">All Statuses</option>
+                    </select>
+                </div>
+
+                <!-- Gender -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Gender</label>
+                    <select @bind="selectedGender" @bind:after="OnFilterChanged"
+                            class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="">All Genders</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
                     </select>
                 </div>
 
@@ -397,6 +415,47 @@
                         </dl>
                     </div>
 
+                    <!-- Niqab Verification Flag (Female only) -->
+                    @if (detailRegistration.PersonalInfo.Gender == Gender.Female)
+                    {
+                        <div class="border-t border-slate-100 pt-4">
+                            @if (!string.IsNullOrEmpty(niqabFlagSuccess))
+                            {
+                                <div class="bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 text-xs text-violet-700 flex items-center gap-2">
+                                    @Icons.CheckCircle("h-3.5 w-3.5")
+                                    @niqabFlagSuccess
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(niqabFlagError))
+                            {
+                                <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                                    @niqabFlagError
+                                </div>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        @onclick="FlagForNiqabVerification"
+                                        disabled="@isFlaggingNiqab"
+                                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium
+                                               bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200
+                                               disabled:opacity-50 transition-colors cursor-pointer">
+                                    @if (isFlaggingNiqab)
+                                    {
+                                        @Icons.Spinner("h-3.5 w-3.5")
+                                        <span>Flagging...</span>
+                                    }
+                                    else
+                                    {
+                                        @Icons.Warning("h-3.5 w-3.5")
+                                        <span>Flag for Niqab Verification</span>
+                                    }
+                                </button>
+                                <p class="text-[10px] text-slate-400 mt-1.5">Creates a reverse bypass record — competitor's face was detected through niqab and needs in-person identity verification.</p>
+                            }
+                        </div>
+                    }
+
                     <!-- ID Document -->
                     <div>
                         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">ID Document</h3>
@@ -456,8 +515,12 @@
     private string selectedDivisionId = string.Empty;
     private string selectedCategoryId = string.Empty;
     private string selectedStatus = "Reviewed";
+    private string selectedGender = string.Empty;
     private string showType = "photo";
     private bool onlyMissing;
+
+    // SAS URL cache (valid for ~10 min, typical session is shorter)
+    private Dictionary<string, string?> sasUrlCache = new();
 
     // Pagination
     private int currentPage = 1;
@@ -471,6 +534,11 @@
     private int detailIndex;
     private int lightboxRotation_;
     private bool lightboxScaled;
+
+    // Niqab flag
+    private bool isFlaggingNiqab;
+    private string? niqabFlagSuccess;
+    private string? niqabFlagError;
 
     private string lightboxRotation => lightboxRotation_ switch
     {
@@ -540,6 +608,10 @@
         if (!string.IsNullOrEmpty(selectedStatus) && Enum.TryParse<RegistrationStatus>(selectedStatus, out var status))
             query = query.Where(r => r.Status == status);
 
+        // Gender filter
+        if (!string.IsNullOrEmpty(selectedGender) && Enum.TryParse<Gender>(selectedGender, out var gender))
+            query = query.Where(r => r.PersonalInfo.Gender == gender);
+
         // Division
         if (!string.IsNullOrEmpty(selectedDivisionId))
             query = query.Where(r => r.CompetitionSelection.DivisionId == selectedDivisionId);
@@ -603,6 +675,8 @@
         detailIndex = pagedRegistrations.IndexOf(reg);
         lightboxRotation_ = 0;
         lightboxScaled = false;
+        niqabFlagSuccess = null;
+        niqabFlagError = null;
     }
 
     private void CloseDetail()
@@ -617,6 +691,8 @@
         detailRegistration = pagedRegistrations[detailIndex];
         lightboxRotation_ = 0;
         lightboxScaled = false;
+        niqabFlagSuccess = null;
+        niqabFlagError = null;
     }
 
     private void NextDetail()
@@ -626,6 +702,8 @@
         detailRegistration = pagedRegistrations[detailIndex];
         lightboxRotation_ = 0;
         lightboxScaled = false;
+        niqabFlagSuccess = null;
+        niqabFlagError = null;
     }
 
     private void RotateLightbox()
@@ -639,12 +717,73 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // NIQAB VERIFICATION FLAG
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task FlagForNiqabVerification()
+    {
+        if (detailRegistration == null) return;
+
+        isFlaggingNiqab = true;
+        niqabFlagError = null;
+        StateHasChanged();
+
+        try
+        {
+            // Check if already flagged
+            var existing = await NiqabBypassService.FindByRegistrationIdAsync(detailRegistration.Id);
+            if (existing != null)
+            {
+                niqabFlagSuccess = $"Already flagged (code: {existing.Code}).";
+                return;
+            }
+
+            var bypass = await NiqabBypassService.CreateReverseBypassAsync(
+                detailRegistration.Id,
+                detailRegistration.Cid ?? "N/A",
+                detailRegistration.PersonalInfo.FirstName,
+                detailRegistration.PersonalInfo.LastName,
+                detailRegistration.PersonalInfo.DateOfBirth,
+                competitionYear);
+
+            // Audit log
+            await AuditContextProvider.SetCurrentUserContextAsync();
+            await AuditService.LogAsync(
+                AuditAction.NiqabBypassReversed,
+                "NiqabBypass",
+                bypass.Id,
+                summary: $"Reverse bypass created — face detected through niqab, flagged for in-person verification",
+                entityDescription: $"{detailRegistration.PersonalInfo.FullName} ({detailRegistration.Cid})");
+
+            niqabFlagSuccess = $"Flagged for niqab verification (code: {bypass.Code}).";
+        }
+        catch (InvalidOperationException ex)
+        {
+            niqabFlagError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            niqabFlagError = $"Failed to flag: {ex.Message}";
+        }
+        finally
+        {
+            isFlaggingNiqab = false;
+            StateHasChanged();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
     private string? GetFileUrl(string storageReference)
     {
-        return BlobSasService.GenerateSasUriFromReference(storageReference, competitionYear);
+        if (sasUrlCache.TryGetValue(storageReference, out var cached))
+            return cached;
+
+        var url = BlobSasService.GenerateSasUriFromReference(storageReference, competitionYear);
+        sasUrlCache[storageReference] = url;
+        return url;
     }
 
     private bool IsImageFile(string extension)
