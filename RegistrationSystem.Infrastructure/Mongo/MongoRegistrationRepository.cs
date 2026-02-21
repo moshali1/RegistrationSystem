@@ -186,6 +186,8 @@ public class MongoRegistrationRepository : IRegistrationRepository
     /// Atomically increments and returns the next CID sequence number for a given prefix.
     /// Uses a MongoDB counters collection with FindOneAndUpdate + $inc to guarantee uniqueness
     /// even under concurrent requests. The counter document is keyed by "{year}:{prefix}".
+    /// Self-healing: scans existing registrations to find the actual max sequence on first use,
+    /// and ensures the counter is always at least as high as the max existing CID sequence.
     /// </summary>
     public async Task<int> GetNextCidSequenceAsync(
         int competitionYear,
@@ -193,8 +195,38 @@ public class MongoRegistrationRepository : IRegistrationRepository
         CancellationToken cancellationToken = default)
     {
         var counterId = $"{competitionYear}:{cidPrefix}";
-
         var filter = Builders<BsonDocument>.Filter.Eq("_id", counterId);
+
+        // Check if counter exists
+        var existing = await _counters.Find(filter).FirstOrDefaultAsync(cancellationToken);
+
+        if (existing == null)
+        {
+            // First time for this prefix — scan existing registrations to find actual max
+            var maxSeq = await ScanMaxCidSequenceAsync(competitionYear, cidPrefix, cancellationToken);
+
+            // Seed with SetOnInsert so concurrent calls don't race — only one creates, rest increment
+            await _counters.UpdateOneAsync(filter,
+                Builders<BsonDocument>.Update.SetOnInsert("seq", maxSeq),
+                new UpdateOptions { IsUpsert = true }, cancellationToken);
+        }
+        else
+        {
+            // Counter exists — verify it's not behind the actual max (self-healing)
+            var currentSeq = existing["seq"].AsInt32;
+            var maxSeq = await ScanMaxCidSequenceAsync(competitionYear, cidPrefix, cancellationToken);
+
+            if (maxSeq > currentSeq)
+            {
+                // Counter is stale — fast-forward it to the actual max.
+                // Use $max to avoid racing with concurrent increments.
+                await _counters.UpdateOneAsync(filter,
+                    Builders<BsonDocument>.Update.Max("seq", maxSeq),
+                    cancellationToken: cancellationToken);
+            }
+        }
+
+        // Now atomically increment and return
         var update = Builders<BsonDocument>.Update.Inc("seq", 1);
         var options = new FindOneAndUpdateOptions<BsonDocument>
         {
@@ -204,6 +236,34 @@ public class MongoRegistrationRepository : IRegistrationRepository
 
         var result = await _counters.FindOneAndUpdateAsync(filter, update, options, cancellationToken);
         return result["seq"].AsInt32;
+    }
+
+    /// <summary>
+    /// Scans all registrations to find the maximum CID sequence number for a given prefix.
+    /// CID format is "{prefix}{sequence:D3}", e.g. "M9001", "M91000".
+    /// </summary>
+    private async Task<int> ScanMaxCidSequenceAsync(
+        int competitionYear,
+        string cidPrefix,
+        CancellationToken cancellationToken)
+    {
+        var allCids = await _collection
+            .Find(r => r.CompetitionYear == competitionYear && r.Cid != null)
+            .Project(r => r.Cid!)
+            .ToListAsync(cancellationToken);
+
+        var maxSeq = 0;
+        foreach (var cid in allCids)
+        {
+            if (cid.StartsWith(cidPrefix, StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(cid[cidPrefix.Length..], out var seq) &&
+                seq > maxSeq)
+            {
+                maxSeq = seq;
+            }
+        }
+
+        return maxSeq;
     }
 
     public async Task UpdateCidAsync(
