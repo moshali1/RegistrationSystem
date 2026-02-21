@@ -189,8 +189,22 @@ public class MongoAuditRepository : IAuditRepository
         string entityId,
         CancellationToken cancellationToken = default)
     {
+        // Preserve Deleted audit entries — they serve as a permanent record
+        // of what was deleted and should survive audit trail purges
         var result = await _collection.DeleteManyAsync(
-            x => x.EntityType == entityType && x.EntityId == entityId,
+            x => x.EntityType == entityType && x.EntityId == entityId && x.Action != AuditAction.Deleted,
+            cancellationToken);
+        return result.DeletedCount;
+    }
+
+    public async Task<long> DeleteByEntityAndActionAsync(
+        string entityType,
+        string entityId,
+        AuditAction action,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _collection.DeleteManyAsync(
+            x => x.EntityType == entityType && x.EntityId == entityId && x.Action == action,
             cancellationToken);
         return result.DeletedCount;
     }

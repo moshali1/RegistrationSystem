@@ -164,7 +164,7 @@
                                         {
                                             <span class="text-xs text-slate-400">No registration found</span>
                                         }
-                                        <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.LocalDateTime.ToString("MMM d, h:mm tt")</p>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.FormatCentral("MMM d, h:mm tt")</p>
                                     }
                                     else
                                     {
@@ -172,7 +172,7 @@
                                     }
                                 </td>
                                 <td class="px-4 py-3 text-slate-600">
-                                    @bypass.CreatedAt.LocalDateTime.ToString("MMM d, yyyy")
+                                    @bypass.CreatedAt.FormatCentral("MMM d, yyyy")
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-1">
@@ -275,7 +275,7 @@
                                 {
                                     <span class="text-xs text-slate-400">No registration found</span>
                                 }
-                                <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.LocalDateTime.ToString("MMM d, h:mm tt")</p>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Checked @regCheck.CheckedAt?.FormatCentral("MMM d, h:mm tt")</p>
                             </div>
                         }
 

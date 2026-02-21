@@ -327,7 +327,7 @@
                     <span class="font-medium text-emerald-700">Reviewed</span>.
                 </p>
                 <p class="text-xs text-slate-500 mb-6">
-                    Each status change will be logged in the audit trail as "Auto verification: Pass".
+                    Each status change will be logged in the audit trail with method "Auto verification".
                 </p>
                 <div class="flex justify-end gap-3">
                     <button type="button" @onclick="() => showBulkReviewModal = false"
@@ -682,6 +682,9 @@
             var division = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
             var divisionName = division?.Name ?? "Unknown";
 
+            // Set audit context once before the loop
+            await AuditContextProvider.SetCurrentUserContextAsync();
+
             // Show results table immediately (starts empty, fills live)
             hasResults = true;
 
@@ -696,6 +699,16 @@
                     registration, divisionName, competitionYear);
 
                 results.Add(result);
+
+                // Log verification result as audit entry (replaces any previous run)
+                if (!result.IsSkipped && !result.HasError)
+                {
+                    await AuditService.DeleteByEntityAndActionAsync(
+                        "Registration", registration.Id, AuditAction.IdVerification);
+                    await AuditService.LogIdVerificationAsync(
+                        result, $"{registration.PersonalInfo.FullName} ({registration.Cid})");
+                }
+
                 StateHasChanged();
             }
         }
@@ -749,7 +762,6 @@
                         $"{reg.PersonalInfo.FullName} ({reg.Cid})",
                         StatusBadge.GetDisplayName(oldStatus),
                         "Reviewed",
-                        reason: "Auto verification: Pass",
                         method: "Auto verification");
 
                     updated++;

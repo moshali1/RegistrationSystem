@@ -1,0 +1,1321 @@
+@page "/admin/data-checks"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using OpenAI.Chat
+@using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject IAuditService AuditService
+@inject ChatClient ChatClient
+
+<PageTitle>Data Checks</PageTitle>
+
+<div class="max-w-5xl mx-auto px-4 md:px-6">
+
+    <!-- Header -->
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Data Checks</h1>
+            <p class="text-sm text-slate-500 mt-1">Run diagnostic checks on registration data to detect duplicates, mismatches, and anomalies</p>
+        </div>
+        <button type="button" @onclick="RunAllChecks"
+                disabled="@(IsAnyRunning || isLoading)"
+                class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:from-slate-400 disabled:to-slate-500 text-white text-sm font-medium transition-all cursor-pointer flex items-center gap-2 shadow-sm">
+            @if (IsAnyRunning)
+            {
+                @Icons.Spinner("h-4 w-4")
+                <span>Running...</span>
+            }
+            else
+            {
+                @Icons.Play("h-4 w-4")
+                <span>Run All Checks</span>
+            }
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-12">
+            @Icons.Spinner("h-8 w-8 text-indigo-600")
+        </div>
+    }
+    else
+    {
+        <div class="space-y-4">
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 1: DUPLICATE DETECTION                                       -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm">
+                            @Icons.Users("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Duplicate Detection</h3>
+                            <p class="text-xs text-slate-500">Find registrations sharing first name + DOB or last name + DOB within each category</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check1State == CheckState.Complete)
+                        {
+                            <span class="text-xs font-medium @(duplicateGroups.Count > 0 ? "text-red-600" : "text-emerald-600")">
+                                @(duplicateGroups.Count > 0 ? $"{duplicateGroups.Count} groups found" : "No duplicates")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck1" disabled="@(check1State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check1State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check1State == CheckState.Complete && duplicateGroups.Count > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Division / Category</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Match</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Members</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var group in duplicateGroups)
+                                {
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="px-4 py-3 text-slate-600 text-xs">@group.DivisionName / @group.CategoryName</td>
+                                        <td class="px-4 py-3 font-mono text-[11px] text-slate-500">@group.MatchKey</td>
+                                        <td class="px-4 py-3">
+                                            <div class="space-y-1">
+                                                @foreach (var member in group.Members)
+                                                {
+                                                    <div class="flex items-center gap-2">
+                                                        <a href="/admin/registration/@member.Id" target="_blank"
+                                                           class="text-cyan-600 hover:text-cyan-700 hover:underline text-xs font-medium">@member.FullName</a>
+                                                        <span class="text-[10px] text-slate-400">@(member.Cid ?? "—")</span>
+                                                        <StatusBadge Status="@member.Status" Size="StatusBadge.StatusBadgeSize.Mini" />
+                                                    </div>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (check1State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check1Error</div>
+                }
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 2: GENDER-NAME MISMATCH                                     -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-sm">
+                            @Icons.User("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Gender-Name Mismatch</h3>
+                            <p class="text-xs text-slate-500">AI-powered check for Islamic names where registered gender may be incorrect</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check2State == CheckState.Running)
+                        {
+                            <span class="text-xs text-slate-500">Batch @check2Progress of @check2Total</span>
+                        }
+                        @if (check2State == CheckState.Complete)
+                        {
+                            <span class="text-xs font-medium @(genderMismatches.Count > 0 ? "text-amber-600" : "text-emerald-600")">
+                                @(genderMismatches.Count > 0 ? $"{genderMismatches.Count} mismatches" : "No mismatches")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck2" disabled="@(check2State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check2State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check2State == CheckState.Running && check2Total > 0)
+                {
+                    <div class="px-5 py-3">
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-amber-500 to-amber-600 h-1.5 rounded-full transition-all duration-300"
+                                 style="width: @(check2Total > 0 ? (check2Progress * 100 / check2Total) : 0)%"></div>
+                        </div>
+                    </div>
+                }
+                @if (check2State == CheckState.Complete && genderMismatches.Count > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">CID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Registered</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Expected</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var m in genderMismatches)
+                                {
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="px-4 py-3 font-mono text-xs text-slate-500">@(m.Cid ?? "—")</td>
+                                        <td class="px-4 py-3">
+                                            <a href="/admin/registration/@m.RegistrationId" target="_blank"
+                                               class="text-cyan-600 hover:text-cyan-700 hover:underline text-xs font-medium">@m.Name</a>
+                                        </td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">@m.RegisteredGender</td>
+                                        <td class="px-4 py-3 text-xs font-medium text-amber-600">@m.ExpectedGender</td>
+                                        <td class="px-4 py-3 text-xs text-slate-500 italic">@m.Reason</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (check2State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check2Error</div>
+                }
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 3: PENDING WITH RECENT EDITS                                -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-sm">
+                            @Icons.EditSquare("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Pending with Recent Edits</h3>
+                            <p class="text-xs text-slate-500">Pending registrations where the registrant made corrections after being notified</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check3State == CheckState.Running)
+                        {
+                            <span class="text-xs text-slate-500">@check3Progress of @check3Total</span>
+                        }
+                        @if (check3State == CheckState.Complete)
+                        {
+                            <span class="text-xs font-medium @(pendingEdits.Count > 0 ? "text-cyan-600" : "text-emerald-600")">
+                                @(pendingEdits.Count > 0 ? $"{pendingEdits.Count} found" : "None found")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck3" disabled="@(check3State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check3State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check3State == CheckState.Running && check3Total > 0)
+                {
+                    <div class="px-5 py-3">
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-cyan-500 to-cyan-600 h-1.5 rounded-full transition-all duration-300"
+                                 style="width: @(check3Total > 0 ? (check3Progress * 100 / check3Total) : 0)%"></div>
+                        </div>
+                    </div>
+                }
+                @if (check3State == CheckState.Complete && pendingEdits.Count > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">CID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Division / Category</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Last Edit</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var p in pendingEdits)
+                                {
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="px-4 py-3 font-mono text-xs text-slate-500">@(p.Cid ?? "—")</td>
+                                        <td class="px-4 py-3">
+                                            <a href="/admin/registration/@p.RegistrationId" target="_blank"
+                                               class="text-cyan-600 hover:text-cyan-700 hover:underline text-xs font-medium">@p.FullName</a>
+                                        </td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">@p.DivisionName / @p.CategoryName</td>
+                                        <td class="px-4 py-3 text-xs text-slate-500">@p.LastEditTimestamp.ToString("MMM d, yyyy h:mm tt")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (check3State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check3Error</div>
+                }
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 4: INSTITUTION GROUPING                                     -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm">
+                            @Icons.Building("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Institution Grouping</h3>
+                            <p class="text-xs text-slate-500">AI-powered clustering of similar Quran institution names by state (10+ participants)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check4State == CheckState.Running)
+                        {
+                            <span class="text-xs text-slate-500">Processing @check4CurrentState...</span>
+                        }
+                        @if (check4State == CheckState.Complete)
+                        {
+                            var totalClusters = institutionGroups.Sum(g => g.Clusters.Count);
+                            <span class="text-xs font-medium @(totalClusters > 0 ? "text-violet-600" : "text-emerald-600")">
+                                @(totalClusters > 0 ? $"{totalClusters} clusters in {institutionGroups.Count} states" : "No grouping needed")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck4" disabled="@(check4State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check4State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check4State == CheckState.Complete && institutionGroups.Count > 0)
+                {
+                    <div class="p-4 space-y-2">
+                        @foreach (var stateGroup in institutionGroups)
+                        {
+                            var isExpanded = expandedStates.Contains(stateGroup.State);
+                            <div class="border border-slate-200 rounded-lg overflow-hidden">
+                                <button type="button" @onclick="() => ToggleStateExpanded(stateGroup.State)"
+                                        class="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer text-left">
+                                    <div class="flex items-center gap-2">
+                                        @Icons.Chevron($"h-3.5 w-3.5 text-slate-400 transition-transform {(isExpanded ? "rotate-90" : "")}")
+                                        <span class="font-semibold text-sm text-slate-800">@stateGroup.State</span>
+                                        <span class="text-xs text-slate-500">@stateGroup.ParticipantCount participants</span>
+                                    </div>
+                                    <span class="text-xs font-medium text-violet-600">@stateGroup.Clusters.Count clusters</span>
+                                </button>
+                                @if (isExpanded)
+                                {
+                                    <div class="p-4 space-y-3 border-t border-slate-200">
+                                        @foreach (var cluster in stateGroup.Clusters)
+                                        {
+                                            <div class="bg-slate-50 rounded-lg p-3">
+                                                <p class="font-medium text-sm text-slate-800 mb-1">@cluster.CanonicalName</p>
+                                                <div class="ml-4 space-y-0.5">
+                                                    @foreach (var variation in cluster.Variations.Where(v => v != cluster.CanonicalName))
+                                                    {
+                                                        <p class="text-xs text-slate-500">↳ @variation (@(institutionCounts.GetValueOrDefault(stateGroup.State + "::" + variation, 0)))</p>
+                                                    }
+                                                </div>
+                                                <p class="text-xs text-slate-400 mt-1">@cluster.TotalRegistrations total registrations</p>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                @if (check4State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check4Error</div>
+                }
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 5: CID UNIQUENESS                                            -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shadow-sm">
+                            @Icons.IdCard("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">CID Uniqueness</h3>
+                            <p class="text-xs text-slate-500">Verify that all Competitor IDs are unique — no two registrations share the same CID</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check5State == CheckState.Complete)
+                        {
+                            <span class="text-xs font-medium @(cidDuplicates.Count > 0 ? "text-red-600" : "text-emerald-600")">
+                                @(cidDuplicates.Count > 0 ? $"{cidDuplicates.Count} duplicates" : "All unique ✓")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck5" disabled="@(check5State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check5State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check5State == CheckState.Complete && cidDuplicates.Count > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">CID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Count</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Registrations</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var dup in cidDuplicates)
+                                {
+                                    <tr class="hover:bg-red-50/50">
+                                        <td class="px-4 py-3 text-xs font-mono font-bold text-red-600">@dup.Cid</td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">@dup.Count</td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">
+                                            @foreach (var reg in dup.Registrations)
+                                            {
+                                                <a href="/admin/registration/@reg.Id" target="_blank"
+                                                   class="text-cyan-600 hover:text-cyan-700 hover:underline mr-3">@reg.Name</a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (check5State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check5Error</div>
+                }
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <!-- CHECK 6: DUPLICATE FILE NAMES                                      -->
+            <!-- ═══════════════════════════════════════════════════════════════════ -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="px-5 py-4 flex items-center justify-between border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 flex items-center justify-center shadow-sm">
+                            @Icons.Photo("h-4 w-4 text-white")
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">Duplicate File Names</h3>
+                            <p class="text-xs text-slate-500">Detect registrations within the same division that uploaded files with the same name and size</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (check6State == CheckState.Complete)
+                        {
+                            <span class="text-xs font-medium @(fileDuplicates.Count > 0 ? "text-fuchsia-600" : "text-emerald-600")">
+                                @(fileDuplicates.Count > 0 ? $"{fileDuplicates.Count} duplicates" : "No duplicates")
+                            </span>
+                        }
+                        <button type="button" @onclick="RunCheck6" disabled="@(check6State == CheckState.Running)"
+                                class="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 disabled:text-slate-400 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                            @if (check6State == CheckState.Running)
+                            {
+                                @Icons.Spinner("h-3.5 w-3.5")
+                                <span>Running...</span>
+                            }
+                            else
+                            {
+                                <span>Run</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                @if (check6State == CheckState.Complete && fileDuplicates.Count > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Division</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">File Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Size</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Count</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Registrations</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach (var dup in fileDuplicates)
+                                {
+                                    <tr class="hover:bg-fuchsia-50/50">
+                                        <td class="px-4 py-3 text-xs text-slate-600 font-medium">@dup.DivisionName</td>
+                                        <td class="px-4 py-3 text-xs font-mono text-fuchsia-600 max-w-[200px] truncate" title="@dup.FileName">@dup.FileName</td>
+                                        <td class="px-4 py-3 text-xs text-slate-500">@dup.FileSizeDisplay</td>
+                                        <td class="px-4 py-3 text-xs text-slate-500">@dup.FileType</td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">@dup.Count</td>
+                                        <td class="px-4 py-3 text-xs text-slate-600">
+                                            @foreach (var reg in dup.Registrations)
+                                            {
+                                                <a href="/admin/registration/@reg.Id" target="_blank"
+                                                   class="text-cyan-600 hover:text-cyan-700 hover:underline mr-3">@reg.Name (@reg.Cid)</a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                @if (check6State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check6Error</div>
+                }
+            </div>
+
+        </div>
+    }
+</div>
+
+@code {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SHARED STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool isLoading = true;
+    private CompetitionSettings? settings;
+    private int competitionYear;
+    private List<Registration> allRegistrations = new();
+    private bool dataLoaded;
+
+    private enum CheckState { NotRun, Running, Complete, Error }
+
+    private static readonly JsonSerializerOptions AiJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static readonly HashSet<RegistrationStatus> ActiveStatuses = new()
+    {
+        RegistrationStatus.AwaitingReview,
+        RegistrationStatus.Pending,
+        RegistrationStatus.Reviewed,
+        RegistrationStatus.Verified
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 1 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check1State = CheckState.NotRun;
+    private string? check1Error;
+    private List<DuplicateGroup> duplicateGroups = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 2 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check2State = CheckState.NotRun;
+    private string? check2Error;
+    private int check2Progress;
+    private int check2Total;
+    private List<GenderMismatchResult> genderMismatches = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 3 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check3State = CheckState.NotRun;
+    private string? check3Error;
+    private int check3Progress;
+    private int check3Total;
+    private List<PendingEditResult> pendingEdits = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 4 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check4State = CheckState.NotRun;
+    private string? check4Error;
+    private string check4CurrentState = "";
+    private List<InstitutionStateGroup> institutionGroups = new();
+    private Dictionary<string, int> institutionCounts = new(); // "State::Name" → count
+    private HashSet<string> expandedStates = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 5 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check5State = CheckState.NotRun;
+    private string? check5Error;
+    private List<CidDuplicateGroup> cidDuplicates = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 6 STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private CheckState check6State = CheckState.NotRun;
+    private string? check6Error;
+    private List<FileDuplicateGroup> fileDuplicates = new();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMPUTED
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool IsAnyRunning => check1State == CheckState.Running
+        || check2State == CheckState.Running
+        || check3State == CheckState.Running
+        || check4State == CheckState.Running
+        || check5State == CheckState.Running
+        || check6State == CheckState.Running;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+        competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+        isLoading = false;
+    }
+
+    private async Task EnsureDataLoadedAsync()
+    {
+        if (!dataLoaded)
+        {
+            allRegistrations = (await RegistrationService.GetAllByYearAsync(competitionYear)).ToList();
+            dataLoaded = true;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RUN ALL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunAllChecks()
+    {
+        await RunCheck1();
+        await RunCheck2();
+        await RunCheck3();
+        await RunCheck4();
+        await RunCheck5();
+        await RunCheck6();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 1: DUPLICATE DETECTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck1()
+    {
+        check1State = CheckState.Running;
+        check1Error = null;
+        duplicateGroups.Clear();
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var activeRegs = allRegistrations.Where(r => ActiveStatuses.Contains(r.Status)).ToList();
+            var byCategory = activeRegs.GroupBy(r =>
+                (r.CompetitionSelection.DivisionId, r.CompetitionSelection.CategoryId));
+
+            foreach (var catGroup in byCategory)
+            {
+                var division = settings?.FindDivision(catGroup.Key.DivisionId);
+                var category = division?.FindCategory(catGroup.Key.CategoryId);
+                var divName = division?.Name ?? catGroup.Key.DivisionId;
+                var catName = category?.Name ?? catGroup.Key.CategoryId;
+                var recordedGroups = new HashSet<string>();
+
+                // First name + DOB
+                var byFirstDob = catGroup
+                    .GroupBy(r => (Name: r.PersonalInfo.FirstName.Trim().ToLowerInvariant(), DOB: r.PersonalInfo.DateOfBirth))
+                    .Where(g => g.Count() >= 2);
+
+                foreach (var group in byFirstDob)
+                {
+                    var ids = string.Join(",", group.Select(r => r.Id).OrderBy(x => x));
+                    if (recordedGroups.Add(ids))
+                    {
+                        duplicateGroups.Add(new DuplicateGroup
+                        {
+                            DivisionName = divName,
+                            CategoryName = catName,
+                            MatchKey = $"\"{group.Key.Name}\" + {group.Key.DOB:yyyy-MM-dd} (first + DOB)",
+                            Members = group.Select(r => new DuplicateMember
+                            {
+                                Id = r.Id, Cid = r.Cid, FullName = r.PersonalInfo.FullName, Status = r.Status
+                            }).ToList()
+                        });
+                    }
+                }
+
+                // Last name + DOB
+                var byLastDob = catGroup
+                    .GroupBy(r => (Name: r.PersonalInfo.LastName.Trim().ToLowerInvariant(), DOB: r.PersonalInfo.DateOfBirth))
+                    .Where(g => g.Count() >= 2);
+
+                foreach (var group in byLastDob)
+                {
+                    var ids = string.Join(",", group.Select(r => r.Id).OrderBy(x => x));
+                    if (recordedGroups.Add(ids))
+                    {
+                        duplicateGroups.Add(new DuplicateGroup
+                        {
+                            DivisionName = divName,
+                            CategoryName = catName,
+                            MatchKey = $"\"{group.Key.Name}\" + {group.Key.DOB:yyyy-MM-dd} (last + DOB)",
+                            Members = group.Select(r => new DuplicateMember
+                            {
+                                Id = r.Id, Cid = r.Cid, FullName = r.PersonalInfo.FullName, Status = r.Status
+                            }).ToList()
+                        });
+                    }
+                }
+            }
+
+            check1State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check1Error = ex.Message;
+            check1State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 2: GENDER-NAME MISMATCH
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck2()
+    {
+        check2State = CheckState.Running;
+        check2Error = null;
+        genderMismatches.Clear();
+        check2Progress = 0;
+        check2Total = 0;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var activeRegs = allRegistrations.Where(r => ActiveStatuses.Contains(r.Status)).ToList();
+
+            // Build list of {id, name, gender}
+            var entries = activeRegs.Select(r => new
+            {
+                r.Id,
+                Name = r.PersonalInfo.FirstName.Trim(),
+                Gender = r.PersonalInfo.Gender.ToString()
+            }).ToList();
+
+            // Batch into groups of 50
+            var batches = new List<List<dynamic>>();
+            for (var i = 0; i < entries.Count; i += 50)
+            {
+                batches.Add(entries.Skip(i).Take(50).Select(e => (dynamic)new { id = e.Id, name = e.Name, gender = e.Gender }).ToList());
+            }
+
+            check2Total = batches.Count;
+
+            foreach (var batch in batches)
+            {
+                check2Progress++;
+                StateHasChanged();
+                await Task.Delay(50);
+
+                var jsonPayload = JsonSerializer.Serialize(batch, AiJsonOptions);
+
+                var userPrompt = $$"""
+                    You are validating registration data for an Arabic/Quran competition. Each entry below has an ID, an Arabic first name, and the category the registrant signed up for (either "Male" or "Female" category).
+
+                    {{jsonPayload}}
+
+                    In Arabic linguistics, most names have a clear grammatical form indicating whether they are traditionally masculine or feminine (e.g. names ending in ta marbuta are typically feminine). Using your knowledge of Arabic name conventions, identify any entries where the registrant may have accidentally selected the wrong competition category for their name.
+
+                    Return ONLY the flagged entries as a JSON array:
+                    [{"id":"abc123","name":"Ahmad","expected":"Male","reason":"Ahmad is a masculine Arabic name form"}]
+
+                    If all entries appear correct, return an empty array: []
+
+                    Only flag entries where you are confident based on Arabic naming conventions. Skip ambiguous or unisex names.
+                    """;
+
+                var responseText = await CallAiAsync(
+                    "You are an Arabic linguistics and naming conventions specialist. You help validate competition registration data by checking if registrants selected the correct competition category based on Arabic name forms. Respond with valid JSON only, no other text or markdown.",
+                    userPrompt);
+
+                if (!string.IsNullOrWhiteSpace(responseText))
+                {
+                    try
+                    {
+                        var flags = JsonSerializer.Deserialize<List<AiGenderFlag>>(responseText, AiJsonOptions);
+                        if (flags != null)
+                        {
+                            foreach (var flag in flags)
+                            {
+                                if (string.IsNullOrEmpty(flag.Id)) continue;
+                                var reg = activeRegs.FirstOrDefault(r => r.Id == flag.Id);
+                                if (reg == null) continue;
+
+                                genderMismatches.Add(new GenderMismatchResult
+                                {
+                                    RegistrationId = reg.Id,
+                                    Cid = reg.Cid,
+                                    Name = reg.PersonalInfo.FullName,
+                                    RegisteredGender = reg.PersonalInfo.Gender.ToString(),
+                                    ExpectedGender = flag.Expected ?? "Unknown",
+                                    Reason = flag.Reason ?? ""
+                                });
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Skip malformed batch response
+                    }
+                }
+            }
+
+            check2State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check2Error = ex.Message;
+            check2State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 3: PENDING WITH RECENT EDITS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck3()
+    {
+        check3State = CheckState.Running;
+        check3Error = null;
+        pendingEdits.Clear();
+        check3Progress = 0;
+        check3Total = 0;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var pendingRegs = allRegistrations
+                .Where(r => r.Status == RegistrationStatus.Pending)
+                .ToList();
+
+            check3Total = pendingRegs.Count;
+
+            foreach (var reg in pendingRegs)
+            {
+                check3Progress++;
+                if (check3Progress % 10 == 0)
+                {
+                    StateHasChanged();
+                    await Task.Delay(10);
+                }
+
+                var history = await AuditService.GetEntityHistoryAsync("Registration", reg.Id);
+
+                // Find the most recent StatusChanged-to-Pending entry
+                var statusToPending = history
+                    .Where(e => e.Action == AuditAction.StatusChanged
+                             && e.Metadata?.GetValueOrDefault("NewStatus") == "Pending")
+                    .OrderByDescending(e => e.Timestamp)
+                    .FirstOrDefault();
+
+                if (statusToPending == null) continue;
+
+                // Find any Updated entry after that timestamp
+                var editAfterPending = history
+                    .Where(e => e.Action == AuditAction.Updated
+                             && e.Timestamp > statusToPending.Timestamp)
+                    .OrderByDescending(e => e.Timestamp)
+                    .FirstOrDefault();
+
+                if (editAfterPending != null)
+                {
+                    var division = settings?.FindDivision(reg.CompetitionSelection.DivisionId);
+                    var category = division?.FindCategory(reg.CompetitionSelection.CategoryId);
+
+                    pendingEdits.Add(new PendingEditResult
+                    {
+                        RegistrationId = reg.Id,
+                        Cid = reg.Cid,
+                        FullName = reg.PersonalInfo.FullName,
+                        DivisionName = division?.Name ?? "",
+                        CategoryName = category?.Name ?? "",
+                        LastEditTimestamp = editAfterPending.Timestamp,
+                        LastEditSummary = editAfterPending.Summary ?? "Updated"
+                    });
+                }
+            }
+
+            pendingEdits = pendingEdits.OrderByDescending(p => p.LastEditTimestamp).ToList();
+            check3State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check3Error = ex.Message;
+            check3State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 4: INSTITUTION GROUPING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck4()
+    {
+        check4State = CheckState.Running;
+        check4Error = null;
+        check4CurrentState = "";
+        institutionGroups.Clear();
+        institutionCounts.Clear();
+        expandedStates.Clear();
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var activeRegs = allRegistrations.Where(r => ActiveStatuses.Contains(r.Status)).ToList();
+
+            // Group by state
+            var byState = activeRegs
+                .Where(r => !string.IsNullOrWhiteSpace(r.AddressInfo.StateProvince))
+                .GroupBy(r => r.AddressInfo.StateProvince!.Trim().ToUpperInvariant())
+                .Where(g => g.Count() >= 10)
+                .OrderByDescending(g => g.Count())
+                .ToList();
+
+            foreach (var stateGroup in byState)
+            {
+                var state = stateGroup.Key;
+                check4CurrentState = state;
+                StateHasChanged();
+                await Task.Delay(50);
+
+                // Collect unique institution names with counts
+                var institutions = stateGroup
+                    .Where(r => !string.IsNullOrWhiteSpace(r.TeacherInfo?.Institution))
+                    .GroupBy(r => r.TeacherInfo!.Institution!.Trim())
+                    .Select(g => new { Name = g.Key, Count = g.Count() })
+                    .ToList();
+
+                // Store counts for display
+                foreach (var inst in institutions)
+                {
+                    institutionCounts[$"{state}::{inst.Name}"] = inst.Count;
+                }
+
+                // Skip if less than 2 unique institution names
+                if (institutions.Select(i => i.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() < 2)
+                    continue;
+
+                var institutionNames = institutions.Select(i => i.Name).ToList();
+                var namesJson = JsonSerializer.Serialize(institutionNames, AiJsonOptions);
+
+                var userPrompt = $$"""
+                    Group these Quran institution/school names from registrations in {{state}}. Names that are slight spelling variations, transliteration differences, abbreviations, or different forms of the same institution should be grouped together.
+
+                    Input names:
+                    {{namesJson}}
+
+                    Return a JSON array of groups. Each group has a "canonical" name (the best/most complete version) and "variations" (all names in the group including the canonical). Only include groups where there are 2+ variations. If a name is unique with no close matches, omit it.
+
+                    [{"canonical":"Masjid Al-Noor","variations":["Masjid Al-Noor","Masjid Alnoor","masjid al noor"]}]
+
+                    If no names can be grouped, return an empty array: []
+                    """;
+
+                var responseText = await CallAiAsync(
+                    "You are a data normalization assistant specializing in Islamic institution names. You group together similar institution names that likely refer to the same place. Respond with valid JSON only, no other text or markdown.",
+                    userPrompt);
+
+                if (!string.IsNullOrWhiteSpace(responseText))
+                {
+                    try
+                    {
+                        var clusters = JsonSerializer.Deserialize<List<AiInstitutionGroup>>(responseText, AiJsonOptions);
+                        if (clusters != null && clusters.Count > 0)
+                        {
+                            institutionGroups.Add(new InstitutionStateGroup
+                            {
+                                State = state,
+                                ParticipantCount = stateGroup.Count(),
+                                Clusters = clusters.Where(c => c.Variations?.Count >= 2).Select(c => new InstitutionCluster
+                                {
+                                    CanonicalName = c.Canonical ?? "",
+                                    Variations = c.Variations ?? new(),
+                                    TotalRegistrations = (c.Variations ?? new())
+                                        .Sum(v => institutionCounts.GetValueOrDefault($"{state}::{v}", 0))
+                                }).ToList()
+                            });
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Skip malformed response for this state
+                    }
+                }
+            }
+
+            check4State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check4Error = ex.Message;
+            check4State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 5: CID UNIQUENESS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck5()
+    {
+        check5State = CheckState.Running;
+        check5Error = null;
+        cidDuplicates.Clear();
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var withCid = allRegistrations
+                .Where(r => !string.IsNullOrEmpty(r.Cid))
+                .ToList();
+
+            var duplicateGroups = withCid
+                .GroupBy(r => r.Cid!)
+                .Where(g => g.Count() > 1)
+                .OrderByDescending(g => g.Count())
+                .ToList();
+
+            foreach (var group in duplicateGroups)
+            {
+                cidDuplicates.Add(new CidDuplicateGroup
+                {
+                    Cid = group.Key,
+                    Count = group.Count(),
+                    Registrations = group.Select(r => new CidDuplicateMember
+                    {
+                        Id = r.Id,
+                        Name = r.PersonalInfo.FullName,
+                        Status = r.Status
+                    }).ToList()
+                });
+            }
+
+            check5State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check5Error = ex.Message;
+            check5State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 6: DUPLICATE FILE NAMES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck6()
+    {
+        check6State = CheckState.Running;
+        check6Error = null;
+        fileDuplicates.Clear();
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+
+            var activeRegs = allRegistrations.Where(r => ActiveStatuses.Contains(r.Status)).ToList();
+
+            // Collect all (fileName, fileSize, fileType, divisionId, registration) tuples
+            var fileEntries = new List<(string FileName, long FileSize, string FileType, string DivisionId, Registration Reg)>();
+
+            foreach (var reg in activeRegs)
+            {
+                var divId = reg.CompetitionSelection.DivisionId;
+
+                if (reg.FileUploadInfo?.Photo is { } photo && !string.IsNullOrEmpty(photo.FileName))
+                    fileEntries.Add((photo.FileName.Trim().ToLowerInvariant(), photo.FileSizeBytes, "Photo", divId, reg));
+
+                if (reg.FileUploadInfo?.IdDocument is { } idDoc && !string.IsNullOrEmpty(idDoc.FileName))
+                    fileEntries.Add((idDoc.FileName.Trim().ToLowerInvariant(), idDoc.FileSizeBytes, "ID Document", divId, reg));
+            }
+
+            // Group by (fileName, fileSize, fileType, divisionId) — same file name + size within the same division
+            var duplicateGroups = fileEntries
+                .GroupBy(e => (e.FileName, e.FileSize, e.FileType, e.DivisionId))
+                .Where(g => g.Count() > 1)
+                .OrderByDescending(g => g.Count())
+                .ToList();
+
+            foreach (var group in duplicateGroups)
+            {
+                // Show the original casing from the first entry
+                var firstReg = group.First().Reg;
+                var displayName = firstReg.FileUploadInfo is { } fi
+                    ? (group.Key.FileType == "Photo" ? fi.Photo?.FileName : fi.IdDocument?.FileName) ?? group.Key.FileName
+                    : group.Key.FileName;
+                var divName = settings?.FindDivision(group.Key.DivisionId)?.Name ?? group.Key.DivisionId;
+
+                fileDuplicates.Add(new FileDuplicateGroup
+                {
+                    FileName = displayName,
+                    FileType = group.Key.FileType,
+                    FileSizeBytes = group.Key.FileSize,
+                    DivisionName = divName,
+                    Count = group.Count(),
+                    Registrations = group.Select(e => new FileDuplicateMember
+                    {
+                        Id = e.Reg.Id,
+                        Cid = e.Reg.Cid ?? "—",
+                        Name = e.Reg.PersonalInfo.FullName
+                    }).ToList()
+                });
+            }
+
+            check6State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check6Error = ex.Message;
+            check6State = CheckState.Error;
+        }
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI HELPER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task<string?> CallAiAsync(string systemPrompt, string userPrompt)
+    {
+        List<ChatMessage> messages = new()
+        {
+            new SystemChatMessage(systemPrompt),
+            new UserChatMessage(userPrompt)
+        };
+
+        var response = await ChatClient.CompleteChatAsync(messages);
+        var text = response.Value.Content[0].Text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        // Strip markdown code fences if present
+        if (text.StartsWith("```"))
+        {
+            var firstNewline = text.IndexOf('\n');
+            if (firstNewline > 0)
+                text = text[(firstNewline + 1)..];
+            if (text.EndsWith("```"))
+                text = text[..^3].TrimEnd();
+        }
+
+        return text;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UI HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void ToggleStateExpanded(string state)
+    {
+        if (!expandedStates.Remove(state))
+            expandedStates.Add(state);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESULT MODELS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private class DuplicateGroup
+    {
+        public string DivisionName { get; set; } = "";
+        public string CategoryName { get; set; } = "";
+        public string MatchKey { get; set; } = "";
+        public List<DuplicateMember> Members { get; set; } = new();
+    }
+
+    private class DuplicateMember
+    {
+        public string Id { get; set; } = "";
+        public string? Cid { get; set; }
+        public string FullName { get; set; } = "";
+        public RegistrationStatus Status { get; set; }
+    }
+
+    private class GenderMismatchResult
+    {
+        public string RegistrationId { get; set; } = "";
+        public string? Cid { get; set; }
+        public string Name { get; set; } = "";
+        public string RegisteredGender { get; set; } = "";
+        public string ExpectedGender { get; set; } = "";
+        public string Reason { get; set; } = "";
+    }
+
+    private class AiGenderFlag
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+        [JsonPropertyName("expected")]
+        public string? Expected { get; set; }
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+    }
+
+    private class PendingEditResult
+    {
+        public string RegistrationId { get; set; } = "";
+        public string? Cid { get; set; }
+        public string FullName { get; set; } = "";
+        public string DivisionName { get; set; } = "";
+        public string CategoryName { get; set; } = "";
+        public DateTimeOffset LastEditTimestamp { get; set; }
+        public string LastEditSummary { get; set; } = "";
+    }
+
+    private class InstitutionStateGroup
+    {
+        public string State { get; set; } = "";
+        public int ParticipantCount { get; set; }
+        public List<InstitutionCluster> Clusters { get; set; } = new();
+    }
+
+    private class InstitutionCluster
+    {
+        public string CanonicalName { get; set; } = "";
+        public List<string> Variations { get; set; } = new();
+        public int TotalRegistrations { get; set; }
+    }
+
+    private class AiInstitutionGroup
+    {
+        [JsonPropertyName("canonical")]
+        public string? Canonical { get; set; }
+        [JsonPropertyName("variations")]
+        public List<string>? Variations { get; set; }
+    }
+
+    private class CidDuplicateGroup
+    {
+        public string Cid { get; set; } = "";
+        public int Count { get; set; }
+        public List<CidDuplicateMember> Registrations { get; set; } = new();
+    }
+
+    private class CidDuplicateMember
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public RegistrationStatus Status { get; set; }
+    }
+
+    private class FileDuplicateGroup
+    {
+        public string FileName { get; set; } = "";
+        public string FileType { get; set; } = "";
+        public long FileSizeBytes { get; set; }
+        public string DivisionName { get; set; } = "";
+        public int Count { get; set; }
+        public List<FileDuplicateMember> Registrations { get; set; } = new();
+        public string FileSizeDisplay => FileSizeBytes switch
+        {
+            < 1024 => $"{FileSizeBytes} B",
+            < 1024 * 1024 => $"{FileSizeBytes / 1024.0:F1} KB",
+            _ => $"{FileSizeBytes / (1024.0 * 1024.0):F1} MB"
+        };
+    }
+
+    private class FileDuplicateMember
+    {
+        public string Id { get; set; } = "";
+        public string Cid { get; set; } = "";
+        public string Name { get; set; } = "";
+    }
+}

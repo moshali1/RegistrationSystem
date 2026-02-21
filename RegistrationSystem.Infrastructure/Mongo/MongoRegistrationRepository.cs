@@ -1,4 +1,5 @@
 ﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using RegistrationSystem.Core.Application.Registrations;
 using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Infrastructure.Mongo;
@@ -8,10 +9,12 @@ namespace RegistrationSystem.Infrastructure.Persistence;
 public class MongoRegistrationRepository : IRegistrationRepository
 {
     private readonly IMongoCollection<Registration> _collection;
+    private readonly IMongoCollection<BsonDocument> _counters;
 
     public MongoRegistrationRepository(MongoRegistrationSystemContext context)
     {
         _collection = context.Registrations;
+        _counters = context.Database.GetCollection<BsonDocument>("counters");
     }
 
     public async Task<Registration?> GetByIdAsync(
@@ -177,5 +180,38 @@ public class MongoRegistrationRepository : IRegistrationRepository
             .Max();
 
         return maxSequence;
+    }
+
+    /// <summary>
+    /// Atomically increments and returns the next CID sequence number for a given prefix.
+    /// Uses a MongoDB counters collection with FindOneAndUpdate + $inc to guarantee uniqueness
+    /// even under concurrent requests. The counter document is keyed by "{year}:{prefix}".
+    /// </summary>
+    public async Task<int> GetNextCidSequenceAsync(
+        int competitionYear,
+        string cidPrefix,
+        CancellationToken cancellationToken = default)
+    {
+        var counterId = $"{competitionYear}:{cidPrefix}";
+
+        var filter = Builders<BsonDocument>.Filter.Eq("_id", counterId);
+        var update = Builders<BsonDocument>.Update.Inc("seq", 1);
+        var options = new FindOneAndUpdateOptions<BsonDocument>
+        {
+            IsUpsert = true,
+            ReturnDocument = ReturnDocument.After
+        };
+
+        var result = await _counters.FindOneAndUpdateAsync(filter, update, options, cancellationToken);
+        return result["seq"].AsInt32;
+    }
+
+    public async Task UpdateCidAsync(
+        string id,
+        string newCid,
+        CancellationToken cancellationToken = default)
+    {
+        var update = Builders<Registration>.Update.Set(r => r.Cid, newCid);
+        await _collection.UpdateOneAsync(r => r.Id == id, update, cancellationToken: cancellationToken);
     }
 }

@@ -57,6 +57,7 @@ public interface IAuditRepository
     Task<AuditDailyStats> GetDailyStatsAsync(DateOnly date, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AuditDailyStats>> GetStatsRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
     Task<long> DeleteByEntityAsync(string entityType, string entityId, CancellationToken cancellationToken = default);
+    Task<long> DeleteByEntityAndActionAsync(string entityType, string entityId, AuditAction action, CancellationToken cancellationToken = default);
     Task UpdateSummaryAsync(string id, string newSummary, CancellationToken cancellationToken = default);
     Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default);
 }
@@ -162,6 +163,15 @@ public interface IAuditService
     Task<long> DeleteEntityAuditTrailAsync(
         string entityType,
         string entityId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes audit entries for a specific entity and action type.
+    /// </summary>
+    Task<long> DeleteByEntityAndActionAsync(
+        string entityType,
+        string entityId,
+        AuditAction action,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -353,6 +363,15 @@ public class AuditService : IAuditService
         CancellationToken cancellationToken = default)
     {
         return await _repository.DeleteByEntityAsync(entityType, entityId, cancellationToken);
+    }
+
+    public async Task<long> DeleteByEntityAndActionAsync(
+        string entityType,
+        string entityId,
+        AuditAction action,
+        CancellationToken cancellationToken = default)
+    {
+        return await _repository.DeleteByEntityAndActionAsync(entityType, entityId, action, cancellationToken);
     }
 
     public async Task UpdateEntrySummaryAsync(

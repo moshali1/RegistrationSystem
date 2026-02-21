@@ -240,6 +240,51 @@ else
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 ml-1.5">@method</span>
                                     }
                                 </p>
+                                @if (entry.Action == AuditAction.StatusChanged && entry.Metadata?.TryGetValue("Reason", out var reason) == true && !string.IsNullOrEmpty(reason))
+                                {
+                                    <p class="text-xs text-slate-500 -mt-2 mb-3 italic">@reason</p>
+                                }
+                            }
+
+                            <!-- ID Verification Metadata -->
+                            @if (entry.Action == AuditAction.IdVerification && entry.Metadata?.Count > 0)
+                            {
+                                <div class="flex flex-wrap gap-1.5 mb-3">
+                                    @foreach (var (key, label) in idVerificationMetadataFields)
+                                    {
+                                        if (entry.Metadata.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value))
+                                        {
+                                            var badgeColor = key is "FirstNameMatch" or "LastNameMatch" or "DateOfBirthMatch"
+                                                ? value == "Match" ? "bg-emerald-100 text-emerald-600"
+                                                : value == "NoMatch" ? "bg-red-100 text-red-600"
+                                                : "bg-amber-100 text-amber-600"
+                                                : "bg-slate-100 text-slate-500";
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium @badgeColor">@label: @value</span>
+                                        }
+                                    }
+                                </div>
+                                @if (entry.Metadata.TryGetValue("Reasoning", out var aiReasoning) && !string.IsNullOrEmpty(aiReasoning))
+                                {
+                                    <p class="text-xs text-slate-500 -mt-2 mb-3 italic">@aiReasoning</p>
+                                }
+                            }
+
+                            <!-- Deletion Metadata -->
+                            @if (entry.Action == AuditAction.Deleted && entry.Metadata?.Count > 0)
+                            {
+                                <div class="flex flex-wrap gap-1.5 mb-3">
+                                    @foreach (var (key, label) in deletionMetadataFields)
+                                    {
+                                        if (entry.Metadata.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value))
+                                        {
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">@label: @FormatMetadataValue(key, value)</span>
+                                        }
+                                    }
+                                    @if (entry.Metadata.TryGetValue("AuditTrailDeleted", out var auditDeleted) && auditDeleted == "True")
+                                    {
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-500">Audit trail also deleted</span>
+                                    }
+                                </div>
                             }
 
                             <!-- Field Changes -->
@@ -453,6 +498,33 @@ else
     private AuditDailyStats? dailyStats;
     private HashSet<string> expandedEntries = new();
 
+    private static readonly (string key, string label)[] deletionMetadataFields =
+    [
+        ("DateOfBirth", "DOB"),
+        ("Division", "Division"),
+        ("Category", "Category"),
+        ("Portion", "Portion"),
+        ("Status", "Status"),
+        ("CreatorEmail", "Creator")
+    ];
+
+    private static readonly (string key, string label)[] idVerificationMetadataFields =
+    [
+        ("Outcome", "Result"),
+        ("DocumentType", "Document"),
+        ("IssuingCountry", "Country"),
+        ("FirstNameMatch", "First Name"),
+        ("LastNameMatch", "Last Name"),
+        ("DateOfBirthMatch", "DOB")
+    ];
+
+    private static string FormatMetadataValue(string key, string value)
+    {
+        if (key == "DateOfBirth" && DateOnly.TryParse(value, out var dob))
+            return dob.ToString("M/d/yyyy");
+        return value;
+    }
+
     private bool isLoading = true;
     private int totalCount;
     private int currentPage = 1;
@@ -602,6 +674,8 @@ else
             ("bg-gradient-to-br from-amber-500 to-amber-600", "bg-amber-100 text-amber-700"),
         AuditAction.DataImport or AuditAction.DataExport =>
             ("bg-gradient-to-br from-slate-500 to-slate-600", "bg-slate-100 text-slate-700"),
+        AuditAction.IdVerification =>
+            ("bg-gradient-to-br from-cyan-500 to-cyan-600", "bg-cyan-100 text-cyan-700"),
         _ => ("bg-gradient-to-br from-slate-400 to-slate-500", "bg-slate-100 text-slate-600")
     };
 
@@ -641,6 +715,10 @@ else
 
             case AuditAction.SettingsUpdated:
                 @Icons.Cog("h-5 w-5 text-white")
+                break;
+
+            case AuditAction.IdVerification:
+                @Icons.ShieldCheckFilled("h-5 w-5 text-white")
                 break;
 
             default:

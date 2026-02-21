@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Domain.Settings;
+using RegistrationSystem.Web.Services;
 
 namespace RegistrationSystem.Web.Components.Pages.Admin.SettingsPage;
 
@@ -87,19 +88,19 @@ public partial class Settings : ComponentBase, IDisposable
     private void SetGlobalStart(string? value)
     {
         if (settings is null) return;
-        settings.RegistrationStart = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
+        settings.RegistrationStart = TimeZoneHelper.ParseAsCentral(value);
     }
 
     private void SetGlobalEnd(string? value)
     {
         if (settings is null) return;
-        settings.RegistrationEnd = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
+        settings.RegistrationEnd = TimeZoneHelper.ParseAsCentral(value);
     }
 
     private void SetPendingDeadline(string? value)
     {
         if (settings is null) return;
-        settings.PendingDeadline = DateTime.TryParse(value, out var dt) ? new DateTimeOffset(dt) : null;
+        settings.PendingDeadline = TimeZoneHelper.ParseDateAsCentral(value);
     }
 
     private string ageCutoffDateString => settings?.AgeCutoffDate.ToString("yyyy-MM-dd") ?? string.Empty;
@@ -468,13 +469,13 @@ public partial class Settings : ComponentBase, IDisposable
     private void SetEditingCategoryStart(string? value)
     {
         if (editingCategory is null) return;
-        editingCategory.RegistrationStart = DateTimeOffset.TryParse(value, out var dt) ? dt : null;
+        editingCategory.RegistrationStart = TimeZoneHelper.ParseAsCentral(value);
     }
 
     private void SetEditingCategoryEnd(string? value)
     {
         if (editingCategory is null) return;
-        editingCategory.RegistrationEnd = DateTimeOffset.TryParse(value, out var dt) ? dt : null;
+        editingCategory.RegistrationEnd = TimeZoneHelper.ParseAsCentral(value);
     }
 
     private void CloseEditPanel()

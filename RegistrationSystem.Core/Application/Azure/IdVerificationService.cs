@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenAI.Chat;
+using PDFtoImage;
 using RegistrationSystem.Core.Domain.Registrations;
 
 namespace RegistrationSystem.Core.Application.Azure;
@@ -64,23 +65,25 @@ public class IdVerificationService
                 return result;
             }
 
-            // Check if it's an image (skip PDFs)
             var ext = idDoc.Extension?.TrimStart('.') ?? "";
-            if (!ImageExtensions.Contains($".{ext}"))
+            var isPdf = ext.Equals("pdf", StringComparison.OrdinalIgnoreCase);
+            var isImage = ImageExtensions.Contains($".{ext}");
+
+            if (!isImage && !isPdf)
             {
                 result.IsSkipped = true;
-                result.SkipReason = $"PDF/non-image document (.{ext}) — cannot process with OCR";
+                result.SkipReason = $"Unsupported document format (.{ext})";
                 return result;
             }
 
-            // Download the ID image from blob storage
+            // Download the document from blob storage
             var containerName = BlobStorageService.GenerateContainerName(
                 competitionYear, divisionName, FileType.Id);
 
-            Stream imageStream;
+            Stream documentStream;
             try
             {
-                imageStream = await _blobStorageService.DownloadAsync(
+                documentStream = await _blobStorageService.DownloadAsync(
                     containerName, idDoc.StorageReference, cancellationToken);
             }
             catch (Exception ex)
@@ -88,6 +91,37 @@ public class IdVerificationService
                 result.HasError = true;
                 result.ErrorMessage = $"Failed to download ID document: {ex.Message}";
                 return result;
+            }
+
+            // For PDFs, render page 1 to a PNG image for OCR
+            Stream imageStream;
+            if (isPdf)
+            {
+                try
+                {
+                    // PDFtoImage requires a seekable stream — blob downloads aren't seekable
+                    var seekableStream = new MemoryStream();
+                    await documentStream.CopyToAsync(seekableStream, cancellationToken);
+                    await documentStream.DisposeAsync();
+                    seekableStream.Position = 0;
+
+                    var pngStream = new MemoryStream();
+                    Conversion.SavePng(pngStream, seekableStream, page: 0,
+                        leaveOpen: false, password: null,
+                        options: new RenderOptions(Dpi: 300));
+                    pngStream.Position = 0;
+                    imageStream = pngStream;
+                }
+                catch (Exception ex)
+                {
+                    result.HasError = true;
+                    result.ErrorMessage = $"Failed to convert PDF to image: {ex.Message}";
+                    return result;
+                }
+            }
+            else
+            {
+                imageStream = documentStream;
             }
 
             // Extract text via OCR

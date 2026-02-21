@@ -1,5 +1,7 @@
 ﻿using RegistrationSystem.Core.Application.Auditing;
+using RegistrationSystem.Core.Application.Azure;
 using RegistrationSystem.Core.Domain.Auditing;
+using RegistrationSystem.Core.Domain.Registrations;
 using RegistrationSystem.Core.Domain.Users;
 
 namespace RegistrationSystem.Web.Services;
@@ -100,8 +102,6 @@ public static class AuditServiceExtensions
         string? method = null)
     {
         var summary = $"{oldStatus} → {newStatus}";
-        if (!string.IsNullOrEmpty(reason))
-            summary += $" ({reason})";
 
         var metadata = new Dictionary<string, string>
         {
@@ -110,6 +110,8 @@ public static class AuditServiceExtensions
         };
         if (!string.IsNullOrEmpty(method))
             metadata["Method"] = method;
+        if (!string.IsNullOrEmpty(reason))
+            metadata["Reason"] = reason;
 
         await auditService.LogAsync(
             AuditAction.StatusChanged,
@@ -190,6 +192,51 @@ public static class AuditServiceExtensions
     }
 
     /// <summary>
+    /// Logs a registration deletion with full snapshot of the registration data.
+    /// This preserves all relevant info since the registration will be permanently deleted.
+    /// </summary>
+    public static async Task LogRegistrationDeletedAsync(
+        this IAuditService auditService,
+        Registration registration,
+        string divisionName,
+        string categoryName,
+        string? creatorEmail = null,
+        bool auditTrailDeleted = false,
+        bool isBulkOperation = false)
+    {
+        var name = registration.PersonalInfo.FullName;
+        var cid = registration.Cid ?? "N/A";
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["CompetitorName"] = name,
+            ["CID"] = cid,
+            ["DateOfBirth"] = registration.PersonalInfo.DateOfBirth.ToString("yyyy-MM-dd"),
+            ["Division"] = divisionName,
+            ["Category"] = categoryName,
+            ["Status"] = registration.Status.ToString(),
+            ["AuditTrailDeleted"] = auditTrailDeleted.ToString()
+        };
+
+        if (registration.CompetitionSelection.PortionChoice.HasValue)
+            metadata["Portion"] = registration.CompetitionSelection.PortionChoice.Value.ToString();
+
+        if (!string.IsNullOrEmpty(creatorEmail))
+            metadata["CreatorEmail"] = creatorEmail;
+
+        if (isBulkOperation)
+            metadata["BulkOperation"] = "true";
+
+        await auditService.LogAsync(
+            AuditAction.Deleted,
+            "Registration",
+            registration.Id,
+            summary: $"Registration deleted: {name} ({cid})",
+            entityDescription: $"{name} ({cid})",
+            metadata: metadata);
+    }
+
+    /// <summary>
     /// Logs a settings update.
     /// </summary>
     public static async Task LogSettingsUpdatedAsync(
@@ -204,5 +251,42 @@ public static class AuditServiceExtensions
             settingsId,
             summary: $"{section} settings updated" + (details != null ? $": {details}" : ""),
             entityDescription: $"Competition {DateTime.Now.Year}");
+    }
+
+    /// <summary>
+    /// Logs an ID verification result. Skips logging for skipped/errored results.
+    /// </summary>
+    public static async Task LogIdVerificationAsync(
+        this IAuditService auditService,
+        IdVerificationResult result,
+        string entityDescription)
+    {
+        if (result.IsSkipped || result.HasError) return;
+
+        var outcomeLabel = result.Outcome switch
+        {
+            IdVerificationOutcome.Pass => "Pass",
+            IdVerificationOutcome.Flag => "Flag",
+            _ => "Needs Review"
+        };
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["Outcome"] = outcomeLabel,
+            ["DocumentType"] = result.DocumentType,
+            ["IssuingCountry"] = result.IssuingCountry,
+            ["FirstNameMatch"] = result.FirstNameMatch.ToString(),
+            ["LastNameMatch"] = result.LastNameMatch.ToString(),
+            ["DateOfBirthMatch"] = result.DateOfBirthMatch.ToString(),
+            ["Reasoning"] = result.Reasoning
+        };
+
+        await auditService.LogAsync(
+            AuditAction.IdVerification,
+            "Registration",
+            result.RegistrationId,
+            summary: $"ID Verification: {outcomeLabel}",
+            entityDescription: entityDescription,
+            metadata: metadata);
     }
 }
