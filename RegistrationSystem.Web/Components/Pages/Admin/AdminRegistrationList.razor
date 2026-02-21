@@ -1979,7 +1979,7 @@
 
     private void OpenBulkVerifyModal()
     {
-        bulkVerifyTemplateId = "";
+        bulkVerifyTemplateId = settings?.EmailDefaults?.VerifiedTemplateId ?? "";
         showBulkVerifyModal = true;
     }
 

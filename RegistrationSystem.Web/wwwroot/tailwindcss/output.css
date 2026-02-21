@@ -698,6 +698,9 @@
   .max-h-40 {
     max-height: calc(var(--spacing) * 40);
   }
+  .max-h-48 {
+    max-height: calc(var(--spacing) * 48);
+  }
   .max-h-56 {
     max-height: calc(var(--spacing) * 56);
   }
@@ -730,6 +733,9 @@
   }
   .max-h-\[480px\] {
     max-height: 480px;
+  }
+  .max-h-\[calc\(85vh-130px\)\] {
+    max-height: calc(85vh - 130px);
   }
   .max-h-\[calc\(90vh-140px\)\] {
     max-height: calc(90vh - 140px);
@@ -2529,6 +2535,9 @@
   .text-violet-300 {
     color: var(--color-violet-300);
   }
+  .text-violet-400 {
+    color: var(--color-violet-400);
+  }
   .text-violet-500 {
     color: var(--color-violet-500);
   }
@@ -3319,6 +3328,13 @@
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-violet-50);
+      }
+    }
+  }
+  .hover\:bg-violet-100 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-violet-100);
       }
     }
   }

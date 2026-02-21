@@ -19,6 +19,7 @@ public static class SettingsComparer
         }
         if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
         if (!AreCidConfigurationEqual(a.CidConfiguration, b.CidConfiguration)) return false;
+        if (!AreEmailDefaultsEqual(a.EmailDefaults, b.EmailDefaults)) return false;
         return true;
     }
 
@@ -101,5 +102,14 @@ public static class SettingsComparer
         }
 
         return true;
+    }
+
+    private static bool AreEmailDefaultsEqual(EmailDefaults? a, EmailDefaults? b)
+    {
+        if (a is null || b is null) return a is null && b is null;
+        return a.PendingTemplateId == b.PendingTemplateId
+            && a.VerifiedTemplateId == b.VerifiedTemplateId
+            && a.DisqualifiedTemplateId == b.DisqualifiedTemplateId
+            && a.WithdrawnTemplateId == b.WithdrawnTemplateId;
     }
 }

@@ -62,6 +62,22 @@ public class NiqabBypass
     public string? Notes { get; set; }
 
     /// <summary>
+    /// Matched registration ID (persisted after auto-sync).
+    /// </summary>
+    public string? RegistrationId { get; set; }
+
+    /// <summary>
+    /// Matched registration CID (persisted after auto-sync).
+    /// </summary>
+    public string? RegistrationCid { get; set; }
+
+    /// <summary>
+    /// True when created as a reverse bypass from photo review.
+    /// AI detected a face through niqab — documenting for in-person identity verification.
+    /// </summary>
+    public bool IsReverse { get; set; }
+
+    /// <summary>
     /// Generates a random 5-character alphanumeric code.
     /// </summary>
     public static string GenerateCode()

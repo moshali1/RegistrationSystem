@@ -193,6 +193,7 @@ public enum AuditAction
     NiqabBypassCreated = 30,
     NiqabBypassClaimed = 31,
     NiqabBypassDeleted = 32,
+    NiqabBypassReversed = 33,
 
     // Settings
     SettingsUpdated = 40,
@@ -229,6 +230,7 @@ public static class AuditActionExtensions
         AuditAction.NiqabBypassCreated => "Niqab Bypass Created",
         AuditAction.NiqabBypassClaimed => "Niqab Bypass Claimed",
         AuditAction.NiqabBypassDeleted => "Niqab Bypass Deleted",
+        AuditAction.NiqabBypassReversed => "Niqab Bypass (Reverse)",
         AuditAction.SettingsUpdated => "Settings Updated",
         AuditAction.ManualCorrection => "Manual Correction",
         AuditAction.DataImport => "Data Import",
@@ -248,7 +250,7 @@ public static class AuditActionExtensions
         AuditAction.Withdrawn => "amber",
         AuditAction.StatusChanged => "violet",
         AuditAction.EmailSent or AuditAction.SmsSent => "blue",
-        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed or AuditAction.NiqabBypassDeleted => "violet",
+        AuditAction.NiqabBypassCreated or AuditAction.NiqabBypassClaimed or AuditAction.NiqabBypassDeleted or AuditAction.NiqabBypassReversed => "violet",
         AuditAction.SettingsUpdated => "slate",
         AuditAction.ManualCorrection => "amber",
         AuditAction.DataImport or AuditAction.DataExport => "slate",

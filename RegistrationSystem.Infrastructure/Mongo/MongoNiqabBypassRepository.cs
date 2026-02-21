@@ -101,4 +101,11 @@ public class MongoNiqabBypassRepository : INiqabBypassRepository
     {
         await _collection.DeleteOneAsync(x => x.Id == id, cancellationToken);
     }
+
+    public async Task<NiqabBypass?> FindByRegistrationIdAsync(string registrationId, CancellationToken cancellationToken = default)
+    {
+        return await _collection
+            .Find(x => x.RegistrationId == registrationId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }
