@@ -219,11 +219,11 @@ else
                     <div class="flex items-center gap-4 text-xs text-slate-400">
                         @if (submittedAt.HasValue)
                         {
-                            <span>Submitted <span class="text-slate-600 font-medium">@submittedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
+                            <span>Submitted <span class="text-slate-600 font-medium">@submittedAt.Value.FormatCentral("MMM d, yyyy")</span></span>
                         }
                         @if (lastUpdatedAt.HasValue)
                         {
-                            <span>Updated <span class="text-slate-600 font-medium">@lastUpdatedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span></span>
+                            <span>Updated <span class="text-slate-600 font-medium">@lastUpdatedAt.Value.FormatCentral("MMM d, yyyy")</span></span>
                         }
                     </div>
                     <div class="flex items-center gap-2">

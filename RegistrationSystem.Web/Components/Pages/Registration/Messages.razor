@@ -582,14 +582,14 @@
 
     private static string FormatCentralTime(DateTimeOffset dto)
     {
-        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
         var ct = TimeZoneInfo.ConvertTimeFromUtc(dto.UtcDateTime, centralZone);
         return ct.ToString("MMM d, yyyy 'at' h:mm tt") + " CT";
     }
 
     private static string FormatScheduleDescription(DateTimeOffset dto)
     {
-        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
         var ct = TimeZoneInfo.ConvertTimeFromUtc(dto.UtcDateTime, centralZone);
         var dayOfWeek = ct.ToString("dddd");
         var date = ct.ToString("MMMM d, yyyy");

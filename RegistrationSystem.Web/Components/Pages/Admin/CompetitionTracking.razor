@@ -1349,9 +1349,7 @@
     {
         if (entry?.AcknowledgedAt == null) return "—";
 
-        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
-        var ct = TimeZoneInfo.ConvertTimeFromUtc(entry.AcknowledgedAt.Value.UtcDateTime, centralZone);
-        return ct.ToString("MMM d, h:mm tt");
+        return entry.AcknowledgedAt.Value.FormatCentral("MMM d, h:mm tt");
     }
 
     private static string GetTimeSinceAssignment(RoundEntry? entry)

@@ -194,7 +194,7 @@ else
                             <div>
                                 <div class="text-xs text-slate-500">Registration closes</div>
                                 <div class="text-sm font-medium text-slate-700 mt-0.5">
-                                    @nearestCloseDate.Value.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")
+                                    @nearestCloseDate.Value.FormatCentral("MMM d, yyyy 'at' h:mm tt") CT
                                 </div>
                             </div>
                         </div>

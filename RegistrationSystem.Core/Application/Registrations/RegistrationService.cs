@@ -331,12 +331,11 @@ public class RegistrationService
 
         var prefix = $"{divisionLetter}{stateCode}";
 
-        var maxSequence = await _repository.GetMaxCidSequenceAsync(
+        // Atomic increment — guarantees unique sequence numbers even under concurrent requests
+        var nextSequence = await _repository.GetNextCidSequenceAsync(
             registration.CompetitionYear,
             prefix,
             cancellationToken);
-
-        var nextSequence = maxSequence + 1;
 
         return $"{prefix}{nextSequence:D3}";
     }

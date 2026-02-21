@@ -202,7 +202,10 @@ public enum AuditAction
 
     // Data operations
     DataImport = 60,
-    DataExport = 61
+    DataExport = 61,
+
+    // ID Verification
+    IdVerification = 70
 }
 
 /// <summary>
@@ -230,6 +233,7 @@ public static class AuditActionExtensions
         AuditAction.ManualCorrection => "Manual Correction",
         AuditAction.DataImport => "Data Import",
         AuditAction.DataExport => "Data Export",
+        AuditAction.IdVerification => "ID Verification",
         _ => action.ToString()
     };
 
@@ -248,6 +252,7 @@ public static class AuditActionExtensions
         AuditAction.SettingsUpdated => "slate",
         AuditAction.ManualCorrection => "amber",
         AuditAction.DataImport or AuditAction.DataExport => "slate",
+        AuditAction.IdVerification => "cyan",
         _ => "slate"
     };
 }

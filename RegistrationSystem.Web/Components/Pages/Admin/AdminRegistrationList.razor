@@ -1788,22 +1788,16 @@
             var cid = deleteTarget.Cid ?? "N/A";
             var regId = deleteTarget.Id;
 
+            // Look up creator email before deletion
+            var creator = await UserService.GetByObjectIdentifierAsync(deleteTarget.CreatorUserId);
+
             await AuditContextProvider.SetCurrentUserContextAsync();
-            await AuditService.LogAsync(
-                AuditAction.Deleted,
-                "Registration",
-                regId,
-                summary: $"Deleted registration for {name} ({cid})",
-                entityDescription: $"{name} ({cid})",
-                metadata: new Dictionary<string, string>
-                {
-                    ["CompetitorName"] = name,
-                    ["CID"] = cid,
-                    ["Division"] = GetDivisionName(deleteTarget),
-                    ["Category"] = GetCategoryName(deleteTarget),
-                    ["Status"] = deleteTarget.Status.ToString(),
-                    ["AuditTrailDeleted"] = deleteAuditTrail.ToString()
-                });
+            await AuditService.LogRegistrationDeletedAsync(
+                deleteTarget,
+                GetDivisionName(deleteTarget),
+                GetCategoryName(deleteTarget),
+                creatorEmail: creator?.Email,
+                auditTrailDeleted: deleteAuditTrail);
 
             await RegistrationRepository.DeleteAsync(regId);
 
@@ -2235,6 +2229,15 @@
 
         await AuditContextProvider.SetCurrentUserContextAsync();
 
+        // Batch-fetch creator emails to avoid N+1 queries
+        var creatorEmails = new Dictionary<string, string>();
+        foreach (var userId in selected.Select(r => r.CreatorUserId).Distinct())
+        {
+            var user = await UserService.GetByObjectIdentifierAsync(userId);
+            if (user?.Email != null)
+                creatorEmails[userId] = user.Email;
+        }
+
         foreach (var reg in selected)
         {
             try
@@ -2242,24 +2245,15 @@
                 bulkProgress++;
                 StateHasChanged();
 
-                var name = reg.PersonalInfo.FullName;
-                var cid = reg.Cid ?? "N/A";
+                creatorEmails.TryGetValue(reg.CreatorUserId, out var creatorEmail);
 
-                await AuditService.LogAsync(
-                    AuditAction.Deleted,
-                    "Registration",
-                    reg.Id,
-                    summary: $"Bulk deleted registration for {name} ({cid})",
-                    entityDescription: $"{name} ({cid})",
-                    metadata: new Dictionary<string, string>
-                    {
-                        ["CompetitorName"] = name,
-                        ["CID"] = cid,
-                        ["Division"] = GetDivisionName(reg),
-                        ["Category"] = GetCategoryName(reg),
-                        ["Status"] = reg.Status.ToString(),
-                        ["BulkOperation"] = "true"
-                    });
+                await AuditService.LogRegistrationDeletedAsync(
+                    reg,
+                    GetDivisionName(reg),
+                    GetCategoryName(reg),
+                    creatorEmail: creatorEmail,
+                    auditTrailDeleted: bulkDeleteAuditTrail,
+                    isBulkOperation: true);
 
                 await RegistrationRepository.DeleteAsync(reg.Id);
 

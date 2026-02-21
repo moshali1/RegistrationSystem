@@ -565,11 +565,11 @@ else
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="bg-slate-50 rounded-lg p-4">
                                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Opens</p>
-                                <p class="text-sm font-semibold text-slate-800">@(settings.RegistrationStart?.ToLocalTime().ToString("MMMM d, yyyy h:mm tt") ?? "Not set")</p>
+                                <p class="text-sm font-semibold text-slate-800">@settings.RegistrationStart.FormatCentral("MMMM d, yyyy h:mm tt")</p>
                             </div>
                             <div class="bg-slate-50 rounded-lg p-4">
                                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Closes</p>
-                                <p class="text-sm font-semibold text-slate-800">@(settings.RegistrationEnd?.ToLocalTime().ToString("MMMM d, yyyy h:mm tt") ?? "Not set")</p>
+                                <p class="text-sm font-semibold text-slate-800">@settings.RegistrationEnd.FormatCentral("MMMM d, yyyy h:mm tt")</p>
                             </div>
                             <div class="bg-slate-50 rounded-lg p-4">
                                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Age Cutoff</p>

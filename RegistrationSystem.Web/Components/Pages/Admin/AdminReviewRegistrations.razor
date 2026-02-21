@@ -260,6 +260,70 @@
 
                         <!-- Content -->
                         <div class="p-4">
+                            <!-- ID Verification Alert -->
+                            @if (idVerificationEntry != null && !idVerificationDismissed)
+                            {
+                                var outcome = idVerificationEntry.Metadata?.GetValueOrDefault("Outcome") ?? "Unknown";
+                                var reasoning = idVerificationEntry.Metadata?.GetValueOrDefault("Reasoning") ?? "";
+                                var docType = idVerificationEntry.Metadata?.GetValueOrDefault("DocumentType") ?? "";
+                                var country = idVerificationEntry.Metadata?.GetValueOrDefault("IssuingCountry") ?? "";
+                                var firstMatch = idVerificationEntry.Metadata?.GetValueOrDefault("FirstNameMatch") ?? "";
+                                var lastMatch = idVerificationEntry.Metadata?.GetValueOrDefault("LastNameMatch") ?? "";
+                                var dobMatch = idVerificationEntry.Metadata?.GetValueOrDefault("DateOfBirthMatch") ?? "";
+
+                                var (bgClass, borderClass, textClass, iconColor) = outcome switch
+                                {
+                                    "Pass" => ("bg-emerald-50", "border-emerald-200", "text-emerald-800", "text-emerald-600"),
+                                    "Flag" => ("bg-red-50", "border-red-200", "text-red-800", "text-red-600"),
+                                    _ => ("bg-amber-50", "border-amber-200", "text-amber-800", "text-amber-600")
+                                };
+
+                                <div class="@bgClass @borderClass border rounded-xl p-3 mb-3">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="flex items-start gap-2 min-w-0">
+                                            @switch (outcome)
+                                            {
+                                                case "Pass":
+                                                    @Icons.CheckCircle($"h-4 w-4 {iconColor} mt-0.5 shrink-0")
+                                                    break;
+                                                case "Flag":
+                                                    @Icons.XCircle($"h-4 w-4 {iconColor} mt-0.5 shrink-0")
+                                                    break;
+                                                default:
+                                                    @Icons.Warning($"h-4 w-4 {iconColor} mt-0.5 shrink-0")
+                                                    break;
+                                            }
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="text-xs font-semibold @textClass">ID Verification: @outcome</span>
+                                                    @if (!string.IsNullOrEmpty(docType) && docType != "unknown")
+                                                    {
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/60 @textClass">@FormatDocType(docType)</span>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(country) && country != "unknown")
+                                                    {
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/60 @textClass">@country</span>
+                                                    }
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(reasoning))
+                                                {
+                                                    <p class="text-xs @textClass mt-1 opacity-80">@reasoning</p>
+                                                }
+                                                <div class="flex flex-wrap gap-1.5 mt-1.5">
+                                                    <span class="text-[10px] @(firstMatch == "Match" ? "text-emerald-700" : firstMatch == "NoMatch" ? "text-red-600" : "text-amber-600") font-medium">First: @firstMatch</span>
+                                                    <span class="text-[10px] @(lastMatch == "Match" ? "text-emerald-700" : lastMatch == "NoMatch" ? "text-red-600" : "text-amber-600") font-medium">Last: @lastMatch</span>
+                                                    <span class="text-[10px] @(dobMatch == "Match" ? "text-emerald-700" : dobMatch == "NoMatch" ? "text-red-600" : "text-amber-600") font-medium">DOB: @dobMatch</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" @onclick="() => idVerificationDismissed = true"
+                                                class="shrink-0 @textClass opacity-60 hover:opacity-100 cursor-pointer">
+                                            @Icons.XMark("h-4 w-4")
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+
                             <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
                                 <!-- Left Column: Personal & Competition Info -->
                                 <div class="space-y-3">
@@ -485,6 +549,11 @@
                                             <textarea @bind="newComment" rows="2"
                                                       placeholder="Comment (optional for approval, required for rejection)..."
                                                       class="w-full px-3 py-1.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 text-xs resize-none"></textarea>
+                                            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                                <input type="checkbox" @bind="sendEmail"
+                                                       class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                                                <span class="text-xs text-slate-600">Send email notification</span>
+                                            </label>
                                             <div class="flex gap-2">
                                                 <button type="button" @onclick="UpdateStatus" disabled="@(string.IsNullOrEmpty(newStatus) || isUpdating)"
                                                         class="flex-1 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-400 text-white text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5">
@@ -585,7 +654,7 @@
                                         {
                                             <div class="flex items-center gap-1.5">
                                                 @Icons.Clock("h-3.5 w-3.5 text-slate-400")
-                                                <span>@submitterInfo.SubmittedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                                <span>@submitterInfo.SubmittedAt.Value.FormatCentral("MMM d, yyyy h:mm tt")</span>
                                             </div>
                                         }
                                     </div>
@@ -773,9 +842,14 @@
     // Status update
     private string newStatus = string.Empty;
     private string newComment = string.Empty;
+    private bool sendEmail = true;
 
     // Submitter info
     private SubmitterInfo? submitterInfo;
+
+    // ID Verification
+    private AuditEntry? idVerificationEntry;
+    private bool idVerificationDismissed;
 
     // Email tracking
     private int pendingEmailsSentCount = 0;
@@ -966,8 +1040,10 @@
         newStatus = string.Empty;
         newComment = string.Empty;
         pendingEmailsSentCount = 0;
+        idVerificationDismissed = false;
         await LoadSubmitterInfo(reg);
         _ = LoadEmailSentCount(reg);
+        _ = LoadIdVerification(reg);
         _ = PreloadAdjacentImages();
     }
 
@@ -1137,6 +1213,23 @@
         }
     }
 
+    private async Task LoadIdVerification(Registration reg)
+    {
+        try
+        {
+            var auditEntries = await AuditService.GetEntityHistoryAsync("Registration", reg.Id);
+            idVerificationEntry = auditEntries
+                .Where(e => e.Action == AuditAction.IdVerification)
+                .OrderByDescending(e => e.Timestamp)
+                .FirstOrDefault();
+            StateHasChanged();
+        }
+        catch
+        {
+            idVerificationEntry = null;
+        }
+    }
+
     private async Task UpdatePendingComment()
     {
         if (selectedRegistration == null || selectedRegistration.Status != RegistrationStatus.Pending)
@@ -1290,23 +1383,35 @@
                 $"{selectedRegistration.PersonalInfo.FullName} ({selectedRegistration.Cid})",
                 StatusBadge.GetDisplayName(oldStatus),
                 StatusBadge.GetDisplayName(newStatusEnum),
+                reason: selectedRegistration.StatusComment,
                 method: "Manual");
 
-            // Send status email notification
-            string? emailTemplateKeyword = newStatusEnum switch
+            // Send status email notification (unless opted out)
+            if (sendEmail)
             {
-                RegistrationStatus.Pending when !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment) => "Pending",
-                RegistrationStatus.Disqualified => "Disqualif",
-                RegistrationStatus.Withdrawn => "Withdraw",
-                _ => null
-            };
+                string? emailTemplateKeyword = newStatusEnum switch
+                {
+                    RegistrationStatus.Pending when !string.IsNullOrWhiteSpace(selectedRegistration.StatusComment) => "Pending",
+                    RegistrationStatus.Disqualified => "Disqualif",
+                    RegistrationStatus.Withdrawn => "Withdraw",
+                    _ => null
+                };
 
-            if (emailTemplateKeyword != null)
+                if (emailTemplateKeyword != null)
+                {
+                    var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, emailTemplateKeyword);
+                    if (sent && newStatusEnum == RegistrationStatus.Pending) pendingEmailsSentCount++;
+                    if (!templateFound) statusUpdateError = $"Status updated, but no active \"{emailTemplateKeyword}\" email template found. No email was sent.";
+                    else if (emailError != null) statusUpdateError = $"Status updated, but email failed: {emailError}";
+                }
+            }
+
+            // Clean up IdVerification audit entry when marked as Reviewed
+            if (newStatusEnum == RegistrationStatus.Reviewed)
             {
-                var (sent, templateFound, emailError) = await SendStatusEmailAsync(selectedRegistration, emailTemplateKeyword);
-                if (sent && newStatusEnum == RegistrationStatus.Pending) pendingEmailsSentCount++;
-                if (!templateFound) statusUpdateError = $"Status updated, but no active \"{emailTemplateKeyword}\" email template found. No email was sent.";
-                else if (emailError != null) statusUpdateError = $"Status updated, but email failed: {emailError}";
+                await AuditService.DeleteByEntityAndActionAsync(
+                    "Registration", selectedRegistration.Id, AuditAction.IdVerification);
+                idVerificationEntry = null;
             }
 
             // Update stats
@@ -1321,6 +1426,7 @@
             // Clear form and advance to next registration
             newStatus = string.Empty;
             newComment = string.Empty;
+            sendEmail = true;
 
             if (nextRegistration != null)
             {
@@ -1525,7 +1631,7 @@
     private string FormatDate(DateTimeOffset? date)
     {
         if (date == null) return "Unknown";
-        return date.Value.ToLocalTime().ToString("MMM d, yyyy");
+        return date.Value.FormatCentral("MMM d, yyyy");
     }
 
     private string FormatFileSize(long bytes)
@@ -1550,4 +1656,14 @@
 
         public string UserTypeDisplay => string.IsNullOrEmpty(UserTypeLabel) ? "Unknown" : UserTypeLabel;
     }
+
+    private static string FormatDocType(string docType) => docType switch
+    {
+        "drivers_license" => "Driver's License",
+        "state_id" => "State ID",
+        "passport" => "Passport",
+        "birth_certificate" => "Birth Certificate",
+        "other" => "Other",
+        _ => docType
+    };
 }

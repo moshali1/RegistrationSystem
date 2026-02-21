@@ -1,0 +1,674 @@
+@page "/admin/photo-review"
+@attribute [Authorize(Roles = "Admin")]
+
+@using Microsoft.AspNetCore.Authorization
+@using RegistrationSystem.Core.Application.Azure
+@using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Settings
+@using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Settings
+
+@inject RegistrationService RegistrationService
+@inject SettingsService SettingsService
+@inject BlobSasService BlobSasService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Photo Review</PageTitle>
+
+<div class="max-w-[1800px] mx-auto space-y-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Photo Review</h1>
+            <p class="text-sm text-slate-500 mt-1">Bulk review competitor photos — click any photo to view details</p>
+        </div>
+        <a href="admin/tools" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            @Icons.Chevron("h-4 w-4 rotate-180")
+            Back to Tools
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex items-center justify-center py-20">
+            <div class="flex items-center gap-3 text-slate-500">
+                <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span class="text-sm">Loading registrations...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Division -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Division</label>
+                    <select @bind="selectedDivisionId" @bind:after="OnFilterChanged"
+                            class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="">All Divisions</option>
+                        @foreach (var div in divisions)
+                        {
+                            <option value="@div.Id">@div.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Category -->
+                @if (!string.IsNullOrEmpty(selectedDivisionId))
+                {
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Category</label>
+                        <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
+                                class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value="">All Categories</option>
+                            @foreach (var cat in availableCategories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <!-- Status -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Status</label>
+                    <select @bind="selectedStatus" @bind:after="OnFilterChanged"
+                            class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="Reviewed">Reviewed</option>
+                        <option value="Verified">Verified</option>
+                        <option value="AwaitingReview">Awaiting Review</option>
+                        <option value="Pending">Pending</option>
+                        <option value="">All Statuses</option>
+                    </select>
+                </div>
+
+                <!-- Show type -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Show</label>
+                    <select @bind="showType" @bind:after="OnFilterChanged"
+                            class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="photo">Photos</option>
+                        <option value="id">ID Documents</option>
+                    </select>
+                </div>
+
+                <!-- Page size -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-medium text-slate-500 uppercase tracking-wide">Per page</label>
+                    <select @bind="pageSize" @bind:after="OnFilterChanged"
+                            class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="150">150</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+
+                <!-- Missing photos toggle -->
+                <label class="flex items-center gap-2 ml-auto cursor-pointer">
+                    <input type="checkbox" @bind="onlyMissing" @bind:after="OnFilterChanged"
+                           class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                    <span class="text-sm text-slate-600">Only missing</span>
+                </label>
+
+                <!-- Count -->
+                <div class="text-sm text-slate-500 tabular-nums">
+                    @filteredRegistrations.Count total
+                </div>
+            </div>
+        </div>
+
+        @if (filteredRegistrations.Count == 0)
+        {
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 text-center">
+                @Icons.Photo("h-10 w-10 text-slate-300 mx-auto mb-3")
+                <p class="text-sm text-slate-500">No registrations match the current filters.</p>
+            </div>
+        }
+        else
+        {
+            <!-- Photo Grid -->
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-2">
+                @foreach (var reg in pagedRegistrations)
+                {
+                    var photoRef = showType == "id"
+                        ? reg.FileUploadInfo?.IdDocument?.StorageReference
+                        : reg.FileUploadInfo?.Photo?.StorageReference;
+
+                    var hasImage = !string.IsNullOrEmpty(photoRef);
+                    var isIdImage = showType == "id" && hasImage && IsImageFile(reg.FileUploadInfo!.IdDocument!.Extension);
+
+                    <button type="button" @onclick="() => OpenDetail(reg)"
+                            class="group relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-150 cursor-pointer
+                                   @(hasImage && (showType == "photo" || isIdImage)
+                                       ? "border-slate-200 hover:border-cyan-400 hover:shadow-md"
+                                       : "border-dashed border-slate-300 bg-slate-50 hover:border-amber-400 hover:bg-amber-50")">
+
+                        @if (hasImage && (showType == "photo" || isIdImage))
+                        {
+                            <img src="@GetFileUrl(photoRef!)" alt="@reg.PersonalInfo.FirstName"
+                                 class="w-full h-full object-cover" loading="lazy" />
+                        }
+                        else if (showType == "id" && hasImage && !isIdImage)
+                        {
+                            <!-- PDF ID doc -->
+                            <div class="flex flex-col items-center justify-center h-full text-slate-400">
+                                @Icons.Document("h-6 w-6")
+                                <span class="text-[10px] mt-1 font-medium">PDF</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Missing -->
+                            <div class="flex flex-col items-center justify-center h-full text-slate-300">
+                                @Icons.Photo("h-6 w-6")
+                                <span class="text-[10px] mt-1">None</span>
+                            </div>
+                        }
+
+                        <!-- Name overlay -->
+                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent pt-5 pb-1 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <p class="text-[10px] font-medium text-white leading-tight truncate">@reg.PersonalInfo.FirstName @reg.PersonalInfo.LastName</p>
+                            <p class="text-[9px] text-white/70 truncate">@reg.Cid</p>
+                        </div>
+
+                        @{
+                            var statusColor = reg.Status switch
+                            {
+                                RegistrationStatus.Reviewed => "bg-blue-500",
+                                RegistrationStatus.Verified => "bg-emerald-500",
+                                RegistrationStatus.AwaitingReview => "bg-amber-500",
+                                RegistrationStatus.Pending => "bg-orange-500",
+                                RegistrationStatus.Withdrawn => "bg-slate-500",
+                                RegistrationStatus.Disqualified => "bg-red-500",
+                                _ => "bg-slate-400"
+                            };
+                        }
+                        <div class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full @statusColor ring-2 ring-white shadow-sm"></div>
+                    </button>
+                }
+            </div>
+
+            <!-- Pagination -->
+            @if (totalPages > 1)
+            {
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-3 flex items-center justify-between">
+                    <div class="text-sm text-slate-500 tabular-nums">
+                        Showing @((currentPage - 1) * pageSize + 1)–@(Math.Min(currentPage * pageSize, filteredRegistrations.Count)) of @filteredRegistrations.Count
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @onclick="() => GoToPage(1)" disabled="@(currentPage == 1)"
+                                class="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            First
+                        </button>
+                        <button type="button" @onclick="() => GoToPage(currentPage - 1)" disabled="@(currentPage == 1)"
+                                class="p-1.5 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600 rotate-180")
+                        </button>
+
+                        @foreach (var pg in GetPageNumbers())
+                        {
+                            var pageNum = pg;
+                            <button type="button" @onclick="() => GoToPage(pageNum)"
+                                    class="px-3 py-1 rounded text-sm font-medium transition-colors cursor-pointer @(pageNum == currentPage ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-slate-200")">
+                                @pageNum
+                            </button>
+                        }
+
+                        <button type="button" @onclick="() => GoToPage(currentPage + 1)" disabled="@(currentPage == totalPages)"
+                                class="p-1.5 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            @Icons.Chevron("h-4 w-4 text-slate-600")
+                        </button>
+                        <button type="button" @onclick="() => GoToPage(totalPages)" disabled="@(currentPage == totalPages)"
+                                class="px-2 py-1 rounded text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                            Last
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     DETAIL MODAL
+     ══════════════════════════════════════════════════════════════════════ -->
+@if (detailRegistration != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" @onclick="CloseDetail">
+        <div class="absolute inset-0 bg-black/60"></div>
+        <div class="relative z-10 bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden" @onclick:stopPropagation>
+            <!-- Modal header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="flex-shrink-0">
+                        @{
+                            var detailStatusColor = detailRegistration.Status switch
+                            {
+                                RegistrationStatus.Reviewed => "bg-blue-100 text-blue-700",
+                                RegistrationStatus.Verified => "bg-emerald-100 text-emerald-700",
+                                RegistrationStatus.AwaitingReview => "bg-amber-100 text-amber-700",
+                                RegistrationStatus.Pending => "bg-orange-100 text-orange-700",
+                                RegistrationStatus.Withdrawn => "bg-slate-100 text-slate-700",
+                                RegistrationStatus.Disqualified => "bg-red-100 text-red-700",
+                                _ => "bg-slate-100 text-slate-600"
+                            };
+                            var detailStatusLabel = detailRegistration.Status switch
+                            {
+                                RegistrationStatus.AwaitingReview => "Awaiting Review",
+                                _ => detailRegistration.Status.ToString()
+                            };
+                        }
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @detailStatusColor">
+                            @detailStatusLabel
+                        </span>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-bold text-slate-800 truncate">@detailRegistration.PersonalInfo.FullName</h2>
+                        <p class="text-xs text-slate-500">@detailRegistration.Cid &middot; @GetDivisionName(detailRegistration) &middot; @GetCategoryName(detailRegistration)</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <!-- Prev / Next -->
+                    <button type="button" @onclick="PrevDetail" disabled="@(!CanGoPrev)"
+                            class="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            title="Previous">
+                        @Icons.Chevron("h-5 w-5 text-slate-600 rotate-180")
+                    </button>
+                    <span class="text-xs text-slate-400 tabular-nums">@(detailIndex + 1) / @pagedRegistrations.Count</span>
+                    <button type="button" @onclick="NextDetail" disabled="@(!CanGoNext)"
+                            class="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            title="Next">
+                        @Icons.Chevron("h-5 w-5 text-slate-600")
+                    </button>
+
+                    <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+                    <!-- Open in review -->
+                    <a href="admin/registration-review" target="_blank"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-700 bg-cyan-50 hover:bg-cyan-100 transition-colors">
+                        @Icons.ExternalLink("h-3.5 w-3.5")
+                        Open Review Page
+                    </a>
+
+                    <!-- Close -->
+                    <button type="button" @onclick="CloseDetail"
+                            class="p-2 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer">
+                        @Icons.XMark("h-5 w-5 text-slate-500")
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal body -->
+            <div class="grid grid-cols-2 gap-0 max-h-[calc(92vh-70px)] overflow-y-auto">
+                <!-- Left: Photo -->
+                <div class="relative bg-slate-900 flex items-center justify-center min-h-[400px]">
+                    @{
+                        var detailPhotoRef = detailRegistration.FileUploadInfo?.Photo?.StorageReference;
+                    }
+                    @if (!string.IsNullOrEmpty(detailPhotoRef))
+                    {
+                        <img src="@GetFileUrl(detailPhotoRef)" alt="Photo"
+                             class="max-w-full max-h-[calc(92vh-70px)] object-contain cursor-zoom-in @lightboxRotation @lightboxScale transition-transform"
+                             @onclick="ToggleLightboxScale" />
+                    }
+                    else
+                    {
+                        <div class="text-center text-slate-500">
+                            @Icons.Photo("h-12 w-12 mx-auto mb-2 text-slate-600")
+                            <p class="text-sm">No photo uploaded</p>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(detailPhotoRef))
+                    {
+                        <div class="absolute top-3 right-3 flex gap-1.5">
+                            <button type="button" @onclick="RotateLightbox"
+                                    class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-600 transition-colors cursor-pointer" title="Rotate">
+                                @Icons.Refresh("h-4 w-4")
+                            </button>
+                            <button type="button" @onclick="ToggleLightboxScale"
+                                    class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-600 transition-colors cursor-pointer" title="Zoom">
+                                @Icons.ZoomIn("h-4 w-4")
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <!-- Right: Details + ID Doc -->
+                <div class="p-5 space-y-5 overflow-y-auto">
+                    <!-- Personal Info -->
+                    <div>
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Personal Info</h3>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                            <div>
+                                <dt class="text-slate-500 text-xs">First Name</dt>
+                                <dd class="font-medium text-slate-800">@detailRegistration.PersonalInfo.FirstName</dd>
+                            </div>
+                            @if (!string.IsNullOrEmpty(detailRegistration.PersonalInfo.MiddleName))
+                            {
+                                <div>
+                                    <dt class="text-slate-500 text-xs">Middle Name</dt>
+                                    <dd class="font-medium text-slate-800">@detailRegistration.PersonalInfo.MiddleName</dd>
+                                </div>
+                            }
+                            <div>
+                                <dt class="text-slate-500 text-xs">Last Name</dt>
+                                <dd class="font-medium text-slate-800">@detailRegistration.PersonalInfo.LastName</dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 text-xs">Date of Birth</dt>
+                                <dd class="font-medium text-slate-800">
+                                    @detailRegistration.PersonalInfo.DateOfBirth.ToString("MMMM d, yyyy")
+                                    <span class="text-xs text-slate-400 ml-1">(@(CalculateAge(detailRegistration.PersonalInfo.DateOfBirth)) yrs)</span>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 text-xs">Gender</dt>
+                                <dd class="font-medium text-slate-800">@detailRegistration.PersonalInfo.Gender</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <!-- Competition -->
+                    <div>
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Competition</h3>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                            <div>
+                                <dt class="text-slate-500 text-xs">Division</dt>
+                                <dd class="font-medium text-slate-800">@GetDivisionName(detailRegistration)</dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 text-xs">Category</dt>
+                                <dd class="font-medium text-slate-800">@GetCategoryName(detailRegistration)</dd>
+                            </div>
+                            @if (!string.IsNullOrEmpty(detailRegistration.TeacherInfo?.Institution))
+                            {
+                                <div class="col-span-2">
+                                    <dt class="text-slate-500 text-xs">Institution</dt>
+                                    <dd class="font-medium text-slate-800">@detailRegistration.TeacherInfo.Institution</dd>
+                                </div>
+                            }
+                        </dl>
+                    </div>
+
+                    <!-- ID Document -->
+                    <div>
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">ID Document</h3>
+                        @{
+                            var idRef = detailRegistration.FileUploadInfo?.IdDocument?.StorageReference;
+                            var idExt = detailRegistration.FileUploadInfo?.IdDocument?.Extension;
+                        }
+                        @if (!string.IsNullOrEmpty(idRef))
+                        {
+                            @if (IsImageFile(idExt!))
+                            {
+                                <div class="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                    <img src="@GetFileUrl(idRef)" alt="ID Document"
+                                         class="w-full object-contain max-h-64" loading="lazy" />
+                                </div>
+                            }
+                            else
+                            {
+                                <a href="@GetFileUrl(idRef)" target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm transition-colors">
+                                    @Icons.Document("h-5 w-5 text-slate-500")
+                                    <span>Open @(idExt?.ToUpperInvariant().TrimStart('.') ?? "document")</span>
+                                    @Icons.ExternalLink("h-3.5 w-3.5 text-slate-400")
+                                </a>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-sm text-slate-400 italic">No ID document uploaded</p>
+                        }
+                    </div>
+
+                    <!-- Keyboard hint -->
+                    <p class="text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                        Use <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">&larr;</kbd>
+                        <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">&rarr;</kbd>
+                        to navigate &middot; <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">Esc</kbd> to close
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool isLoading = true;
+    private int competitionYear;
+    private List<Division> divisions = new();
+    private List<Category> availableCategories = new();
+    private List<Registration> allRegistrations = new();
+
+    // Filters
+    private string selectedDivisionId = string.Empty;
+    private string selectedCategoryId = string.Empty;
+    private string selectedStatus = "Reviewed";
+    private string showType = "photo";
+    private bool onlyMissing;
+
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 100;
+    private int totalPages;
+    private List<Registration> filteredRegistrations = new();
+    private List<Registration> pagedRegistrations = new();
+
+    // Detail modal
+    private Registration? detailRegistration;
+    private int detailIndex;
+    private int lightboxRotation_;
+    private bool lightboxScaled;
+
+    private string lightboxRotation => lightboxRotation_ switch
+    {
+        90 => "rotate-90",
+        180 => "rotate-180",
+        270 => "-rotate-90",
+        _ => ""
+    };
+
+    private string lightboxScale => lightboxScaled ? "scale-150" : "";
+
+    private bool CanGoPrev => detailIndex > 0;
+    private bool CanGoNext => detailIndex < pagedRegistrations.Count - 1;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settings = await SettingsService.GetSettingsAsync();
+            competitionYear = settings?.CompetitionInfo?.CompetitionYear ?? DateTime.UtcNow.Year;
+            divisions = settings?.Divisions?.Where(d => d.IsEnabled).ToList() ?? new();
+
+            allRegistrations = (await RegistrationService.GetAllByYearAsync(competitionYear)).ToList();
+
+            RebuildFilteredData();
+        }
+        catch { }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILTER / PAGINATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OnFilterChanged()
+    {
+        // Rebuild available categories when division changes
+        if (!string.IsNullOrEmpty(selectedDivisionId))
+        {
+            var division = divisions.FirstOrDefault(d => d.Id == selectedDivisionId);
+            availableCategories = division?.Categories?.ToList() ?? new();
+            if (!availableCategories.Any(c => c.Id == selectedCategoryId))
+                selectedCategoryId = string.Empty;
+        }
+        else
+        {
+            availableCategories = new();
+            selectedCategoryId = string.Empty;
+        }
+
+        currentPage = 1;
+        RebuildFilteredData();
+    }
+
+    private void RebuildFilteredData()
+    {
+        var query = allRegistrations.AsEnumerable();
+
+        // Status filter
+        if (!string.IsNullOrEmpty(selectedStatus) && Enum.TryParse<RegistrationStatus>(selectedStatus, out var status))
+            query = query.Where(r => r.Status == status);
+
+        // Division
+        if (!string.IsNullOrEmpty(selectedDivisionId))
+            query = query.Where(r => r.CompetitionSelection.DivisionId == selectedDivisionId);
+
+        // Category
+        if (!string.IsNullOrEmpty(selectedCategoryId))
+            query = query.Where(r => r.CompetitionSelection.CategoryId == selectedCategoryId);
+
+        // Missing filter
+        if (onlyMissing)
+        {
+            query = showType == "id"
+                ? query.Where(r => r.FileUploadInfo?.IdDocument == null || string.IsNullOrEmpty(r.FileUploadInfo.IdDocument.StorageReference))
+                : query.Where(r => r.FileUploadInfo?.Photo == null || string.IsNullOrEmpty(r.FileUploadInfo.Photo.StorageReference));
+        }
+
+        filteredRegistrations = query.OrderBy(r => r.PersonalInfo.LastName).ThenBy(r => r.PersonalInfo.FirstName).ToList();
+
+        totalPages = Math.Max(1, (int)Math.Ceiling((double)filteredRegistrations.Count / pageSize));
+        if (currentPage > totalPages)
+            currentPage = totalPages;
+
+        pagedRegistrations = filteredRegistrations
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    private void GoToPage(int pg)
+    {
+        if (pg >= 1 && pg <= totalPages)
+        {
+            currentPage = pg;
+            RebuildFilteredData();
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        const int maxVisible = 7;
+        if (totalPages <= maxVisible)
+            return Enumerable.Range(1, totalPages);
+
+        var start = Math.Max(1, currentPage - 3);
+        var end = Math.Min(totalPages, start + maxVisible - 1);
+        start = Math.Max(1, end - maxVisible + 1);
+
+        var pages = new List<int>();
+        for (var i = start; i <= end; i++)
+            pages.Add(i);
+        return pages;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DETAIL MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void OpenDetail(Registration reg)
+    {
+        detailRegistration = reg;
+        detailIndex = pagedRegistrations.IndexOf(reg);
+        lightboxRotation_ = 0;
+        lightboxScaled = false;
+    }
+
+    private void CloseDetail()
+    {
+        detailRegistration = null;
+    }
+
+    private void PrevDetail()
+    {
+        if (!CanGoPrev) return;
+        detailIndex--;
+        detailRegistration = pagedRegistrations[detailIndex];
+        lightboxRotation_ = 0;
+        lightboxScaled = false;
+    }
+
+    private void NextDetail()
+    {
+        if (!CanGoNext) return;
+        detailIndex++;
+        detailRegistration = pagedRegistrations[detailIndex];
+        lightboxRotation_ = 0;
+        lightboxScaled = false;
+    }
+
+    private void RotateLightbox()
+    {
+        lightboxRotation_ = (lightboxRotation_ + 90) % 360;
+    }
+
+    private void ToggleLightboxScale()
+    {
+        lightboxScaled = !lightboxScaled;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private string? GetFileUrl(string storageReference)
+    {
+        return BlobSasService.GenerateSasUriFromReference(storageReference, competitionYear);
+    }
+
+    private bool IsImageFile(string extension)
+    {
+        var ext = extension.ToLowerInvariant().TrimStart('.');
+        return ext is "jpg" or "jpeg" or "png" or "gif" or "webp" or "bmp";
+    }
+
+    private string GetDivisionName(Registration reg)
+    {
+        return divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId)?.Name ?? "Unknown";
+    }
+
+    private string GetCategoryName(Registration reg)
+    {
+        var division = divisions.FirstOrDefault(d => d.Id == reg.CompetitionSelection.DivisionId);
+        return division?.Categories.FirstOrDefault(c => c.Id == reg.CompetitionSelection.CategoryId)?.Name ?? "Unknown";
+    }
+
+    private int CalculateAge(DateOnly dateOfBirth)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var age = today.Year - dateOfBirth.Year;
+        if (dateOfBirth > today.AddYears(-age)) age--;
+        return age;
+    }
+}

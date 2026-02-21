@@ -17,4 +17,6 @@ public interface IRegistrationRepository
     Task<int> CountByStatusAsync(RegistrationStatus status, int competitionYear, CancellationToken cancellationToken = default);
     Task<int> CountByYearAsync(int competitionYear, CancellationToken cancellationToken = default);
     Task<int> GetMaxCidSequenceAsync(int competitionYear, string cidPrefix, CancellationToken cancellationToken = default);
+    Task<int> GetNextCidSequenceAsync(int competitionYear, string cidPrefix, CancellationToken cancellationToken = default);
+    Task UpdateCidAsync(string id, string newCid, CancellationToken cancellationToken = default);
 }
