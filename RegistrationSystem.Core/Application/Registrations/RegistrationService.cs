@@ -170,6 +170,9 @@ public class RegistrationService
             cancellationToken);
     }
 
+    public Task UpdateScreeningExemptAsync(string registrationId, bool? exempt, CancellationToken cancellationToken = default)
+        => _repository.UpdateScreeningExemptAsync(registrationId, exempt, cancellationToken);
+
     public async Task<bool> CanEditAsync(
         Registration registration,
         CancellationToken cancellationToken = default)

@@ -19,4 +19,6 @@ public interface IRegistrationRepository
     Task<int> GetMaxCidSequenceAsync(int competitionYear, string cidPrefix, CancellationToken cancellationToken = default);
     Task<int> GetNextCidSequenceAsync(int competitionYear, string cidPrefix, CancellationToken cancellationToken = default);
     Task UpdateCidAsync(string id, string newCid, CancellationToken cancellationToken = default);
+    Task SetScreeningExemptByCidAsync(IEnumerable<string> cids, bool exempt, CancellationToken cancellationToken = default);
+    Task UpdateScreeningExemptAsync(string id, bool? exempt, CancellationToken cancellationToken = default);
 }

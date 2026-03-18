@@ -13,4 +13,5 @@ public class MongoOptions
     public string NiqabBypassesCollectionName { get; set; } = "niqabBypasses";
     public string EmailTemplatesCollectionName { get; set; } = "emailTemplates";
     public string CompetitionProgressCollectionName { get; set; } = "competitionProgress";
+    public string SchedulingBookingsCollectionName { get; set; } = "schedulingBookings";
 }

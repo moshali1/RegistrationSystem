@@ -1,4 +1,6 @@
-﻿namespace RegistrationSystem.Core.Domain.Settings;
+﻿using RegistrationSystem.Core.Domain.Scheduling;
+
+namespace RegistrationSystem.Core.Domain.Settings;
 
 public class CompetitionSettings
 {
@@ -16,6 +18,14 @@ public class CompetitionSettings
     public CompetitionInfo CompetitionInfo { get; set; } = new();
     public CidConfiguration CidConfiguration { get; set; } = new();
     public EmailDefaults EmailDefaults { get; set; } = new();
+
+    /// <summary>
+    /// Scheduling sessions configured for competition rounds.
+    /// Sessions may be grouped with a GroupId to represent parallel sections (A, B, C...)
+    /// for the same round. Participants book into a specific session and slot via the
+    /// scheduling page; bookings are stored in the SchedulingBookings collection.
+    /// </summary>
+    public List<SchedulingSession> SchedulingSessions { get; set; } = new();
 
     public Division? FindDivision(string divisionId) =>
         Divisions.FirstOrDefault(d => d.Id == divisionId);

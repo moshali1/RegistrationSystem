@@ -856,10 +856,20 @@
 
     private bool HasUnacknowledgedRound(string registrationId)
     {
-        // Show red dot if they have a round they haven't acknowledged
         if (!competitionProgress.TryGetValue(registrationId, out var progress))
             return false;
 
-        return progress.HasPendingAcknowledgment;
+        // Result or bypass notifications (Acknowledged = false on completed/eliminated/bypassed round)
+        if (progress.HasPendingAcknowledgment) return true;
+
+        // Scheduling reminder: participant has an Active round and there is an open session for it
+        // Red dot fires when admin opens scheduling; clears automatically once they book (status → Scheduled)
+        var activeRound = progress.Rounds.FirstOrDefault(r => r.Status == RoundEntryStatus.Active);
+        if (activeRound != null && settings?.SchedulingSessions.Any(s =>
+                s.IsOpen &&
+                string.Equals(s.LinkedRoundName, activeRound.Name, StringComparison.OrdinalIgnoreCase)) == true)
+            return true;
+
+        return false;
     }
 }

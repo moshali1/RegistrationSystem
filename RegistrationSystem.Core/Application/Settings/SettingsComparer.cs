@@ -1,4 +1,5 @@
-﻿using RegistrationSystem.Core.Domain.Settings;
+﻿using RegistrationSystem.Core.Domain.Scheduling;
+using RegistrationSystem.Core.Domain.Settings;
 
 namespace RegistrationSystem.Core.Application.Settings;
 
@@ -20,6 +21,25 @@ public static class SettingsComparer
         if (!AreCompetitionInfoEqual(a.CompetitionInfo, b.CompetitionInfo)) return false;
         if (!AreCidConfigurationEqual(a.CidConfiguration, b.CidConfiguration)) return false;
         if (!AreEmailDefaultsEqual(a.EmailDefaults, b.EmailDefaults)) return false;
+        if (!AreSchedulingSessionsEqual(a.SchedulingSessions, b.SchedulingSessions)) return false;
+        return true;
+    }
+
+    private static bool AreSchedulingSessionsEqual(List<SchedulingSession> a, List<SchedulingSession> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            var sa = a[i]; var sb = b[i];
+            if (sa.Id != sb.Id || sa.Name != sb.Name || sa.GroupId != sb.GroupId
+                || sa.SectionLabel != sb.SectionLabel || sa.LinkedRoundName != sb.LinkedRoundName
+                || sa.IsOpen != sb.IsOpen || sa.SchedulingOpensAt != sb.SchedulingOpensAt
+                || sa.SchedulingClosesAt != sb.SchedulingClosesAt
+                || sa.GenderFilter != sb.GenderFilter || sa.GeographicFilter != sb.GeographicFilter
+                || sa.AllowedCategoryIds.Count != sb.AllowedCategoryIds.Count
+                || sa.Slots.Count != sb.Slots.Count)
+                return false;
+        }
         return true;
     }
 

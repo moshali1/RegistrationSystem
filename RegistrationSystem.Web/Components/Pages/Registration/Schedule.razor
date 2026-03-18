@@ -1,0 +1,592 @@
+@page "/registrations/{RegistrationId}/schedule"
+@attribute [Authorize]
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject RegistrationService RegistrationService
+@inject CompetitionProgressService CompetitionProgressService
+@inject SettingsService SettingsService
+@inject SchedulingService SchedulingService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Schedule Your Slot</PageTitle>
+
+<div>
+
+    @if (isLoading)
+    {
+        <div class="flex flex-col items-center justify-center h-96 gap-4">
+            @Icons.Spinner("h-10 w-10 text-cyan-700 animate-spin")
+            <p class="text-slate-400 text-sm font-medium animate-pulse">Loading available times...</p>
+        </div>
+    }
+    else if (registration == null)
+    {
+        <div class="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-lg font-semibold text-slate-900">Registration Not Found</h3>
+            <button @onclick="GoBack" class="mt-6 inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
+                Back to Messages
+            </button>
+        </div>
+    }
+    else if (!eligibleSessions.Any())
+    {
+        <div class="max-w-2xl mx-auto mt-20 text-center bg-white p-12 rounded-xl border border-slate-200 shadow-sm">
+            <div class="h-14 w-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                @Icons.Clock("h-7 w-7 text-slate-400")
+            </div>
+            <h3 class="text-lg font-semibold text-slate-900">Scheduling Not Open</h3>
+            <p class="text-sm text-slate-500 mt-2">No open scheduling sessions are available for your category at this time. Please check back later.</p>
+            <button @onclick="GoBack" class="mt-6 inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
+                Back to Messages
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+
+            <!-- Back -->
+            <button @onclick="GoBack" class="group flex items-center text-sm text-slate-500 hover:text-cyan-700 transition-colors mb-5">
+                @Icons.ArrowLeft("mr-2 h-4 w-4 text-slate-400 group-hover:text-cyan-700 transition-colors")
+                Back to Messages
+            </button>
+
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-slate-900">Choose Your Time Slot</h1>
+                <p class="text-sm text-slate-500 mt-1">@registration.PersonalInfo.FullName &middot; @activeRoundName</p>
+            </div>
+
+            <!-- Existing booking banner -->
+            @if (existingBooking != null)
+            {
+                <div class="mb-6 rounded-xl border border-cyan-200 bg-cyan-50 px-5 py-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-start gap-3">
+                            @Icons.CheckCircle("h-5 w-5 text-cyan-600 flex-shrink-0 mt-0.5")
+                            <div>
+                                <p class="text-sm font-semibold text-cyan-900">You have an active booking</p>
+                                <p class="text-sm text-cyan-700 mt-0.5">
+                                    @SchedulingService.FormatSlotTime(existingBooking.Date, existingBooking.TimeUtc)
+                                    @if (!string.IsNullOrEmpty(existingBooking.SectionLabel))
+                                    {
+                                        <span> &middot; @existingBooking.SectionLabel</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button"
+                                class="cursor-pointer flex-shrink-0 text-sm font-medium text-cyan-700 hover:text-cyan-900 border border-cyan-300 bg-white hover:bg-cyan-50 px-3 py-1.5 rounded-lg transition-colors"
+                                @onclick="RequestCancelBooking">
+                            Cancel &amp; Rebook
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- Success / Error banners -->
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
+                    @Icons.CheckCircle("h-4 w-4 flex-shrink-0")
+                    @successMessage
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center gap-2">
+                    @Icons.XCircle("h-4 w-4 flex-shrink-0")
+                    @errorMessage
+                </div>
+            }
+
+            <!-- Refresh indicator -->
+            <div class="flex items-center justify-between mb-4">
+                <p class="text-xs text-slate-400">Times shown in Central Time (CT). Availability updates automatically.</p>
+                <button type="button"
+                        class="cursor-pointer text-xs text-slate-500 hover:text-cyan-700 flex items-center gap-1 transition-colors"
+                        @onclick="RefreshAvailabilityAsync">
+                    @Icons.Refresh("h-3.5 w-3.5")
+                    Refresh
+                </button>
+            </div>
+
+            <!-- Session groups -->
+            <div class="space-y-6">
+                @foreach (var group in GetSessionDisplayGroups())
+                {
+                    var groupSessions = group.ToList();
+                    var isParallel = groupSessions.Count > 1;
+                    var mergedSlots = GetMergedSlots(groupSessions);
+                    var slotsByDate = mergedSlots.GroupBy(s => s.Date).OrderBy(g => g.Key);
+                    var groupLabel = isParallel
+                        ? (groupSessions.First().Name.Contains('–') ? groupSessions.First().Name.Split('–')[0].Trim() : groupSessions.First().Name)
+                        : groupSessions.First().Name;
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800">@groupLabel</p>
+                                @if (isParallel)
+                                {
+                                    <p class="text-xs text-slate-400 mt-0.5">
+                                        @groupSessions.Count sections —
+                                        @string.Join(", ", groupSessions.Select(s => s.SectionLabel).Where(l => l != null))
+                                    </p>
+                                }
+                            </div>
+                        </div>
+
+                        @if (!mergedSlots.Any())
+                        {
+                            <div class="px-5 py-6 text-center text-sm text-slate-400">No available time slots.</div>
+                        }
+                        else
+                        {
+                            <div class="divide-y divide-slate-50">
+                                @foreach (var dateGroup in slotsByDate)
+                                {
+                                    <div class="px-5 py-4">
+                                        <p class="text-xs font-semibold text-slate-500 mb-3">
+                                            @dateGroup.Key.ToString("dddd, MMMM d")
+                                        </p>
+                                        <div class="flex flex-wrap gap-2">
+                                            @foreach (var merged in dateGroup.OrderBy(s => s.TimeUtc))
+                                            {
+                                                var m = merged;
+                                                var isMySlot = existingBooking != null &&
+                                                    m.Sections.Any(s => s.Slot.Id == existingBooking.SlotId && s.Session.Id == existingBooking.SessionId);
+                                                var isFull = m.IsFull;
+
+                                                <button type="button"
+                                                        class="cursor-pointer group flex flex-col items-center px-4 py-3 rounded-xl border-2 transition-all text-center min-w-[90px]
+                                                               @(isMySlot ? "border-cyan-500 bg-cyan-50 shadow-sm shadow-cyan-100" :
+                                                                 isFull ? "border-slate-100 bg-white cursor-not-allowed opacity-50" :
+                                                                 existingBooking != null ? "border-slate-200 bg-white hover:border-amber-400 hover:bg-amber-50" :
+                                                                 "border-slate-200 bg-white hover:border-cyan-400 hover:bg-cyan-50")"
+                                                        disabled="@(isFull && !isMySlot)"
+                                                        @onclick="() => RequestBookSlot(m)">
+                                                    <span class="text-sm font-semibold @(isMySlot ? "text-cyan-700" : isFull ? "text-slate-400" : "text-slate-800")">
+                                                        @m.TimeDisplay
+                                                    </span>
+
+                                                    @if (isMySlot)
+                                                    {
+                                                        <span class="text-[10px] font-semibold text-cyan-600 mt-0.5">Your slot</span>
+                                                    }
+                                                    else if (isFull)
+                                                    {
+                                                        <span class="text-[10px] text-slate-400 mt-0.5">Full</span>
+                                                    }
+                                                    else if (isAdmin && isParallel)
+                                                    {
+                                                        <!-- Admin: show per-section counts -->
+                                                        <span class="text-[10px] text-slate-400 mt-0.5 group-hover:text-cyan-600 leading-tight text-left">
+                                                            @foreach (var sec in m.Sections.OrderBy(s => s.Session.SectionLabel))
+                                                            {
+                                                                <span class="block">@(sec.Session.SectionLabel ?? sec.Session.Name): @sec.Remaining left</span>
+                                                            }
+                                                        </span>
+                                                    }
+                                                    else if (isAdmin)
+                                                    {
+                                                        <span class="text-[10px] text-slate-400 mt-0.5 group-hover:text-cyan-600">@m.TotalRemaining left</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-[10px] text-slate-400 mt-0.5 group-hover:text-cyan-600">Available</span>
+                                                    }
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Confirm booking modal -->
+@if (showConfirmModal && pendingMerged != null)
+{
+    var availableSections = pendingMerged.Sections.Where(s => s.Remaining > 0).ToList();
+    (SchedulingSession Session, SchedulingSlot Slot, int Booked, int Remaining)? autoSection = availableSections.Count > 0
+        ? availableSections.OrderByDescending(s => s.Remaining).ThenBy(s => s.Session.SectionLabel).First()
+        : null;
+    // Admin can override via selectedSectionIndex; participant always gets auto
+    (SchedulingSession Session, SchedulingSlot Slot, int Booked, int Remaining)? chosenSection = (isAdmin && selectedSectionIndex >= 0 && selectedSectionIndex < pendingMerged.Sections.Count)
+        ? pendingMerged.Sections[selectedSectionIndex]
+        : autoSection;
+
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @onclick="CancelConfirm"></div>
+        <div class="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 mx-4">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-cyan-600 flex items-center justify-center">
+                    @Icons.Clock("h-5 w-5 text-white")
+                </div>
+                <h3 class="text-base font-semibold text-slate-900">Confirm Your Slot</h3>
+            </div>
+
+            <div class="rounded-xl bg-slate-50 border border-slate-200 px-4 py-4 mb-4 space-y-1.5">
+                <div class="flex items-center gap-2 text-sm">
+                    @Icons.Calendar("h-4 w-4 text-slate-400")
+                    <span class="text-slate-700">@pendingMerged.Date.ToString("dddd, MMMM d, yyyy")</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                    @Icons.Clock("h-4 w-4 text-slate-400")
+                    <span class="text-slate-700">@pendingMerged.TimeDisplay</span>
+                </div>
+                @if (chosenSection.HasValue && !string.IsNullOrEmpty(chosenSection.Value.Session.SectionLabel))
+                {
+                    <div class="flex items-center gap-2 text-sm">
+                        @Icons.Users("h-4 w-4 text-slate-400")
+                        <span class="text-slate-700">
+                            @chosenSection.Value.Session.SectionLabel
+                            @if (isAdmin)
+                            {
+                                <span class="text-slate-400 text-xs"> (@chosenSection.Value.Remaining left)</span>
+                            }
+                        </span>
+                    </div>
+                }
+                @if (existingBooking != null)
+                {
+                    <div class="mt-2 pt-2 border-t border-slate-200 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                        Your existing booking at @SchedulingService.FormatSlotTime(existingBooking.Date, existingBooking.TimeUtc) will be cancelled first.
+                    </div>
+                }
+            </div>
+
+            <!-- Admin section picker -->
+            @if (isAdmin && pendingMerged.Sections.Count > 1)
+            {
+                <div class="mb-4">
+                    <p class="text-xs font-semibold text-slate-600 mb-2">Section</p>
+                    <div class="grid grid-cols-@(Math.Min(pendingMerged.Sections.Count, 4)) gap-2">
+                        @for (int i = 0; i < pendingMerged.Sections.Count; i++)
+                        {
+                            var idx = i;
+                            var sec = pendingMerged.Sections[i];
+                            var isSelected = selectedSectionIndex == idx || (selectedSectionIndex < 0 && autoSection.HasValue && sec.Slot.Id == autoSection.Value.Slot.Id && sec.Session.Id == autoSection.Value.Session.Id);
+                            var secFull = sec.Remaining <= 0;
+                            <button type="button"
+                                    class="cursor-pointer flex flex-col items-center rounded-lg border-2 px-3 py-2 text-xs transition-all
+                                           @(isSelected ? "border-cyan-500 bg-cyan-50 text-cyan-700 font-semibold" :
+                                             secFull ? "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50" :
+                                             "border-slate-200 text-slate-600 hover:border-slate-300")"
+                                    disabled="@secFull"
+                                    @onclick="() => selectedSectionIndex = idx">
+                                <span>@(sec.Session.SectionLabel ?? $"Section {idx + 1}")</span>
+                                <span class="text-[10px] @(isSelected ? "text-cyan-500" : "text-slate-400")">@sec.Remaining left</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="flex gap-3">
+                <button type="button"
+                        class="cursor-pointer flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        @onclick="CancelConfirm"
+                        disabled="@isBooking">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="cursor-pointer flex-1 rounded-xl bg-cyan-700 text-white px-4 py-2.5 text-sm font-medium hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                        @onclick="ConfirmBooking"
+                        disabled="@(isBooking || !chosenSection.HasValue)">
+                    @if (isBooking)
+                    {
+                        @Icons.Spinner("animate-spin h-4 w-4")
+                        <span>Booking...</span>
+                    }
+                    else
+                    {
+                        <span>Confirm Booking</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Cancel confirm modal -->
+@if (showCancelConfirmModal && existingBooking != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @onclick="() => showCancelConfirmModal = false"></div>
+        <div class="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 mx-4">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center">
+                    @Icons.Warning("h-5 w-5 text-white")
+                </div>
+                <h3 class="text-base font-semibold text-slate-900">Cancel Your Booking?</h3>
+            </div>
+            <p class="text-sm text-slate-600 mb-4">
+                This will cancel your slot at <strong>@SchedulingService.FormatSlotTime(existingBooking.Date, existingBooking.TimeUtc)</strong>.
+                You can then choose a new time.
+            </p>
+            <div class="flex gap-3">
+                <button type="button"
+                        class="cursor-pointer flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        @onclick="() => showCancelConfirmModal = false"
+                        disabled="@isBooking">
+                    Keep My Slot
+                </button>
+                <button type="button"
+                        class="cursor-pointer flex-1 rounded-xl bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        @onclick="CancelBookingAsync"
+                        disabled="@isBooking">
+                    @if (isBooking) { @Icons.Spinner("animate-spin h-4 w-4") } else { <span>Cancel Booking</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string RegistrationId { get; set; } = string.Empty;
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private Registration? registration;
+    private CompetitionProgress? progress;
+    private List<SchedulingSession> allSessions = new();
+    private List<SchedulingSession> eligibleSessions = new();
+    private SchedulingBooking? existingBooking;
+    private string? activeRoundName;
+    private bool isAdmin;
+
+    private Dictionary<string, Dictionary<string, int>> slotBookingCounts = new();
+
+    private bool isLoading = true;
+    private bool isBooking;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private bool showConfirmModal;
+    private MergedSlot? pendingMerged;
+    private int selectedSectionIndex = -1; // -1 = auto (best fit)
+
+    private bool showCancelConfirmModal;
+    private System.Threading.Timer? refreshTimer;
+
+    // ─── Merged slot record ──────────────────────────────────────────────────
+    private record MergedSlot(
+        DateOnly Date,
+        TimeOnly TimeUtc,
+        string TimeDisplay,
+        List<(SchedulingSession Session, SchedulingSlot Slot, int Booked, int Remaining)> Sections)
+    {
+        public int TotalRemaining => Sections.Sum(s => s.Remaining);
+        public bool IsFull => TotalRemaining <= 0;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Detect admin role
+        if (AuthStateTask != null)
+        {
+            var authState = await AuthStateTask;
+            isAdmin = authState.User.IsInRole("Admin");
+        }
+
+        registration = await RegistrationService.GetByIdAsync(RegistrationId);
+        if (registration == null) { isLoading = false; return; }
+
+        var settingsTask = SettingsService.GetSettingsAsync();
+        var progressTask = CompetitionProgressService.GetByRegistrationIdAsync(RegistrationId);
+        await Task.WhenAll(settingsTask, progressTask);
+
+        var settings = await settingsTask;
+        progress = await progressTask;
+        allSessions = settings.SchedulingSessions;
+
+        // Determine active round
+        var division = settings.FindDivision(registration.CompetitionSelection.DivisionId);
+        var category = division?.FindCategory(registration.CompetitionSelection.CategoryId);
+        var roundDefs = category?.Rounds ?? new();
+
+        if (progress != null)
+        {
+            foreach (var roundDef in roundDefs.OrderBy(r => r.Order))
+            {
+                var entry = progress.GetRound(roundDef.Id);
+                if (entry == null) continue;
+                if ((entry.Status == RoundEntryStatus.Active && roundDef.HasSchedule) ||
+                    entry.Status == RoundEntryStatus.Scheduled)
+                {
+                    activeRoundName = roundDef.Name;
+                    break;
+                }
+            }
+        }
+
+        eligibleSessions = activeRoundName != null
+            ? SchedulingService.GetOpenSessionsForRound(registration, allSessions, activeRoundName).ToList()
+            : new List<SchedulingSession>();
+
+        await LoadBookingsAsync();
+        isLoading = false;
+
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () => { await RefreshAvailabilityAsync(); StateHasChanged(); });
+        }, null, 30_000, 30_000);
+    }
+
+    private async Task LoadBookingsAsync()
+    {
+        if (!eligibleSessions.Any()) return;
+        var eligibleSessionIds = eligibleSessions.Select(s => s.Id).ToHashSet();
+        var countTasks = eligibleSessions.Select(s => SchedulingService.GetSlotBookingCountsAsync(s.Id)).ToList();
+        var bookingsTask = SchedulingService.GetBookingsByRegistrationIdAsync(RegistrationId);
+        await Task.WhenAll(countTasks.Cast<Task>().Append(bookingsTask));
+        slotBookingCounts = new Dictionary<string, Dictionary<string, int>>();
+        for (int i = 0; i < eligibleSessions.Count; i++)
+            slotBookingCounts[eligibleSessions[i].Id] = await countTasks[i];
+        var allBookings = await bookingsTask;
+        existingBooking = allBookings.FirstOrDefault(b => b.Status == BookingStatus.Active && eligibleSessionIds.Contains(b.SessionId));
+    }
+
+    public void Dispose() => refreshTimer?.Dispose();
+
+    private IEnumerable<IGrouping<string, SchedulingSession>> GetSessionDisplayGroups()
+        => eligibleSessions.GroupBy(s => s.GroupId ?? $"__solo__{s.Id}");
+
+    private List<MergedSlot> GetMergedSlots(List<SchedulingSession> sessions)
+    {
+        var result = new List<MergedSlot>();
+        var allTimes = sessions
+            .SelectMany(s => s.Slots.Where(sl => sl.IsActive).Select(sl => (sl.Date, sl.TimeUtc)))
+            .Distinct()
+            .OrderBy(t => t.Date).ThenBy(t => t.TimeUtc);
+
+        foreach (var (date, time) in allTimes)
+        {
+            var sections = new List<(SchedulingSession Session, SchedulingSlot Slot, int Booked, int Remaining)>();
+            foreach (var session in sessions)
+            {
+                var slot = session.Slots.FirstOrDefault(sl => sl.IsActive && sl.Date == date && sl.TimeUtc == time);
+                if (slot == null) continue;
+                var booked = slotBookingCounts.GetValueOrDefault(session.Id)?.GetValueOrDefault(slot.Id, 0) ?? 0;
+                var remaining = Math.Max(0, slot.Capacity - booked);
+                sections.Add((session, slot, booked, remaining));
+            }
+            if (sections.Count > 0)
+                result.Add(new MergedSlot(date, time, SchedulingService.FormatSlotTime(date, time), sections));
+        }
+        return result;
+    }
+
+    private async Task RefreshAvailabilityAsync()
+    {
+        await Task.WhenAll(eligibleSessions.Select(async s =>
+        {
+            slotBookingCounts[s.Id] = await SchedulingService.GetSlotBookingCountsAsync(s.Id);
+        }));
+    }
+
+    private void RequestBookSlot(MergedSlot merged)
+    {
+        // If clicking own current slot, do nothing
+        if (existingBooking != null &&
+            merged.Sections.Any(s => s.Slot.Id == existingBooking.SlotId && s.Session.Id == existingBooking.SessionId))
+            return;
+
+        pendingMerged = merged;
+        selectedSectionIndex = -1; // reset to auto
+        showConfirmModal = true;
+        errorMessage = null;
+    }
+
+    private void CancelConfirm()
+    {
+        showConfirmModal = false;
+        pendingMerged = null;
+        selectedSectionIndex = -1;
+    }
+
+    private async Task ConfirmBooking()
+    {
+        if (pendingMerged == null || registration == null) return;
+
+        // Resolve which section to book
+        (SchedulingSession Session, SchedulingSlot Slot, int Booked, int Remaining)? chosen;
+        if (isAdmin && selectedSectionIndex >= 0 && selectedSectionIndex < pendingMerged.Sections.Count)
+            chosen = pendingMerged.Sections[selectedSectionIndex];
+        else
+            chosen = pendingMerged.Sections
+                .Where(s => s.Remaining > 0)
+                .OrderByDescending(s => s.Remaining)
+                .ThenBy(s => s.Session.SectionLabel)
+                .FirstOrDefault();
+
+        if (!chosen.HasValue) { errorMessage = "No available section. Please try another slot."; return; }
+
+        isBooking = true;
+        errorMessage = null;
+
+        try
+        {
+            if (existingBooking != null)
+            {
+                await SchedulingService.CancelBookingAsync(existingBooking.Id, "Rescheduled", allSessions);
+                existingBooking = null;
+                progress = await CompetitionProgressService.GetByRegistrationIdAsync(RegistrationId);
+            }
+
+            var result = await SchedulingService.BookSlotAsync(chosen.Value.Session, chosen.Value.Slot, registration, allSessions);
+
+            if (result.Success)
+            {
+                showConfirmModal = false;
+                var label = chosen.Value.Session.SectionLabel;
+                successMessage = $"Booked: {SchedulingService.FormatSlotTime(chosen.Value.Slot.Date, chosen.Value.Slot.TimeUtc)}" +
+                    (!string.IsNullOrEmpty(label) ? $" — {label}" : "");
+                existingBooking = result.Booking;
+                await RefreshAvailabilityAsync();
+                pendingMerged = null;
+                selectedSectionIndex = -1;
+                await Task.Delay(2000);
+                GoBack();
+            }
+            else
+            {
+                showConfirmModal = false;
+                errorMessage = result.Error ?? "Booking failed. Please try again.";
+                await RefreshAvailabilityAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            showConfirmModal = false;
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally { isBooking = false; }
+    }
+
+    private void RequestCancelBooking() => showCancelConfirmModal = true;
+
+    private async Task CancelBookingAsync()
+    {
+        if (existingBooking == null) return;
+        isBooking = true;
+        try
+        {
+            await SchedulingService.CancelBookingAsync(existingBooking.Id, "Cancelled by participant", allSessions);
+            existingBooking = null;
+            showCancelConfirmModal = false;
+            successMessage = "Your booking has been cancelled. You can now choose a new time.";
+            await RefreshAvailabilityAsync();
+        }
+        catch (Exception ex) { errorMessage = $"Failed to cancel: {ex.Message}"; showCancelConfirmModal = false; }
+        finally { isBooking = false; }
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo($"/registrations/{RegistrationId}/messages");
+}

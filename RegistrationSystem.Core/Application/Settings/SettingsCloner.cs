@@ -1,4 +1,5 @@
-﻿using RegistrationSystem.Core.Domain.Settings;
+﻿using RegistrationSystem.Core.Domain.Scheduling;
+using RegistrationSystem.Core.Domain.Settings;
 
 namespace RegistrationSystem.Core.Application.Settings;
 
@@ -17,7 +18,35 @@ public static class SettingsCloner
             Divisions = source.Divisions.Select(CloneDivision).ToList(),
             CompetitionInfo = CloneCompetitionInfo(source.CompetitionInfo),
             CidConfiguration = CloneCidConfiguration(source.CidConfiguration),
-            EmailDefaults = CloneEmailDefaults(source.EmailDefaults)
+            EmailDefaults = CloneEmailDefaults(source.EmailDefaults),
+            SchedulingSessions = source.SchedulingSessions.Select(CloneSchedulingSession).ToList()
+        };
+    }
+
+    public static SchedulingSession CloneSchedulingSession(SchedulingSession source)
+    {
+        return new SchedulingSession
+        {
+            Id = source.Id,
+            Name = source.Name,
+            GroupId = source.GroupId,
+            SectionLabel = source.SectionLabel,
+            LinkedRoundName = source.LinkedRoundName,
+            IsOpen = source.IsOpen,
+            VirtualLink = source.VirtualLink,
+            SchedulingOpensAt = source.SchedulingOpensAt,
+            SchedulingClosesAt = source.SchedulingClosesAt,
+            GenderFilter = source.GenderFilter,
+            GeographicFilter = source.GeographicFilter,
+            AllowedCategoryIds = new List<string>(source.AllowedCategoryIds),
+            Slots = source.Slots.Select(s => new SchedulingSlot
+            {
+                Id = s.Id,
+                Date = s.Date,
+                TimeUtc = s.TimeUtc,
+                Capacity = s.Capacity,
+                IsActive = s.IsActive
+            }).ToList()
         };
     }
 

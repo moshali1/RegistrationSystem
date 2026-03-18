@@ -19,6 +19,14 @@ public class Registration
     public string? WithdrawComment { get; set; }
     public bool TermsAccepted { get; set; }
 
+    /// <summary>
+    /// For Memorization categories with a screening round:
+    /// true  = exempt (returning finalist — bypasses screening automatically on progress init),
+    /// false = must complete screening,
+    /// null  = not yet determined or not applicable.
+    /// </summary>
+    public bool? ScreeningExempt { get; set; }
+
     public int CalculateAgeAsOf(DateOnly asOfDate)
     {
         var dob = PersonalInfo.DateOfBirth;
