@@ -436,7 +436,7 @@
         refreshTimer = new System.Threading.Timer(async _ =>
         {
             await InvokeAsync(async () => { await RefreshAvailabilityAsync(); StateHasChanged(); });
-        }, null, 30_000, 30_000);
+        }, null, 10_000, 10_000);
     }
 
     private async Task LoadBookingsAsync()
@@ -485,10 +485,22 @@
 
     private async Task RefreshAvailabilityAsync()
     {
-        await Task.WhenAll(eligibleSessions.Select(async s =>
+        // Reload session config so admin changes to slots (enable/disable, capacity, IsOpen) reflect live
+        if (registration != null && activeRoundName != null)
         {
-            slotBookingCounts[s.Id] = await SchedulingService.GetSlotBookingCountsAsync(s.Id);
-        }));
+            var settings = await SettingsService.GetSettingsAsync();
+            allSessions = settings.SchedulingSessions;
+            eligibleSessions = SchedulingService.GetOpenSessionsForRound(registration, allSessions, activeRoundName).ToList();
+        }
+
+        // Reload booking counts
+        if (eligibleSessions.Any())
+        {
+            await Task.WhenAll(eligibleSessions.Select(async s =>
+            {
+                slotBookingCounts[s.Id] = await SchedulingService.GetSlotBookingCountsAsync(s.Id);
+            }));
+        }
     }
 
     private void RequestBookSlot(MergedSlot merged)
