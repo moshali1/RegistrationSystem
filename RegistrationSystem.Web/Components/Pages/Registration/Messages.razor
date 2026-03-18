@@ -1,4 +1,5 @@
 @page "/registrations/{RegistrationId}/messages"
+@attribute [Authorize]
 @using Microsoft.AspNetCore.Components.Authorization
 @using RegistrationSystem.Core.Domain.Registrations
 @using RegistrationSystem.Core.Domain.CompetitionRounds
@@ -319,6 +320,7 @@
     private HashSet<int> expandedSteps = new();
 
     private string? currentUserId;
+    private bool isAdmin;
     private bool isLoading = true;
     private bool isAcknowledging;
 
@@ -357,11 +359,12 @@
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = authState.User.IsInRole("Admin");
 
         registration = await RegistrationService.GetByIdAsync(RegistrationId);
-        if (registration == null)
+        if (registration == null || (!isAdmin && registration.CreatorUserId != currentUserId))
         {
-            isLoading = false;
+            NavigationManager.NavigateTo("/registrations", replace: true);
             return;
         }
 

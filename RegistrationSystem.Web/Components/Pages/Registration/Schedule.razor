@@ -388,15 +388,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Detect admin role
+        // Detect role and current user
+        string? currentUserId = null;
         if (AuthStateTask != null)
         {
             var authState = await AuthStateTask;
             isAdmin = authState.User.IsInRole("Admin");
+            currentUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         }
 
         registration = await RegistrationService.GetByIdAsync(RegistrationId);
-        if (registration == null) { isLoading = false; return; }
+        if (registration == null || (!isAdmin && registration.CreatorUserId != currentUserId))
+        {
+            NavigationManager.NavigateTo("/registrations", replace: true);
+            return;
+        }
 
         var settingsTask = SettingsService.GetSettingsAsync();
         var progressTask = CompetitionProgressService.GetByRegistrationIdAsync(RegistrationId);
