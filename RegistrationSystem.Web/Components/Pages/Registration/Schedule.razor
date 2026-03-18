@@ -8,6 +8,7 @@
 @inject SettingsService SettingsService
 @inject SchedulingService SchedulingService
 @inject NavigationManager NavigationManager
+@inject CurrentUserService CurrentUserService
 
 <PageTitle>Schedule Your Slot</PageTitle>
 
@@ -351,7 +352,6 @@
 
 @code {
     [Parameter] public string RegistrationId { get; set; } = string.Empty;
-    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private Registration? registration;
     private CompetitionProgress? progress;
@@ -389,13 +389,9 @@
     protected override async Task OnInitializedAsync()
     {
         // Detect role and current user
-        string? currentUserId = null;
-        if (AuthStateTask != null)
-        {
-            var authState = await AuthStateTask;
-            isAdmin = authState.User.IsInRole("Admin");
-            currentUserId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        }
+        var currentUser = await CurrentUserService.GetCurrentUserAsync();
+        var currentUserId = currentUser?.ObjectIdentifier;
+        isAdmin = currentUser?.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true;
 
         registration = await RegistrationService.GetByIdAsync(RegistrationId);
         if (registration == null || (!isAdmin && registration.CreatorUserId != currentUserId))

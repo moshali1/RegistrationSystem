@@ -15,6 +15,7 @@
 @inject IAuditService AuditService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject CurrentUserService CurrentUserService
 
 <PageTitle>@(registration != null ? $"Messages — {registration.PersonalInfo.FullName}" : "Messages")</PageTitle>
 
@@ -357,9 +358,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        isAdmin = authState.User.IsInRole("Admin");
+        var currentUser = await CurrentUserService.GetCurrentUserAsync();
+        currentUserId = currentUser?.ObjectIdentifier;
+        isAdmin = currentUser?.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true;
 
         registration = await RegistrationService.GetByIdAsync(RegistrationId);
         if (registration == null || (!isAdmin && registration.CreatorUserId != currentUserId))
