@@ -12,4 +12,5 @@ public interface ICompetitionProgressRepository
     Task SaveAsync(CompetitionProgress progress, CancellationToken cancellationToken = default);
     Task DeleteAsync(string id, CancellationToken cancellationToken = default);
     Task DeleteByRegistrationIdAsync(string registrationId, CancellationToken cancellationToken = default);
+    Task<int> DeleteByCategoryAsync(string categoryId, int year, CancellationToken cancellationToken = default);
 }

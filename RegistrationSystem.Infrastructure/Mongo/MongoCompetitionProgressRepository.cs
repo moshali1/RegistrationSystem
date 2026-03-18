@@ -70,4 +70,13 @@ public class MongoCompetitionProgressRepository : ICompetitionProgressRepository
     public async Task DeleteByRegistrationIdAsync(
         string registrationId, CancellationToken cancellationToken = default) =>
         await _collection.DeleteOneAsync(r => r.RegistrationId == registrationId, cancellationToken);
+
+    public async Task<int> DeleteByCategoryAsync(
+        string categoryId, int year, CancellationToken cancellationToken = default)
+    {
+        var result = await _collection.DeleteManyAsync(
+            r => r.CategoryId == categoryId && r.CompetitionYear == year,
+            cancellationToken);
+        return (int)result.DeletedCount;
+    }
 }

@@ -3,6 +3,7 @@ using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.NiqabBypasses;
 using RegistrationSystem.Core.Domain.Registrations;
+using RegistrationSystem.Core.Domain.Scheduling;
 using RegistrationSystem.Core.Domain.Settings;
 using RegistrationSystem.Core.Domain.Messaging;
 using RegistrationSystem.Core.Domain.Users;
@@ -19,6 +20,7 @@ public class MongoRegistrationSystemContext
     public IMongoCollection<NiqabBypass> NiqabBypasses { get; }
     public IMongoCollection<EmailTemplate> EmailTemplates { get; }
     public IMongoCollection<CompetitionProgress> CompetitionProgress { get; }
+    public IMongoCollection<SchedulingBooking> SchedulingBookings { get; }
 
     public MongoRegistrationSystemContext(MongoClient client, MongoOptions options)
     {
@@ -44,5 +46,8 @@ public class MongoRegistrationSystemContext
 
         CompetitionProgress = Database.GetCollection<CompetitionProgress>(
             options.CompetitionProgressCollectionName);
+
+        SchedulingBookings = Database.GetCollection<SchedulingBooking>(
+            options.SchedulingBookingsCollectionName);
     }
 }

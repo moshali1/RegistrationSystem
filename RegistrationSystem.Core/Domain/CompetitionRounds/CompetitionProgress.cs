@@ -25,11 +25,13 @@ public class CompetitionProgress
     // Computed helpers
 
     /// <summary>
-    /// True if any non-pending, non-bypassed round has not been acknowledged.
+    /// True if any non-pending round has not been acknowledged.
+    /// Bypassed rounds are included — the red dot clears when the user visits their messages page.
+    /// Active rounds that were auto-advanced start as Acknowledged=true, so they don't trigger this.
     /// Used for red dot notification indicators.
     /// </summary>
     public bool HasPendingAcknowledgment => Rounds.Any(r =>
-        r.Status != RoundEntryStatus.Pending && !r.Acknowledged && !r.Bypassed);
+        r.Status != RoundEntryStatus.Pending && !r.Acknowledged);
 
     public RoundEntry? GetRound(string roundDefinitionId) =>
         Rounds.FirstOrDefault(r => r.RoundDefinitionId == roundDefinitionId);
@@ -58,8 +60,21 @@ public class RoundEntry
     /// <summary>Null until admin enters a result.</summary>
     public RoundResult? Result { get; set; }
 
-    // Scheduling (only for rounds where RoundDefinition.HasSchedule = true)
+    // Scheduling (only for rounds linked to a SchedulingSession)
+    /// <summary>
+    /// The booked date and time in UTC for this round, set when the participant
+    /// books a slot via the scheduling system. Display to participants in Central Time.
+    /// Cleared when the booking is cancelled; participant reverts to Active status.
+    /// </summary>
     public DateTimeOffset? ScheduledDateTime { get; set; }
+
+    /// <summary>
+    /// The section label of the scheduling session the participant booked into
+    /// (e.g. "A", "B", "C" for parallel sessions). Null if the session has no sections.
+    /// Used by the competition tracker and round messages to identify which session group
+    /// the competitor is assigned to.
+    /// </summary>
+    public string? ScheduledSection { get; set; }
 
     // Acknowledgment (auto-set when user visits their tracking page)
     public bool Acknowledged { get; set; }
@@ -89,8 +104,15 @@ public enum RoundEntryStatus
     /// <summary>Not yet reached — previous round not complete.</summary>
     Pending = 0,
 
-    /// <summary>Currently in this round — awaiting review, schedule, or result.</summary>
+    /// <summary>Currently in this round — awaiting scheduling or result entry.</summary>
     Active = 1,
+
+    /// <summary>
+    /// Participant has booked a scheduling slot for this round.
+    /// ScheduledDateTime and ScheduledSection are set on the RoundEntry.
+    /// Reverts to Active if the booking is cancelled.
+    /// </summary>
+    Scheduled = 5,
 
     /// <summary>Result entered, round done — passed/qualified.</summary>
     Completed = 2,

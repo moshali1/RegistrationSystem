@@ -274,4 +274,30 @@ public class MongoRegistrationRepository : IRegistrationRepository
         var update = Builders<Registration>.Update.Set(r => r.Cid, newCid);
         await _collection.UpdateOneAsync(r => r.Id == id, update, cancellationToken: cancellationToken);
     }
+
+    public async Task UpdateScreeningExemptAsync(
+        string id,
+        bool? exempt,
+        CancellationToken cancellationToken = default)
+    {
+        var update = Builders<Registration>.Update.Set(r => r.ScreeningExempt, exempt);
+        await _collection.UpdateOneAsync(r => r.Id == id, update, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Bulk-sets ScreeningExempt on all registrations whose CID is in the provided list.
+    /// Uses a single UpdateMany call for efficiency.
+    /// </summary>
+    public async Task SetScreeningExemptByCidAsync(
+        IEnumerable<string> cids,
+        bool exempt,
+        CancellationToken cancellationToken = default)
+    {
+        var cidList = cids.ToList();
+        if (cidList.Count == 0) return;
+
+        var filter = Builders<Registration>.Filter.In(r => r.Cid, cidList);
+        var update = Builders<Registration>.Update.Set(r => r.ScreeningExempt, exempt);
+        await _collection.UpdateManyAsync(filter, update, cancellationToken: cancellationToken);
+    }
 }

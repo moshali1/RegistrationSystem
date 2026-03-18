@@ -7,12 +7,14 @@ using RegistrationSystem.Core.Application.Auditing;
 using RegistrationSystem.Core.Application.Azure;
 using RegistrationSystem.Core.Application.CompetitionRounds;
 using RegistrationSystem.Core.Application.NiqabBypasses;
+using RegistrationSystem.Core.Application.Scheduling;
 using RegistrationSystem.Core.Application.Registrations;
 using RegistrationSystem.Core.Application.Settings;
 using RegistrationSystem.Core.Application.Users;
 using RegistrationSystem.Core.Domain.CompetitionRounds;
 using RegistrationSystem.Core.Domain.Consents;
 using RegistrationSystem.Core.Domain.Registrations;
+using RegistrationSystem.Core.Domain.Scheduling;
 using RegistrationSystem.Core.Domain.Messaging;
 using RegistrationSystem.Core.Domain.Users;
 using RegistrationSystem.Core.Application.Messaging;
@@ -94,6 +96,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuditRepository, MongoAuditRepository>();
         services.AddScoped<ICompetitionProgressRepository, MongoCompetitionProgressRepository>();
         services.AddScoped<IEmailTemplateRepository, MongoEmailTemplateRepository>();
+        services.AddScoped<ISchedulingBookingRepository, MongoSchedulingBookingRepository>();
 
         // Application Services
         services.AddScoped<RegistrationService>();
@@ -101,6 +104,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<CompetitionProgressService>();
         services.AddScoped<EmailTemplateService>();
+        services.AddScoped<SchedulingService>();
 
         return services;
     }
@@ -126,6 +130,18 @@ public static class ServiceCollectionExtensions
         if (!BsonClassMap.IsClassMapRegistered(typeof(EmailTemplate)))
         {
             BsonClassMap.RegisterClassMap<EmailTemplate>(cm =>
+            {
+                cm.AutoMap();
+                cm.MapIdProperty(c => c.Id)
+                    .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance)
+                    .SetSerializer(new StringSerializer(BsonType.ObjectId));
+            });
+        }
+
+        // SchedulingBooking - Map ObjectId to string for Id property
+        if (!BsonClassMap.IsClassMapRegistered(typeof(SchedulingBooking)))
+        {
+            BsonClassMap.RegisterClassMap<SchedulingBooking>(cm =>
             {
                 cm.AutoMap();
                 cm.MapIdProperty(c => c.Id)

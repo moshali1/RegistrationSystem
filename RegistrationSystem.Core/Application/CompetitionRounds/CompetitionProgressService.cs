@@ -35,6 +35,9 @@ public class CompetitionProgressService
         if (existing != null)
             throw new InvalidOperationException("Competition progress already exists for this registration.");
 
+        var exempt = registration.ScreeningExempt == true;
+        var orderedRounds = roundDefinitions.OrderBy(rd => rd.Order).ToList();
+
         var progress = new CompetitionProgress
         {
             RegistrationId = registration.Id,
@@ -43,20 +46,134 @@ public class CompetitionProgressService
             CategoryId = registration.CompetitionSelection.CategoryId,
             Cid = registration.Cid,
             CompetitorName = registration.PersonalInfo.FullName,
-            Rounds = roundDefinitions
-                .OrderBy(rd => rd.Order)
+            Rounds = orderedRounds
                 .Select((rd, index) => new RoundEntry
                 {
                     RoundDefinitionId = rd.Id,
                     Order = rd.Order,
                     Name = rd.Name,
-                    Status = index == 0 ? RoundEntryStatus.Active : RoundEntryStatus.Pending
+                    // Exempt competitors skip the first round (screening); second round starts Active.
+                    Status = exempt
+                        ? (index == 0 ? RoundEntryStatus.Bypassed
+                            : index == 1 ? RoundEntryStatus.Active
+                            : RoundEntryStatus.Pending)
+                        : (index == 0 ? RoundEntryStatus.Active : RoundEntryStatus.Pending),
+                    // Exempt: bypass = red dot (they should see "you're exempt"); auto-activated next round = no red dot yet.
+                    // Non-exempt: first round Active = red dot ("go check your progress").
+                    Acknowledged = exempt && index == 1,
+                    Bypassed = exempt && index == 0,
+                    BypassReason = exempt && index == 0 ? "Returning finalist" : null
                 })
                 .ToList()
         };
 
         await _repository.SaveAsync(progress, cancellationToken);
         return progress;
+    }
+
+    /// <summary>
+    /// Syncs existing CompetitionProgress records for a category against the current round
+    /// definitions from settings. Safe to run at any time — does not lose results or status.
+    ///
+    /// For each existing progress record:
+    ///   - Updates Name and Order on rounds that still exist in settings.
+    ///   - Adds any new rounds from settings that are missing, inserted as Pending.
+    ///   - Removes orphaned rounds (deleted from settings) only when Status == Pending and no result.
+    ///   - If the competitor has no Active round after sync (e.g., previously bypassed the only
+    ///     round and now new rounds exist), activates the next Pending round.
+    ///
+    /// Returns the number of progress records updated.
+    /// </summary>
+    public async Task<int> SyncCategoryRoundsAsync(
+        string categoryId,
+        int competitionYear,
+        List<RoundDefinition> roundDefinitions,
+        CancellationToken cancellationToken = default)
+    {
+        var allProgress = await _repository.GetByCategoryAsync(categoryId, competitionYear, cancellationToken);
+        if (allProgress.Count == 0) return 0;
+
+        var settingsRounds = roundDefinitions.OrderBy(rd => rd.Order).ToList();
+        var settingsIds = settingsRounds.Select(rd => rd.Id).ToHashSet();
+
+        var count = 0;
+        foreach (var progress in allProgress)
+        {
+            var changed = false;
+
+            // 1. Update name/order on rounds that still exist in settings
+            foreach (var entry in progress.Rounds)
+            {
+                var def = settingsRounds.FirstOrDefault(rd => rd.Id == entry.RoundDefinitionId);
+                if (def is null) continue;
+                if (entry.Name != def.Name || entry.Order != def.Order)
+                {
+                    entry.Name = def.Name;
+                    entry.Order = def.Order;
+                    changed = true;
+                }
+            }
+
+            // 2. Remove orphaned rounds (only safe to remove if Pending and no result)
+            var orphans = progress.Rounds
+                .Where(e => !settingsIds.Contains(e.RoundDefinitionId)
+                            && e.Status == RoundEntryStatus.Pending
+                            && e.Result is null)
+                .ToList();
+            foreach (var orphan in orphans)
+            {
+                progress.Rounds.Remove(orphan);
+                changed = true;
+            }
+
+            // 3. Add missing rounds from settings
+            var existingIds = progress.Rounds.Select(e => e.RoundDefinitionId).ToHashSet();
+            foreach (var def in settingsRounds.Where(rd => !existingIds.Contains(rd.Id)))
+            {
+                progress.Rounds.Add(new RoundEntry
+                {
+                    RoundDefinitionId = def.Id,
+                    Order = def.Order,
+                    Name = def.Name,
+                    Status = RoundEntryStatus.Pending
+                });
+                changed = true;
+            }
+
+            if (!changed) continue;
+
+            // 4. Re-sort rounds by order
+            progress.Rounds = progress.Rounds.OrderBy(e => e.Order).ToList();
+
+            // 5. If no Active round exists, activate the next Pending round after the last
+            //    completed/bypassed/eliminated entry (so returning finalists advance correctly)
+            var hasActive = progress.Rounds.Any(e => e.Status == RoundEntryStatus.Active);
+            if (!hasActive)
+            {
+                var lastDoneOrder = progress.Rounds
+                    .Where(e => e.Status is RoundEntryStatus.Completed
+                                           or RoundEntryStatus.Bypassed
+                                           or RoundEntryStatus.Eliminated)
+                    .Select(e => (int?)e.Order)
+                    .Max();
+
+                var nextPending = progress.Rounds
+                    .Where(e => e.Status == RoundEntryStatus.Pending
+                                && (lastDoneOrder is null || e.Order > lastDoneOrder))
+                    .OrderBy(e => e.Order)
+                    .FirstOrDefault();
+
+                if (nextPending is not null)
+                {
+                    nextPending.Status = RoundEntryStatus.Active;
+                }
+            }
+
+            await _repository.SaveAsync(progress, cancellationToken);
+            count++;
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -114,6 +231,7 @@ public class CompetitionProgressService
         round.Result = result;
         round.Comment = comment;
         round.Placement = placement;
+        round.Acknowledged = false; // Result is news — triggers red dot notification
 
         if (IsAdvancingResult(result))
         {
@@ -228,6 +346,33 @@ public class CompetitionProgressService
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
+    /// Silently acknowledges any unacknowledged bypassed rounds.
+    /// Called automatically when the user visits their messages page — no button required.
+    /// Bypassed = "you're exempt" which is self-explanatory; viewing the page is enough.
+    /// </summary>
+    public async Task AcknowledgeBypassedRoundsAsync(
+        string registrationId,
+        CancellationToken cancellationToken = default)
+    {
+        var progress = await _repository.GetByRegistrationIdAsync(registrationId, cancellationToken);
+        if (progress == null) return;
+
+        var bypassed = progress.Rounds
+            .Where(r => r.Status == RoundEntryStatus.Bypassed && !r.Acknowledged)
+            .ToList();
+
+        if (bypassed.Count == 0) return;
+
+        foreach (var round in bypassed)
+        {
+            round.Acknowledged = true;
+            round.AcknowledgedAt = DateTimeOffset.UtcNow;
+        }
+
+        await _repository.SaveAsync(progress, cancellationToken);
+    }
+
+    /// <summary>
     /// Auto-acknowledges the first unacknowledged round for a registration.
     /// Called when the user (not admin) visits their tracking page.
     /// </summary>
@@ -245,7 +390,7 @@ public class CompetitionProgressService
 
         var changed = false;
         foreach (var round in progress.Rounds.Where(r =>
-            !r.Acknowledged && !r.Bypassed && r.Status != RoundEntryStatus.Pending))
+            !r.Acknowledged && r.Status != RoundEntryStatus.Pending))
         {
             round.Acknowledged = true;
             round.AcknowledgedAt = DateTimeOffset.UtcNow;
@@ -279,6 +424,17 @@ public class CompetitionProgressService
         int year, CancellationToken cancellationToken = default) =>
         await _repository.GetByCompetitionYearAsync(year, cancellationToken);
 
+    /// <summary>
+    /// Deletes all CompetitionProgress records for a category and year.
+    /// Use this to reset a category before re-initializing with updated round definitions.
+    /// Returns the number of deleted records.
+    /// </summary>
+    public async Task<int> ResetCategoryAsync(
+        string categoryId,
+        int competitionYear,
+        CancellationToken cancellationToken = default) =>
+        await _repository.DeleteByCategoryAsync(categoryId, competitionYear, cancellationToken);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -296,6 +452,7 @@ public class CompetitionProgressService
         if (nextRound != null && nextRound.Status == RoundEntryStatus.Pending)
         {
             nextRound.Status = RoundEntryStatus.Active;
+            nextRound.Acknowledged = true; // Activating next round is not news — red dot only fires when there's a result or scheduling event
         }
     }
 }

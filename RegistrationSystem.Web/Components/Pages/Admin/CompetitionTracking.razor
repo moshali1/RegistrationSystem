@@ -121,7 +121,19 @@
                                                                     title="Add new verified registrations">
                                                                 @Icons.Plus("h-3 w-3 inline")
                                                             </button>
+                                                            <button @onclick="() => ShowSyncModal(category)"
+                                                                    class="px-2 py-1 text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-all cursor-pointer"
+                                                                    disabled="@isOperating"
+                                                                    title="Sync round definitions to existing progress records">
+                                                                @Icons.Refresh("h-3 w-3 inline")
+                                                            </button>
                                                         }
+                                                        <button @onclick="() => ShowResetModal(category)"
+                                                                class="p-1 text-slate-300 hover:text-red-500 transition-colors cursor-pointer rounded"
+                                                                disabled="@isOperating"
+                                                                title="Reset all competition progress for this category (destructive)">
+                                                            @Icons.Trash("h-3 w-3 inline")
+                                                        </button>
                                                     }
                                                     else if (hasRoundsConfigured)
                                                     {
@@ -643,6 +655,12 @@
                 @initExistingCount competitor(s) already have progress and will be skipped.
             </p>
         }
+        @if (initRoundDefinitions.Any(r => r.Name.Contains("screen", StringComparison.OrdinalIgnoreCase)))
+        {
+            <p class="mt-2 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                Screening round bypass/exemption status is read from each competitor's registration record.
+            </p>
+        }
         @if (initVerifiedCount == 0)
         {
             <p class="mt-2 text-sm text-slate-500 italic">No verified registrations found for this category.</p>
@@ -671,6 +689,91 @@
 </Modal>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- RESET CATEGORY MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<Modal Visible="showResetModal" Title="Reset Category Progress" MaxWidth="max-w-md"
+       IconBgClass="bg-red-600" OnBackdropClick="CloseResetModal">
+    <Icon>@Icons.Trash("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <p class="text-slate-700">
+            This will <strong>permanently delete</strong> all competition progress for <strong>@resetCategoryName</strong> (@resetExistingCount records).
+        </p>
+        <p class="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Use this only if no results have been entered yet — for example, to re-initialize after adding more rounds to settings.
+        </p>
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end gap-3 w-full">
+            <button @onclick="CloseResetModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                Cancel
+            </button>
+            <button @onclick="ResetCategory"
+                    class="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled="@isOperating">
+                @if (isOperating)
+                {
+                    @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                    <span>Resetting...</span>
+                }
+                else
+                {
+                    @Icons.Trash("h-4 w-4 inline mr-1")
+                    <span>Reset @resetExistingCount Records</span>
+                }
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SYNC ROUNDS MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<Modal Visible="showSyncModal" Title="Sync Round Definitions" MaxWidth="max-w-md"
+       IconBgClass="bg-violet-600" OnBackdropClick="CloseSyncModal">
+    <Icon>@Icons.Refresh("h-6 w-6 text-white")</Icon>
+    <ChildContent>
+        <p class="text-slate-700">
+            Update round definitions for <strong>@syncCategoryName</strong>'s <strong>@syncExistingCount</strong> existing progress records?
+        </p>
+        <div class="mt-3 space-y-1.5 text-sm text-slate-500">
+            <p>This will safely:</p>
+            <ul class="list-disc list-inside space-y-1 ml-1">
+                <li>Rename rounds whose name changed in settings</li>
+                <li>Add new rounds from settings as Pending</li>
+                <li>Remove pending rounds deleted from settings (only if no result)</li>
+            </ul>
+            <p class="mt-2 text-slate-600">Results, status, and schedules on existing rounds are preserved.</p>
+        </div>
+        @if (syncRoundDefinitions.Any(r => r.Name.Contains("screen", StringComparison.OrdinalIgnoreCase)))
+        {
+            <p class="mt-3 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                Note: Sync does not re-apply screening exemptions. To update bypass status, reset and re-initialize.
+            </p>
+        }
+    </ChildContent>
+    <Footer>
+        <div class="flex justify-end gap-3 w-full">
+            <button @onclick="CloseSyncModal" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+                Cancel
+            </button>
+            <button @onclick="SyncCategory"
+                    class="px-4 py-2 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white rounded-lg text-sm font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled="@(syncExistingCount == 0 || isOperating)">
+                @if (isOperating)
+                {
+                    @Icons.Spinner("h-4 w-4 inline animate-spin mr-1")
+                    <span>Syncing...</span>
+                }
+                else
+                {
+                    @Icons.Refresh("h-4 w-4 inline mr-1")
+                    <span>Sync @syncExistingCount Records</span>
+                }
+            </button>
+        </div>
+    </Footer>
+</Modal>
+
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- BYPASS CONFIRMATION MODAL -->
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
@@ -865,6 +968,19 @@
     private int initVerifiedCount;
     private int initExistingCount;
     private List<RoundDefinition> initRoundDefinitions = new();
+
+    // Reset modal state
+    private bool showResetModal;
+    private string resetCategoryId = "";
+    private string resetCategoryName = "";
+    private int resetExistingCount;
+
+    // Sync modal state
+    private bool showSyncModal;
+    private string syncCategoryId = "";
+    private string syncCategoryName = "";
+    private int syncExistingCount;
+    private List<RoundDefinition> syncRoundDefinitions = new();
 
     // Schedule modal state
     private bool showScheduleModal;
@@ -1199,6 +1315,105 @@
             await RefreshData();
             CloseInitModal();
             successMessage = $"{count} competitor(s) initialized";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESET MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ShowResetModal(Category category)
+    {
+        resetCategoryId = category.Id;
+        resetCategoryName = category.Name;
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+        var existing = await CompetitionProgressService.GetByCategoryAsync(category.Id, currentYear);
+        resetExistingCount = existing.Count;
+        showResetModal = true;
+    }
+
+    private void CloseResetModal()
+    {
+        showResetModal = false;
+        resetCategoryId = "";
+        resetCategoryName = "";
+        resetExistingCount = 0;
+    }
+
+    private async Task ResetCategory()
+    {
+        if (isOperating) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var currentYear = settings.CompetitionInfo.CompetitionYear;
+            var count = await CompetitionProgressService.ResetCategoryAsync(resetCategoryId, currentYear);
+            await RefreshData();
+            CloseResetModal();
+            successMessage = $"{count} progress record(s) deleted for {resetCategoryName}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isOperating = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ShowSyncModal(Category category)
+    {
+        syncCategoryId = category.Id;
+        syncCategoryName = category.Name;
+        syncRoundDefinitions = category.Rounds;
+        var currentYear = settings.CompetitionInfo.CompetitionYear;
+        var existing = await CompetitionProgressService.GetByCategoryAsync(category.Id, currentYear);
+        syncExistingCount = existing.Count;
+        showSyncModal = true;
+    }
+
+    private void CloseSyncModal()
+    {
+        showSyncModal = false;
+        syncCategoryId = "";
+        syncCategoryName = "";
+        syncExistingCount = 0;
+        syncRoundDefinitions = new();
+    }
+
+    private async Task SyncCategory()
+    {
+        if (isOperating) return;
+
+        isOperating = true;
+        errorMessage = "";
+
+        try
+        {
+            var currentYear = settings.CompetitionInfo.CompetitionYear;
+            var count = await CompetitionProgressService.SyncCategoryRoundsAsync(
+                syncCategoryId, currentYear, syncRoundDefinitions);
+            await RefreshData();
+            CloseSyncModal();
+            successMessage = count > 0
+                ? $"{count} progress record(s) updated for {syncCategoryName}"
+                : $"No changes needed for {syncCategoryName}";
         }
         catch (Exception ex)
         {
