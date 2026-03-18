@@ -100,6 +100,17 @@
                                 }
                             </select>
                         </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-red-300 uppercase tracking-wide">Exclude</span>
+                            <select @bind="excludedCategoryId" @bind:after="OnFilterChanged"
+                                    class="px-3 py-1.5 rounded-lg bg-slate-600 border border-red-500 text-sm text-white focus:border-red-400 focus:ring-1 focus:ring-red-400 cursor-pointer">
+                                <option value="">None</option>
+                                @foreach (var category in availableCategories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
                     }
 
                     <!-- Region Filter -->
@@ -223,6 +234,17 @@
                             <select @bind="selectedCategoryId" @bind:after="OnFilterChanged"
                                     class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-slate-500 text-sm text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer">
                                 <option value="">All Categories</option>
+                                @foreach (var category in availableCategories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-[10px] font-medium text-red-400 uppercase tracking-wide mb-1 block">Exclude Category</label>
+                            <select @bind="excludedCategoryId" @bind:after="OnFilterChanged"
+                                    class="w-full px-2 py-1.5 rounded-lg bg-slate-600 border border-red-500 text-sm text-white focus:border-red-400 focus:ring-1 focus:ring-red-400 cursor-pointer">
+                                <option value="">None</option>
                                 @foreach (var category in availableCategories)
                                 {
                                     <option value="@category.Id">@category.Name</option>
@@ -1383,6 +1405,7 @@
     private HashSet<RegistrationStatus> selectedStatuses = new(allStatuses);
     private string selectedDivisionId = string.Empty;
     private string selectedCategoryId = string.Empty;
+    private string excludedCategoryId = string.Empty;
     private string selectedRegion = string.Empty;
     private string selectedGender = string.Empty;
     private string selectedNiqabFilter = string.Empty;
@@ -1474,6 +1497,7 @@
             .Where(r => selectedStatuses.Contains(r.Status))
             .Where(r => string.IsNullOrEmpty(selectedDivisionId) || r.CompetitionSelection.DivisionId == selectedDivisionId)
             .Where(r => string.IsNullOrEmpty(selectedCategoryId) || r.CompetitionSelection.CategoryId == selectedCategoryId)
+            .Where(r => string.IsNullOrEmpty(excludedCategoryId) || r.CompetitionSelection.CategoryId != excludedCategoryId)
             .Where(r => MatchesRegion(r))
             .Where(r => string.IsNullOrEmpty(selectedGender) || r.PersonalInfo.Gender.ToString() == selectedGender)
             .Where(r => MatchesNiqabFilter(r))
@@ -1628,6 +1652,7 @@
     private void OnDivisionChanged()
     {
         selectedCategoryId = string.Empty;
+        excludedCategoryId = string.Empty;
         currentPage = 1;
         selectedIds.Clear();
         allFilteredSelected = false;
