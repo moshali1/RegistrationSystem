@@ -40,20 +40,56 @@
         }
         else
         {
-            <!-- Session selector tabs -->
+            <!-- Group by GroupId for display -->
+            @{
+                var sessionGroups = allSessions
+                    .GroupBy(s => s.GroupId ?? s.Id)
+                    .OrderBy(g => allSessions.FindIndex(s => s.Id == g.First().Id))
+                    .ToList();
+            }
+
+            <!-- Session selector tabs — grouped -->
             <div class="border-b border-slate-200">
                 <div class="flex gap-1 overflow-x-auto">
-                    @foreach (var session in allSessions)
+                    @foreach (var group in sessionGroups)
                     {
-                        var sessionBookings = bookingsBySession.GetValueOrDefault(session.Id) ?? new List<SchedulingBooking>();
-                        var activeCount = sessionBookings.Count(b => b.Status == BookingStatus.Active);
-                        var tabLabel = !string.IsNullOrEmpty(session.SectionLabel) ? session.SectionLabel : session.Name;
-                        <button type="button"
-                                class="@(selectedSessionId == session.Id ? "border-b-2 border-cyan-600 text-cyan-700 font-medium" : "text-slate-500 hover:text-slate-700 border-b-2 border-transparent") whitespace-nowrap px-4 py-3 text-sm cursor-pointer flex items-center gap-2"
-                                @onclick="() => SelectSession(session.Id)">
-                            <span>@tabLabel</span>
-                            <span class="rounded-full @(activeCount > 0 ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-400") px-1.5 py-0.5 text-xs font-medium">@activeCount</span>
-                        </button>
+                        var groupSessions = group.OrderBy(s => s.SectionLabel).ToList();
+                        var isGroup = groupSessions.Count > 1;
+
+                        @if (isGroup)
+                        {
+                            <!-- Group label -->
+                            <div class="flex items-center">
+                                <span class="px-3 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap border-r border-slate-200 mr-1">
+                                    @(groupSessions.First().LinkedRoundName ?? groupSessions.First().Name)
+                                </span>
+                                @foreach (var session in groupSessions)
+                                {
+                                    var sBookings = bookingsBySession.GetValueOrDefault(session.Id) ?? new List<SchedulingBooking>();
+                                    var aCount = sBookings.Count(b => b.Status == BookingStatus.Active);
+                                    var tLabel = !string.IsNullOrEmpty(session.SectionLabel) ? session.SectionLabel : session.Name;
+                                    <button type="button"
+                                            class="@(selectedSessionId == session.Id ? "border-b-2 border-cyan-600 text-cyan-700 font-medium" : "text-slate-500 hover:text-slate-700 border-b-2 border-transparent") whitespace-nowrap px-4 py-3 text-sm cursor-pointer flex items-center gap-2"
+                                            @onclick="() => SelectSession(session.Id)">
+                                        <span>@tLabel</span>
+                                        <span class="rounded-full @(aCount > 0 ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-400") px-1.5 py-0.5 text-xs font-medium">@aCount</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            var session = groupSessions[0];
+                            var sBookings = bookingsBySession.GetValueOrDefault(session.Id) ?? new List<SchedulingBooking>();
+                            var aCount = sBookings.Count(b => b.Status == BookingStatus.Active);
+                            var tLabel = !string.IsNullOrEmpty(session.SectionLabel) ? session.SectionLabel : session.Name;
+                            <button type="button"
+                                    class="@(selectedSessionId == session.Id ? "border-b-2 border-cyan-600 text-cyan-700 font-medium" : "text-slate-500 hover:text-slate-700 border-b-2 border-transparent") whitespace-nowrap px-4 py-3 text-sm cursor-pointer flex items-center gap-2"
+                                    @onclick="() => SelectSession(session.Id)">
+                                <span>@tLabel</span>
+                                <span class="rounded-full @(aCount > 0 ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-400") px-1.5 py-0.5 text-xs font-medium">@aCount</span>
+                            </button>
+                        }
                     }
                 </div>
             </div>
@@ -65,6 +101,43 @@
                 var slotsByDate = selectedSession.Slots
                     .GroupBy(s => s.Date)
                     .OrderBy(g => g.Key);
+
+                <!-- Cross-section group summary (only when session belongs to a parallel group) -->
+                @if (!string.IsNullOrEmpty(selectedSession.GroupId))
+                {
+                    var parallelSessions = allSessions.Where(s => s.GroupId == selectedSession.GroupId).OrderBy(s => s.SectionLabel).ToList();
+                    var groupTotalCapacity = parallelSessions.Sum(s => s.Slots.Where(sl => sl.IsActive).Sum(sl => sl.Capacity));
+                    var groupTotalBooked = parallelSessions.Sum(s => (bookingsBySession.GetValueOrDefault(s.Id) ?? new()).Count(b => b.Status == BookingStatus.Active));
+                    var groupFillPct = groupTotalCapacity > 0 ? Math.Min(100, groupTotalBooked * 100 / groupTotalCapacity) : 0;
+
+                    <div class="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p class="text-xs font-semibold text-cyan-800 uppercase tracking-wide mb-1">All Sections Combined</p>
+                                <p class="text-sm text-cyan-700">
+                                    <span class="text-2xl font-bold text-cyan-900">@groupTotalBooked</span>
+                                    <span class="text-cyan-600"> / @groupTotalCapacity booked</span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                @foreach (var ps in parallelSessions)
+                                {
+                                    var psBooked = (bookingsBySession.GetValueOrDefault(ps.Id) ?? new()).Count(b => b.Status == BookingStatus.Active);
+                                    var psCap = ps.Slots.Where(sl => sl.IsActive).Sum(sl => sl.Capacity);
+                                    <button type="button" @onclick="() => SelectSession(ps.Id)"
+                                            class="text-center cursor-pointer hover:opacity-80 transition-opacity @(selectedSessionId == ps.Id ? "opacity-100" : "opacity-60")">
+                                        <p class="text-lg font-bold text-cyan-900">@psBooked<span class="text-xs font-normal text-cyan-600">/@psCap</span></p>
+                                        <p class="text-xs text-cyan-700">@(ps.SectionLabel ?? ps.Name)</p>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        <!-- Combined fill bar -->
+                        <div class="mt-2 h-1.5 w-full rounded-full bg-cyan-200 overflow-hidden">
+                            <div class="h-full rounded-full bg-cyan-500" style="width: @groupFillPct%"></div>
+                        </div>
+                    </div>
+                }
 
                 <!-- Session header -->
                 <div>
@@ -284,21 +357,25 @@
         var settings = await SettingsService.GetSettingsAsync();
         allSessions = settings.SchedulingSessions;
 
+        // Load ALL session bookings upfront so tab badges are accurate immediately
+        var tasks = allSessions.Select(async s =>
+        {
+            var bookings = await SchedulingService.GetBookingsBySessionAsync(s.Id);
+            return (s.Id, bookings.ToList());
+        });
+        var results = await Task.WhenAll(tasks);
+        bookingsBySession = results.ToDictionary(r => r.Id, r => r.Item2);
+
         // Auto-select first session
         if (selectedSessionId == null && allSessions.Count > 0)
             selectedSessionId = allSessions[0].Id;
 
-        if (selectedSessionId != null)
-            await LoadSessionBookingsAsync(selectedSessionId);
-
         isLoading = false;
     }
 
-    private async Task SelectSession(string sessionId)
+    private void SelectSession(string sessionId)
     {
         selectedSessionId = sessionId;
-        if (!bookingsBySession.ContainsKey(sessionId))
-            await LoadSessionBookingsAsync(sessionId);
     }
 
     private async Task LoadSessionBookingsAsync(string sessionId)
@@ -333,9 +410,14 @@
 
         if (ok)
         {
-            // Refresh bookings for this session
-            if (selectedSessionId != null)
-                await LoadSessionBookingsAsync(selectedSessionId);
+            // Refresh all sessions so group summary stays accurate
+            var tasks = allSessions.Select(async s =>
+            {
+                var bookings = await SchedulingService.GetBookingsBySessionAsync(s.Id);
+                return (s.Id, bookings.ToList());
+            });
+            var results = await Task.WhenAll(tasks);
+            bookingsBySession = results.ToDictionary(r => r.Id, r => r.Item2);
             CloseCancelModal();
         }
         else
