@@ -33,4 +33,7 @@ public interface ISchedulingBookingRepository
 
     /// <summary>Returns all booking records across all sessions (used for data integrity checks).</summary>
     Task<IReadOnlyList<SchedulingBooking>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Hard-deletes all booking records (any status) for a registration. Used for cleanup of orphaned records.</summary>
+    Task DeleteAllByRegistrationIdAsync(string registrationId, CancellationToken cancellationToken = default);
 }
