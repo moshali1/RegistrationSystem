@@ -41,12 +41,10 @@
         else
         {
             <!-- Group by GroupId for display -->
-            @{
-                var sessionGroups = allSessions
-                    .GroupBy(s => s.GroupId ?? s.Id)
-                    .OrderBy(g => allSessions.FindIndex(s => s.Id == g.First().Id))
-                    .ToList();
-            }
+            var sessionGroups = allSessions
+                .GroupBy(s => s.GroupId ?? s.Id)
+                .OrderBy(g => allSessions.FindIndex(s => s.Id == g.First().Id))
+                .ToList();
 
             <!-- Session selector tabs — grouped -->
             <div class="border-b border-slate-200">
