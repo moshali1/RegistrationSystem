@@ -142,6 +142,14 @@ public class SchedulingService
         => _bookingRepository.CancelAllByRegistrationIdAsync(registrationId, reason, cancellationToken);
 
     /// <summary>
+    /// Hard-deletes ALL booking records (active and cancelled) for a registration.
+    /// Used for cleanup of orphaned booking records when the registration no longer exists.
+    /// </summary>
+    public Task DeleteAllBookingsByRegistrationIdAsync(
+        string registrationId, CancellationToken cancellationToken = default)
+        => _bookingRepository.DeleteAllByRegistrationIdAsync(registrationId, cancellationToken);
+
+    /// <summary>
     /// Admin cancel: cancels an active booking and reverts the competitor's RoundEntry to Active.
     /// </summary>
     public Task<bool> AdminCancelBookingAsync(

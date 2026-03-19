@@ -107,4 +107,10 @@ public class MongoSchedulingBookingRepository : ISchedulingBookingRepository
         await _collection.Find(_ => true)
             .SortByDescending(b => b.BookedAt)
             .ToListAsync(cancellationToken);
+
+    public async Task DeleteAllByRegistrationIdAsync(
+        string registrationId, CancellationToken cancellationToken = default) =>
+        await _collection.DeleteManyAsync(
+            b => b.RegistrationId == registrationId,
+            cancellationToken);
 }

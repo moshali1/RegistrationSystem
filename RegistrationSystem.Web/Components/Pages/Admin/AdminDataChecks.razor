@@ -552,7 +552,7 @@
                 @if (check7State == CheckState.Complete)
                 {
                     <div class="px-5 py-4 space-y-4">
-                        @if (!orphanedProgress.Any() && !orphanedBookings.Any())
+                        @if (!orphanedProgress.Any() && !orphanedBookings.Any() && !orphanedCancelledRegistrationIds.Any())
                         {
                             <p class="text-sm text-emerald-700 flex items-center gap-1.5">@Icons.CheckCircle("h-4 w-4") No orphaned records found.</p>
                         }
@@ -575,7 +575,7 @@
                         @if (orphanedBookings.Any())
                         {
                             <div>
-                                <p class="text-sm font-medium text-slate-700 mb-2">@orphanedBookings.Count orphaned booking(s) — active with no registration:</p>
+                                <p class="text-sm font-medium text-slate-700 mb-2">@orphanedBookings.Count active booking(s) with no matching registration — these are holding slots:</p>
                                 <div class="space-y-1">
                                     @foreach (var b in orphanedBookings)
                                     {
@@ -585,11 +585,29 @@
                                                 <span class="text-slate-700">@b.CompetitorName</span>
                                                 <span class="text-xs text-slate-400 ml-2">@SchedulingService.FormatSlotTime(b.Date, b.TimeUtc)</span>
                                             </div>
-                                            <button type="button" @onclick="() => CancelOrphanedBookingAsync(b.Id)"
-                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer flex-shrink-0 ml-3">Cancel</button>
+                                            <button type="button" @onclick="() => DeleteOrphanedBookingsAsync(b.RegistrationId)"
+                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer flex-shrink-0 ml-3">Delete all</button>
                                         </div>
                                     }
                                 </div>
+                            </div>
+                        }
+                        @if (orphanedCancelledRegistrationIds.Any())
+                        {
+                            <div>
+                                <p class="text-sm font-medium text-slate-700 mb-2">@orphanedCancelledRegistrationIds.Count registration ID(s) with only cancelled booking records but no registration — stale audit data:</p>
+                                <div class="space-y-1">
+                                    @foreach (var regId in orphanedCancelledRegistrationIds)
+                                    {
+                                        <div class="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                                            <span class="font-mono text-xs text-slate-500">@regId</span>
+                                            <button type="button" @onclick="() => DeleteOrphanedBookingsAsync(regId)"
+                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer flex-shrink-0 ml-3">Delete records</button>
+                                        </div>
+                                    }
+                                </div>
+                                <button type="button" @onclick="DeleteAllCancelledOrphansAsync"
+                                        class="mt-2 text-xs font-medium text-red-600 hover:text-red-800 cursor-pointer">Delete all @orphanedCancelledRegistrationIds.Count</button>
                             </div>
                         }
                     </div>
@@ -737,7 +755,8 @@
     private CheckState check7State = CheckState.NotRun;
     private string? check7Error;
     private List<CompetitionProgress> orphanedProgress = new();
-    private List<SchedulingBooking> orphanedBookings = new();
+    private List<SchedulingBooking> orphanedBookings = new();           // active, no registration
+    private List<string> orphanedCancelledRegistrationIds = new();      // registration IDs with only cancelled booking records and no registration
 
     // Check 8 — Booking / Progress drift
     private CheckState check8State = CheckState.NotRun;
@@ -1464,6 +1483,7 @@
         check7Error = null;
         orphanedProgress = new();
         orphanedBookings = new();
+        orphanedCancelledRegistrationIds = new();
         StateHasChanged();
 
         try
@@ -1477,10 +1497,19 @@
                 .Where(p => !registrationIds.Contains(p.RegistrationId))
                 .ToList();
 
-            // Orphaned active SchedulingBookings
+            // Orphaned SchedulingBookings — split by status
             var allBookings = await SchedulingService.GetAllBookingsAsync();
-            orphanedBookings = allBookings
-                .Where(b => b.Status == BookingStatus.Active && !registrationIds.Contains(b.RegistrationId))
+            var orphanedAll = allBookings.Where(b => !registrationIds.Contains(b.RegistrationId)).ToList();
+
+            orphanedBookings = orphanedAll
+                .Where(b => b.Status == BookingStatus.Active)
+                .ToList();
+
+            // Cancelled orphaned booking records — group by registration ID for bulk delete
+            orphanedCancelledRegistrationIds = orphanedAll
+                .Where(b => b.Status == BookingStatus.Cancelled)
+                .Select(b => b.RegistrationId)
+                .Distinct()
                 .ToList();
 
             check7State = CheckState.Complete;
@@ -1501,12 +1530,20 @@
         StateHasChanged();
     }
 
-    private async Task CancelOrphanedBookingAsync(string bookingId)
+    private async Task DeleteOrphanedBookingsAsync(string registrationId)
     {
-        var booking = orphanedBookings.FirstOrDefault(b => b.Id == bookingId);
-        if (booking == null) return;
-        await SchedulingService.CancelAllByRegistrationIdAsync(booking.RegistrationId, "Orphaned booking — registration not found");
-        orphanedBookings.RemoveAll(b => b.RegistrationId == booking.RegistrationId);
+        // Hard-delete all booking records (active and cancelled) for this orphaned registration
+        await SchedulingService.DeleteAllBookingsByRegistrationIdAsync(registrationId);
+        orphanedBookings.RemoveAll(b => b.RegistrationId == registrationId);
+        orphanedCancelledRegistrationIds.Remove(registrationId);
+        StateHasChanged();
+    }
+
+    private async Task DeleteAllCancelledOrphansAsync()
+    {
+        foreach (var regId in orphanedCancelledRegistrationIds.ToList())
+            await SchedulingService.DeleteAllBookingsByRegistrationIdAsync(regId);
+        orphanedCancelledRegistrationIds.Clear();
         StateHasChanged();
     }
 
