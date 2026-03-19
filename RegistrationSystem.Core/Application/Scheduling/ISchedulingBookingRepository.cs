@@ -27,4 +27,10 @@ public interface ISchedulingBookingRepository
     Task SaveAsync(SchedulingBooking booking, CancellationToken cancellationToken = default);
 
     Task CancelAsync(string id, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>Cancels all active bookings for a registration (used when a registration is deleted).</summary>
+    Task CancelAllByRegistrationIdAsync(string registrationId, string? reason, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns all booking records across all sessions (used for data integrity checks).</summary>
+    Task<IReadOnlyList<SchedulingBooking>> GetAllAsync(CancellationToken cancellationToken = default);
 }

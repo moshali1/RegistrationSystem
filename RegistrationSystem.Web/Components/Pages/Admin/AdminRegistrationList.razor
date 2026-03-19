@@ -8,6 +8,7 @@
 @using RegistrationSystem.Core.Application.Registrations
 @using RegistrationSystem.Core.Application.Settings
 @using RegistrationSystem.Core.Application.CompetitionRounds
+@using RegistrationSystem.Core.Application.Scheduling
 @using RegistrationSystem.Core.Application.Users
 @using RegistrationSystem.Core.Domain.Auditing
 @using RegistrationSystem.Core.Domain.CompetitionRounds
@@ -18,6 +19,7 @@
 
 @inject RegistrationService RegistrationService
 @inject CompetitionProgressService CompetitionProgressService
+@inject SchedulingService SchedulingService
 @inject IRegistrationRepository RegistrationRepository
 @inject SettingsService SettingsService
 @inject IAuditService AuditService
@@ -1825,6 +1827,8 @@
                 auditTrailDeleted: deleteAuditTrail);
 
             await RegistrationRepository.DeleteAsync(regId);
+            await CompetitionProgressService.DeleteByRegistrationIdAsync(regId);
+            await SchedulingService.CancelAllByRegistrationIdAsync(regId, "Registration deleted");
 
             if (deleteAuditTrail)
             {
@@ -2281,6 +2285,8 @@
                     isBulkOperation: true);
 
                 await RegistrationRepository.DeleteAsync(reg.Id);
+                await CompetitionProgressService.DeleteByRegistrationIdAsync(reg.Id);
+                await SchedulingService.CancelAllByRegistrationIdAsync(reg.Id, "Registration deleted");
 
                 if (bulkDeleteAuditTrail)
                 {

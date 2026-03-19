@@ -128,6 +128,19 @@ public class SchedulingService
         string sessionId, CancellationToken cancellationToken = default)
         => _bookingRepository.GetBySessionAsync(sessionId, cancellationToken);
 
+    public Task<IReadOnlyList<SchedulingBooking>> GetAllBookingsAsync(
+        CancellationToken cancellationToken = default)
+        => _bookingRepository.GetAllAsync(cancellationToken);
+
+    /// <summary>
+    /// Cancels all active bookings for a registration (called when a registration is deleted).
+    /// Does NOT revert CompetitionProgress — the progress record is deleted separately.
+    /// </summary>
+    public Task CancelAllByRegistrationIdAsync(
+        string registrationId, string? reason = "Registration deleted",
+        CancellationToken cancellationToken = default)
+        => _bookingRepository.CancelAllByRegistrationIdAsync(registrationId, reason, cancellationToken);
+
     /// <summary>
     /// Admin cancel: cancels an active booking and reverts the competitor's RoundEntry to Active.
     /// </summary>

@@ -88,4 +88,23 @@ public class MongoSchedulingBookingRepository : ISchedulingBookingRepository
             .Set(b => b.CancellationReason, reason);
         await _collection.UpdateOneAsync(b => b.Id == id, update, cancellationToken: cancellationToken);
     }
+
+    public async Task CancelAllByRegistrationIdAsync(
+        string registrationId, string? reason, CancellationToken cancellationToken = default)
+    {
+        var update = Builders<SchedulingBooking>.Update
+            .Set(b => b.Status, BookingStatus.Cancelled)
+            .Set(b => b.CancelledAt, DateTimeOffset.UtcNow)
+            .Set(b => b.CancellationReason, reason);
+        await _collection.UpdateManyAsync(
+            b => b.RegistrationId == registrationId && b.Status == BookingStatus.Active,
+            update,
+            cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SchedulingBooking>> GetAllAsync(
+        CancellationToken cancellationToken = default) =>
+        await _collection.Find(_ => true)
+            .SortByDescending(b => b.BookedAt)
+            .ToListAsync(cancellationToken);
 }

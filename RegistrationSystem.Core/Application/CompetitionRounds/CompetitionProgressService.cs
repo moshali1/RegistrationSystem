@@ -425,6 +425,14 @@ public class CompetitionProgressService
         await _repository.GetByCompetitionYearAsync(year, cancellationToken);
 
     /// <summary>
+    /// Deletes the CompetitionProgress record for a specific registration.
+    /// Called when a registration is deleted to keep data consistent.
+    /// </summary>
+    public async Task DeleteByRegistrationIdAsync(
+        string registrationId, CancellationToken cancellationToken = default) =>
+        await _repository.DeleteByRegistrationIdAsync(registrationId, cancellationToken);
+
+    /// <summary>
     /// Deletes all CompetitionProgress records for a category and year.
     /// Use this to reset a category before re-initializing with updated round definitions.
     /// Returns the number of deleted records.
