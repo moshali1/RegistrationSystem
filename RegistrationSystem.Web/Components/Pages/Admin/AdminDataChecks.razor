@@ -6,13 +6,19 @@
 @using System.Text.Json.Serialization
 @using OpenAI.Chat
 @using RegistrationSystem.Core.Application.Auditing
+@using RegistrationSystem.Core.Application.CompetitionRounds
 @using RegistrationSystem.Core.Application.Registrations
+@using RegistrationSystem.Core.Application.Scheduling
 @using RegistrationSystem.Core.Application.Settings
 @using RegistrationSystem.Core.Domain.Auditing
+@using RegistrationSystem.Core.Domain.CompetitionRounds
 @using RegistrationSystem.Core.Domain.Registrations
+@using RegistrationSystem.Core.Domain.Scheduling
 @using RegistrationSystem.Core.Domain.Settings
 
 @inject RegistrationService RegistrationService
+@inject CompetitionProgressService CompetitionProgressService
+@inject SchedulingService SchedulingService
 @inject SettingsService SettingsService
 @inject IAuditService AuditService
 @inject ChatClient ChatClient
@@ -530,6 +536,118 @@
                 }
             </div>
 
+            <!-- Check 7: Orphaned Records -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-semibold text-slate-800">Orphaned Records</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">CompetitionProgress or SchedulingBookings with no matching registration</p>
+                    </div>
+                    <button type="button" @onclick="RunCheck7" disabled="@(check7State == CheckState.Running)"
+                            class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5">
+                        @if (check7State == CheckState.Running) { @Icons.Spinner("h-3.5 w-3.5") <span>Running...</span> }
+                        else { @Icons.Play("h-3.5 w-3.5") <span>Run</span> }
+                    </button>
+                </div>
+                @if (check7State == CheckState.Complete)
+                {
+                    <div class="px-5 py-4 space-y-4">
+                        @if (!orphanedProgress.Any() && !orphanedBookings.Any())
+                        {
+                            <p class="text-sm text-emerald-700 flex items-center gap-1.5">@Icons.CheckCircle("h-4 w-4") No orphaned records found.</p>
+                        }
+                        @if (orphanedProgress.Any())
+                        {
+                            <div>
+                                <p class="text-sm font-medium text-slate-700 mb-2">@orphanedProgress.Count orphaned CompetitionProgress record(s):</p>
+                                <div class="space-y-1">
+                                    @foreach (var p in orphanedProgress)
+                                    {
+                                        <div class="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm">
+                                            <span class="font-mono text-xs text-slate-600">RegistrationId: @p.RegistrationId</span>
+                                            <button type="button" @onclick="() => DeleteOrphanedProgressAsync(p.RegistrationId)"
+                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer">Delete</button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        @if (orphanedBookings.Any())
+                        {
+                            <div>
+                                <p class="text-sm font-medium text-slate-700 mb-2">@orphanedBookings.Count orphaned booking(s) — active with no registration:</p>
+                                <div class="space-y-1">
+                                    @foreach (var b in orphanedBookings)
+                                    {
+                                        <div class="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm">
+                                            <div class="min-w-0">
+                                                <span class="font-mono text-xs text-slate-600 mr-2">@(b.Cid ?? "—")</span>
+                                                <span class="text-slate-700">@b.CompetitorName</span>
+                                                <span class="text-xs text-slate-400 ml-2">@SchedulingService.FormatSlotTime(b.Date, b.TimeUtc)</span>
+                                            </div>
+                                            <button type="button" @onclick="() => CancelOrphanedBookingAsync(b.Id)"
+                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer flex-shrink-0 ml-3">Cancel</button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (check7State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check7Error</div>
+                }
+            </div>
+
+            <!-- Check 8: Booking / Progress Drift -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-semibold text-slate-800">Booking / Progress Drift</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Active bookings where CompetitionProgress doesn't reflect Scheduled status or shows a different time</p>
+                    </div>
+                    <button type="button" @onclick="RunCheck8" disabled="@(check8State == CheckState.Running)"
+                            class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5">
+                        @if (check8State == CheckState.Running) { @Icons.Spinner("h-3.5 w-3.5") <span>Running...</span> }
+                        else { @Icons.Play("h-3.5 w-3.5") <span>Run</span> }
+                    </button>
+                </div>
+                @if (check8State == CheckState.Complete)
+                {
+                    <div class="px-5 py-4">
+                        @if (!driftedBookings.Any())
+                        {
+                            <p class="text-sm text-emerald-700 flex items-center gap-1.5">@Icons.CheckCircle("h-4 w-4") No drifted bookings found.</p>
+                        }
+                        else
+                        {
+                            <p class="text-sm font-medium text-slate-700 mb-2">@driftedBookings.Count drifted booking(s):</p>
+                            <div class="space-y-2">
+                                @foreach (var d in driftedBookings)
+                                {
+                                    <div class="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-sm">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <span class="font-mono text-xs text-slate-600 mr-2">@(d.Booking.Cid ?? "—")</span>
+                                                <span class="font-medium text-slate-800">@d.Booking.CompetitorName</span>
+                                                <p class="text-xs text-orange-700 mt-0.5">@d.Issue</p>
+                                            </div>
+                                            <button type="button" @onclick="() => CancelDriftedBookingAsync(d.Booking.Id)"
+                                                    class="text-xs text-red-600 hover:text-red-800 font-medium cursor-pointer flex-shrink-0">Cancel</button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                @if (check8State == CheckState.Error)
+                {
+                    <div class="px-5 py-3 bg-red-50 text-xs text-red-600">@check8Error</div>
+                }
+            </div>
+
         </div>
     }
 </div>
@@ -615,6 +733,19 @@
     private string? check6Error;
     private List<FileDuplicateGroup> fileDuplicates = new();
 
+    // Check 7 — Orphaned records
+    private CheckState check7State = CheckState.NotRun;
+    private string? check7Error;
+    private List<CompetitionProgress> orphanedProgress = new();
+    private List<SchedulingBooking> orphanedBookings = new();
+
+    // Check 8 — Booking / Progress drift
+    private CheckState check8State = CheckState.NotRun;
+    private string? check8Error;
+    private List<DriftedBooking> driftedBookings = new();
+
+    private record DriftedBooking(SchedulingBooking Booking, string Issue);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // COMPUTED
     // ═══════════════════════════════════════════════════════════════════════════
@@ -624,7 +755,9 @@
         || check3State == CheckState.Running
         || check4State == CheckState.Running
         || check5State == CheckState.Running
-        || check6State == CheckState.Running;
+        || check6State == CheckState.Running
+        || check7State == CheckState.Running
+        || check8State == CheckState.Running;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LIFECYCLE
@@ -658,6 +791,8 @@
         await RunCheck4();
         await RunCheck5();
         await RunCheck6();
+        await RunCheck7();
+        await RunCheck8();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1317,5 +1452,149 @@
         public string Id { get; set; } = "";
         public string Cid { get; set; } = "";
         public string Name { get; set; } = "";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 7: ORPHANED RECORDS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck7()
+    {
+        check7State = CheckState.Running;
+        check7Error = null;
+        orphanedProgress = new();
+        orphanedBookings = new();
+        StateHasChanged();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+            var registrationIds = allRegistrations.Select(r => r.Id).ToHashSet();
+
+            // Orphaned CompetitionProgress
+            var allProgress = await CompetitionProgressService.GetAllByYearAsync(competitionYear);
+            orphanedProgress = allProgress
+                .Where(p => !registrationIds.Contains(p.RegistrationId))
+                .ToList();
+
+            // Orphaned active SchedulingBookings
+            var allBookings = await SchedulingService.GetAllBookingsAsync();
+            orphanedBookings = allBookings
+                .Where(b => b.Status == BookingStatus.Active && !registrationIds.Contains(b.RegistrationId))
+                .ToList();
+
+            check7State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check7Error = ex.Message;
+            check7State = CheckState.Error;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteOrphanedProgressAsync(string registrationId)
+    {
+        await CompetitionProgressService.DeleteByRegistrationIdAsync(registrationId);
+        orphanedProgress.RemoveAll(p => p.RegistrationId == registrationId);
+        StateHasChanged();
+    }
+
+    private async Task CancelOrphanedBookingAsync(string bookingId)
+    {
+        var booking = orphanedBookings.FirstOrDefault(b => b.Id == bookingId);
+        if (booking == null) return;
+        await SchedulingService.CancelAllByRegistrationIdAsync(booking.RegistrationId, "Orphaned booking — registration not found");
+        orphanedBookings.RemoveAll(b => b.RegistrationId == booking.RegistrationId);
+        StateHasChanged();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECK 8: BOOKING / PROGRESS DRIFT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task RunCheck8()
+    {
+        check8State = CheckState.Running;
+        check8Error = null;
+        driftedBookings = new();
+        StateHasChanged();
+
+        try
+        {
+            await EnsureDataLoadedAsync();
+            var settings = await SettingsService.GetSettingsAsync();
+            var registrationIds = allRegistrations.Select(r => r.Id).ToHashSet();
+
+            var allBookings = await SchedulingService.GetAllBookingsAsync();
+            var activeBookings = allBookings.Where(b => b.Status == BookingStatus.Active && registrationIds.Contains(b.RegistrationId)).ToList();
+
+            if (!activeBookings.Any())
+            {
+                check8State = CheckState.Complete;
+                StateHasChanged();
+                return;
+            }
+
+            var progressMap = await CompetitionProgressService.GetByRegistrationIdsAsync(
+                activeBookings.Select(b => b.RegistrationId).Distinct());
+
+            var sessionMap = settings.SchedulingSessions.ToDictionary(s => s.Id);
+
+            foreach (var booking in activeBookings)
+            {
+                if (!progressMap.TryGetValue(booking.RegistrationId, out var progress))
+                {
+                    driftedBookings.Add(new(booking, "No CompetitionProgress record exists for this registration"));
+                    continue;
+                }
+
+                if (!sessionMap.TryGetValue(booking.SessionId, out var session)) continue;
+                if (string.IsNullOrEmpty(session.LinkedRoundName)) continue;
+
+                var roundEntry = progress.Rounds.FirstOrDefault(r =>
+                    string.Equals(r.Name, session.LinkedRoundName, StringComparison.OrdinalIgnoreCase));
+
+                if (roundEntry == null)
+                {
+                    driftedBookings.Add(new(booking, $"Round '{session.LinkedRoundName}' not found in CompetitionProgress"));
+                }
+                else if (roundEntry.Status != RoundEntryStatus.Scheduled)
+                {
+                    driftedBookings.Add(new(booking, $"Active booking exists but round status is '{roundEntry.Status}' (expected Scheduled)"));
+                }
+                else if (roundEntry.ScheduledDateTime.HasValue)
+                {
+                    // Compare slot time: booking stores Date + TimeUtc, progress stores a DateTimeOffset
+                    var bookingUtc = new DateTimeOffset(booking.Date.Year, booking.Date.Month, booking.Date.Day,
+                        booking.TimeUtc.Hour, booking.TimeUtc.Minute, 0, TimeSpan.Zero);
+                    var diff = Math.Abs((bookingUtc - roundEntry.ScheduledDateTime.Value).TotalMinutes);
+                    if (diff > 1)
+                    {
+                        driftedBookings.Add(new(booking,
+                            $"Booking time {booking.TimeUtc:HH:mm} UTC ≠ progress time {roundEntry.ScheduledDateTime.Value.UtcDateTime:HH:mm} UTC"));
+                    }
+                }
+            }
+
+            check8State = CheckState.Complete;
+        }
+        catch (Exception ex)
+        {
+            check8Error = ex.Message;
+            check8State = CheckState.Error;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task CancelDriftedBookingAsync(string bookingId)
+    {
+        var drift = driftedBookings.FirstOrDefault(d => d.Booking.Id == bookingId);
+        if (drift == null) return;
+        await SchedulingService.CancelAllByRegistrationIdAsync(drift.Booking.RegistrationId, "Data integrity fix — booking/progress drift");
+        driftedBookings.RemoveAll(d => d.Booking.RegistrationId == drift.Booking.RegistrationId);
+        StateHasChanged();
     }
 }
