@@ -864,11 +864,20 @@
 
         // Scheduling reminder: participant has an Active round and there is an open session for it
         // Red dot fires when admin opens scheduling; clears automatically once they book (status → Scheduled)
+        // HasPlacement rounds (final round) are excluded — results are announced in person, not via scheduling
         var activeRound = progress.Rounds.FirstOrDefault(r => r.Status == RoundEntryStatus.Active);
-        if (activeRound != null && settings?.SchedulingSessions.Any(s =>
-                s.IsOpen &&
-                string.Equals(s.LinkedRoundName, activeRound.Name, StringComparison.OrdinalIgnoreCase)) == true)
-            return true;
+        if (activeRound != null)
+        {
+            var activeRoundDef = settings?.Divisions
+                .SelectMany(d => d.Categories)
+                .SelectMany(c => c.Rounds)
+                .FirstOrDefault(r => r.Id == activeRound.RoundDefinitionId);
+            if (activeRoundDef?.HasPlacement != true &&
+                settings?.SchedulingSessions.Any(s =>
+                    s.IsOpen &&
+                    string.Equals(s.LinkedRoundName, activeRound.Name, StringComparison.OrdinalIgnoreCase)) == true)
+                return true;
+        }
 
         return false;
     }
